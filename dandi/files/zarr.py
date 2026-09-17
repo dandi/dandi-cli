@@ -835,7 +835,16 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         # the main thread, as entries finish.  Each entry still
                         # parallelizes its own parts across ``jobs`` threads,
                         # which matters for the occasional very large entry.
-                        def upload_one(it: UploadItem) -> int:
+                        #
+                        # As in the single-part path, entries whose presigned
+                        # part URLs have timed out (403) are retried with freshly
+                        # initialized uploads at reduced parallelism.
+                        items_to_upload = list(batch)
+                        max_retries = 5
+                        retry_count = 0
+                        current_jobs = jobs or 5
+
+                        def upload_one(it: UploadItem) -> UploadResult:
                             lgr.debug(
                                 "%s: Uploading Zarr entry %s (%.2f GiB) via"
                                 " multipart upload",
@@ -843,31 +852,128 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 it.entry_path,
                                 it.size / 1024**3,
                             )
-                            for _status in _upload_zarr_entry_multipart(
-                                client=client, zarr_id=zarr_id, item=it, jobs=jobs
-                            ):
-                                pass
-                            return it.size
-
-                        with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                            entry_futures = [
-                                executor.submit(upload_one, it) for it in batch
-                            ]
                             try:
-                                for entry_fut in as_completed(entry_futures):
-                                    bytes_uploaded += entry_fut.result()
-                                    changed = True
-                                    yield {
-                                        "status": "uploading",
-                                        "progress": 100
-                                        * bytes_uploaded
-                                        / to_upload.total_size,
-                                        "current": bytes_uploaded,
-                                    }
-                            except BaseException:
-                                for f in entry_futures:
-                                    f.cancel()
-                                raise
+                                for _status in _upload_zarr_entry_multipart(
+                                    client=client, zarr_id=zarr_id, item=it, jobs=jobs
+                                ):
+                                    pass
+                            except requests.HTTPError as e:
+                                # A 403 means the presigned part URLs timed out;
+                                # the other conditions are transient S3 hiccups
+                                # (see `_retry_s3_upload`).  Either way the entry
+                                # is retried from a fresh multipart upload, since
+                                # its part URLs cannot be re-signed in place.
+                                if e.response is not None and (
+                                    e.response.status_code == 403
+                                    or _retry_s3_upload(e.response)
+                                ):
+                                    lgr.debug(
+                                        "Got %d error uploading Zarr entry %s"
+                                        " (%d bytes), will retry with a new"
+                                        " multipart upload: %s",
+                                        e.response.status_code,
+                                        it.filepath,
+                                        it.size,
+                                        str(e),
+                                    )
+                                    return UploadResult(
+                                        status=UploadStatus.RETRY_NEEDED, item=it
+                                    )
+                                return UploadResult(
+                                    status=UploadStatus.FAILED, item=it, error=e
+                                )
+                            except Exception as e:
+                                return UploadResult(
+                                    status=UploadStatus.FAILED, item=it, error=e
+                                )
+                            return UploadResult(
+                                status=UploadStatus.SUCCESS, item=it, size=it.size
+                            )
+
+                        while items_to_upload and retry_count <= max_retries:
+                            if retry_count == 0:
+                                lgr.debug(
+                                    "%s: Uploading Zarr entry batch #%d (%s) via"
+                                    " multipart upload",
+                                    asset_path,
+                                    i,
+                                    pluralize(len(items_to_upload), "file"),
+                                )
+                            else:
+                                lgr.debug(
+                                    "%s: Retrying %s from batch #%d (attempt %d/%d)",
+                                    asset_path,
+                                    pluralize(len(items_to_upload), "file"),
+                                    i,
+                                    retry_count,
+                                    max_retries,
+                                )
+                            with ThreadPoolExecutor(
+                                max_workers=current_jobs
+                            ) as executor:
+                                entry_futures = [
+                                    executor.submit(upload_one, it)
+                                    for it in items_to_upload
+                                ]
+                                retry_items = []
+                                failed_items = []
+                                try:
+                                    for entry_fut in as_completed(entry_futures):
+                                        result = entry_fut.result()
+                                        if result.status == UploadStatus.SUCCESS:
+                                            bytes_uploaded += result.size
+                                            changed = True
+                                            yield {
+                                                "status": "uploading",
+                                                "progress": 100
+                                                * bytes_uploaded
+                                                / to_upload.total_size,
+                                                "current": bytes_uploaded,
+                                            }
+                                        elif result.status == UploadStatus.RETRY_NEEDED:
+                                            retry_items.append(result.item)
+                                        else:
+                                            assert result.status == UploadStatus.FAILED
+                                            failed_items.append(
+                                                (result.item, result.error)
+                                            )
+                                except BaseException:
+                                    for f in entry_futures:
+                                        f.cancel()
+                                    raise
+
+                                if failed_items:
+                                    _handle_failed_items_and_raise(
+                                        executor, failed_items, entry_futures
+                                    )
+
+                                if items_to_upload := retry_items:
+                                    retry_count += 1
+                                    current_jobs = max(1, math.ceil(current_jobs / 2))
+                                    if retry_count <= max_retries:
+                                        lgr.info(
+                                            "%s: %s got retryable errors,"
+                                            " requesting new URLs"
+                                            " (attempt %d/%d, workers: %d)",
+                                            asset_path,
+                                            pluralize(len(items_to_upload), "file"),
+                                            retry_count,
+                                            max_retries,
+                                            current_jobs,
+                                        )
+                                        # Exponential backoff with jitter before retry
+                                        sleep(
+                                            min(2**retry_count * 5, 120)
+                                            + random.uniform(0, 5)
+                                        )
+
+                        if items_to_upload:
+                            nfiles_str = pluralize(len(items_to_upload), "file")
+                            raise UploadError(
+                                f"{asset_path}: failed to upload {nfiles_str} "
+                                f"after {max_retries} retries due to repeated"
+                                f" retryable upload errors"
+                            )
                         lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                         continue
 
