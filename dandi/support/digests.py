@@ -86,11 +86,23 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 
 @checksums.memoize_path
 def get_digest(filepath: str | Path, digest: str = "sha256") -> str:
+    """
+    Compute the digest of ``filepath`` under the named algorithm.
+
+    Besides the hashlib algorithms, ``digest`` may be ``"dandi-etag"`` or one
+    of the two Zarr checksums.  A Zarr's checksum is an aggregate over its
+    entries' S3 ETags, which differ by the scheme the Zarr was uploaded with,
+    so the two schemes have to be named apart: ``"zarr-checksum"`` is the
+    checksum of a single-part Zarr and ``"zarr-checksum-multipart"`` that of a
+    multipart one, the scheme `dandi upload` uses for new Zarrs.
+    """
     if digest == "dandi-etag":
         s = get_dandietag(filepath).as_str()
         assert isinstance(s, str)
         return s
     elif digest == "zarr-checksum":
+        return get_zarr_checksum(Path(filepath))
+    elif digest == "zarr-checksum-multipart":
         return get_zarr_multipart_checksum(Path(filepath))
     else:
         return Digester([digest])(filepath)[digest]
