@@ -15,8 +15,11 @@ import os.path
 from pathlib import Path
 import random
 from time import sleep
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 import urllib.parse
+
+if TYPE_CHECKING:
+    from ..upload import ZarrMode
 
 from dandischema.models import BareAsset, DigestType
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -43,6 +46,7 @@ from dandi.dandiapi import (
 from dandi.exceptions import UploadError
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
+from dandi.support.pyout import naturalsize
 from dandi.utils import (
     chunked,
     exclude_from_zarr,
@@ -558,6 +562,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         metadata: dict[str, Any],
         jobs: int | None = None,
         replacing: RemoteAsset | None = None,
+        zarr_mode: ZarrMode = "full",  # type: ignore[assignment]
     ) -> Iterator[dict]:
         """
         Upload the Zarr directory as an asset with the given metadata to the
@@ -578,7 +583,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
             ``"done"`` and an ``"asset"`` key containing the resulting
-            `RemoteAsset`.
+            `RemoteAsset`.  If the local Zarr is bit-identical to the remote
+            (nothing to upload or delete), the terminal status is instead
+            ``"skipped"`` with a ``"message"`` of ``"identical"`` and the same
+            ``"asset"`` key.
         """
         asset_path = metadata.setdefault("path", self.path)
         set_asset_schema_key(metadata)
@@ -644,6 +652,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         assert isinstance(a, RemoteZarrAsset)
         mismatched = True
         first_run = True
+        unchanged = False
         while mismatched:
             zcc = ZarrChecksumTree()
             old_zarr_entries: dict[str, RemoteZarrEntry] = {
@@ -723,6 +732,35 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                     local_entry.size,
                                     local_digest,
                                 )
+                # Refine the "exists - checking" message set by
+                # check_replace_asset (see #1893): describe what will actually
+                # change, or short-circuit to a "skipped" terminal state when
+                # nothing will.
+                n_add = len(to_upload.fresh_entries)
+                n_modify = len(to_upload.digested_entries)
+                n_delete = len(to_delete) + (
+                    len(old_zarr_entries) if zarr_mode == "full" else 0
+                )
+                if n_add == 0 and n_modify == 0 and n_delete == 0:
+                    mismatched = False
+                    unchanged = True
+                    break
+                bytes_add = sum(e.size for e in to_upload.fresh_entries)
+                bytes_modify = sum(it.size for it in to_upload.digested_entries)
+                clauses = []
+                if n_add:
+                    clauses.append(
+                        f"adding {pluralize(n_add, 'file')}"
+                        f" ({naturalsize(bytes_add)})"
+                    )
+                if n_modify:
+                    clauses.append(
+                        f"modifying {pluralize(n_modify, 'file')}"
+                        f" ({naturalsize(bytes_modify)})"
+                    )
+                if n_delete:
+                    clauses.append(f"deleting {pluralize(n_delete, 'file')}")
+                yield {"status": "planning upload", "message": ", ".join(clauses)}
                 if to_delete:
                     yield from _rmfiles(
                         asset=a,
@@ -849,19 +887,29 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         )
                     lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
             lgr.debug("%s: All files uploaded", asset_path)
-            old_zarr_files = list(old_zarr_entries.values())
-            if old_zarr_files:
-                lgr.debug(
-                    "%s: Deleting %s in remote Zarr not present locally",
-                    asset_path,
-                    pluralize(len(old_zarr_files), "file"),
-                )
-                yield from _rmfiles(
-                    asset=a,
-                    entries=old_zarr_files,
-                    status="deleting extra remote files",
-                )
-                changed = True
+            if zarr_mode == "full":
+                old_zarr_files = list(old_zarr_entries.values())
+                if old_zarr_files:
+                    lgr.debug(
+                        "%s: Deleting %s in remote Zarr not present locally",
+                        asset_path,
+                        pluralize(len(old_zarr_files), "file"),
+                    )
+                    yield from _rmfiles(
+                        asset=a,
+                        entries=old_zarr_files,
+                        status="deleting extra remote files",
+                    )
+                    changed = True
+            else:
+                n_remote_only = len(old_zarr_entries)
+                if n_remote_only:
+                    lgr.info(
+                        "%s: Skipping deletion of %s remote-only" " %s (patch mode)",
+                        asset_path,
+                        n_remote_only,
+                        "file" if n_remote_only == 1 else "files",
+                    )
             if changed:
                 lgr.debug(
                     "%s: Waiting for server to calculate Zarr checksum", asset_path
@@ -872,20 +920,28 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     sleep(2)
                     r = client.get(f"/zarr/{zarr_id}/")
                     if r["status"] == "Complete":
-                        our_checksum = str(zcc.process())
-                        server_checksum = r["checksum"]
-                        if our_checksum == server_checksum:
+                        if zarr_mode == "patch":
+                            lgr.info(
+                                "%s: Skipping local checksum verification"
+                                " (patch mode)",
+                                asset_path,
+                            )
                             mismatched = False
                         else:
-                            mismatched = True
-                            lgr.info(
-                                "%s: Asset checksum mismatch (local: %s;"
-                                " server: %s); redoing upload",
-                                asset_path,
-                                our_checksum,
-                                server_checksum,
-                            )
-                            yield {"status": "Checksum mismatch"}
+                            our_checksum = str(zcc.process())
+                            server_checksum = r["checksum"]
+                            if our_checksum == server_checksum:
+                                mismatched = False
+                            else:
+                                mismatched = True
+                                lgr.info(
+                                    "%s: Asset checksum mismatch (local: %s;"
+                                    " server: %s); redoing upload",
+                                    asset_path,
+                                    our_checksum,
+                                    server_checksum,
+                                )
+                                yield {"status": "Checksum mismatch"}
                         break
             elif mismatched and not first_run:
                 lgr.error(
@@ -898,8 +954,19 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 mismatched = False
                 lgr.info("%s: No changes made to Zarr", asset_path)
             first_run = False
-        lgr.info("%s: Asset successfully uploaded", asset_path)
-        yield {"status": "done", "asset": a}
+        lgr.debug(
+            "%s: Out of the loop with mismatched=%r unchanged=%r first_run=%r",
+            asset_path,
+            mismatched,
+            unchanged,
+            first_run,
+        )
+        if unchanged:
+            lgr.info("%s: Zarr already matches remote; nothing to upload", asset_path)
+            yield {"status": "skipped", "message": "identical", "asset": a}
+        else:
+            lgr.info("%s: Asset successfully uploaded", asset_path)
+            yield {"status": "done", "asset": a}
 
 
 def _handle_failed_items_and_raise(
