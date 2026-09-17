@@ -22,6 +22,7 @@ import logging
 import os
 import os.path
 from pathlib import Path
+import re
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
@@ -98,6 +99,21 @@ def get_digest(filepath: str | Path, digest: str = "sha256") -> str:
 @checksums.memoize_path
 def get_dandietag(filepath: str | Path) -> DandiETag:
     return DandiETag.from_file(filepath)
+
+
+#: Pattern of an S3 multipart ETag: an MD5 hex digest, a hyphen, and the number
+#: of parts (e.g. ``d41d8cd98f00b204e9800998ecf8427e-3``).
+_MULTIPART_ETAG_RE = re.compile(r"[0-9a-f]{32}-[1-9][0-9]*\Z")
+
+
+def is_multipart_etag(digest: str) -> bool:
+    """
+    Return whether ``digest`` is an S3 multipart ETag (``<md5>-<parts>``) rather
+    than a plain MD5 digest.  An entry of a multipart Zarr is stored under such
+    an ETag (see `dandietag_nocache`), so this distinguishes the digests of a
+    multipart Zarr's entries from a single-part Zarr's.
+    """
+    return bool(_MULTIPART_ETAG_RE.match(digest))
 
 
 def zarr_has_oversized_entry(path: Path) -> bool:

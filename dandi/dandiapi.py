@@ -2239,12 +2239,24 @@ class RemoteZarrEntry:
         cls, asset: BaseRemoteZarrAsset, data: ZarrEntryServerData
     ) -> RemoteZarrEntry:
         """:meta private:"""
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import is_multipart_etag
+
+        # An entry's digest is the ETag S3 stores it under, which is a plain MD5
+        # for a single-part upload and a multipart ETag (a.k.a. the DANDI etag)
+        # for a multipart one; the algorithm has to follow suit, or the entry
+        # cannot be verified on download.
+        algorithm = (
+            models.DigestType.dandi_etag
+            if is_multipart_etag(data.etag)
+            else models.DigestType.md5
+        )
         return cls(
             client=asset.client,
             zarr_id=asset.zarr,
             parts=tuple(data.key.split("/")),
             modified=data.last_modified,
-            digest=Digest(algorithm=models.DigestType.md5, value=data.etag),
+            digest=Digest(algorithm=algorithm, value=data.etag),
             size=data.size,
         )
 
