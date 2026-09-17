@@ -1122,7 +1122,14 @@ def _upload_zarr_entry_multipart(
             upload_root="/zarr/uploads",
         )
     except requests.HTTPError as e:
-        if e.response is not None and e.response.status_code in (400, 404):
+        # Only the ``initialize`` request tells us whether the archive supports
+        # this upload at all; a failure of a part upload or of completion is an
+        # ordinary upload error, which the caller may retry.
+        if (
+            e.response is not None
+            and e.response.status_code in (400, 404)
+            and "/zarr/uploads/initialize" in str(getattr(e.response, "url", ""))
+        ):
             # A 404 means the archive lacks the Zarr multipart upload endpoint
             # entirely; a 400 means it rejected this multipart upload (e.g. the
             # Zarr is not marked for multipart upload).  Either way a multipart
