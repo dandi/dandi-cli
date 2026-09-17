@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import sys
+from types import SimpleNamespace
 
 import anys
 import click
@@ -17,9 +18,12 @@ import responses
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
 
+from .. import cmd_service_scripts
 from ..cmd_service_scripts import (
     DOI_CSL_ACCEPT,
+    DOI_REGEX,
     check_doi_fields,
+    example_doi,
     fetch_doi_citation_metadata,
     normalize_doi,
     service_scripts,
@@ -179,11 +183,39 @@ def test_normalize_doi(given: str) -> None:
         "https://doi.org/",
         "https://example.com/10.1234/foo",
         "10.1/too-short-prefix",
+        "10.123/too-short-prefix",
     ],
 )
 def test_normalize_doi_rejects_non_doi(given: str) -> None:
     with pytest.raises(ValueError, match="does not look like a DOI"):
         normalize_doi(given)
+
+
+@pytest.mark.ai_generated
+def test_example_doi_default_is_a_dandi_doi(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An unvendored instance has no DOI prefix of its own
+    monkeypatch.setattr(
+        cmd_service_scripts,
+        "get_instance_config",
+        lambda: SimpleNamespace(instance_name="DANDI-ADHOC", doi_prefix=None),
+    )
+    assert example_doi() == "10.48324/dandi.001827/0.260505.1322"
+    assert DOI_REGEX.fullmatch(example_doi())
+
+
+@pytest.mark.ai_generated
+def test_example_doi_uses_instance_doi_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        cmd_service_scripts,
+        "get_instance_config",
+        lambda: SimpleNamespace(instance_name="LINC", doi_prefix="10.80507"),
+    )
+    assert example_doi() == "10.80507/linc.000001/0.240101.1234"
+    assert DOI_REGEX.fullmatch(example_doi())
+    with pytest.raises(
+        ValueError, match=re.escape("'10.80507/linc.000001/0.240101.1234'")
+    ):
+        normalize_doi("not a doi")
 
 
 @pytest.mark.ai_generated
@@ -217,9 +249,7 @@ def test_normalize_doi_prefix_and_url_suffix(given: str, expected: str) -> None:
         ({"contributor", "relatedResource"}, {}, "author"),
     ],
 )
-def test_check_doi_fields_missing(
-    fields: set[str], record: dict, missing: str
-) -> None:
+def test_check_doi_fields_missing(fields: set[str], record: dict, missing: str) -> None:
     with pytest.raises(click.ClickException, match=re.escape(repr(missing))):
         check_doi_fields("10.1234/foo", record, fields)
 

@@ -14,6 +14,7 @@ import urllib.parse
 from uuid import uuid4
 
 import click
+from dandischema.conf import UNVENDORED_DOI_PREFIX_PATTERN, get_instance_config
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from packaging.version import Version
 from requests.auth import HTTPBasicAuth
@@ -42,17 +43,35 @@ DOI_RESOLVER_URL = "https://doi.org/"
 #: Content type requested from the DOI resolver for citation metadata
 DOI_CSL_ACCEPT = "application/vnd.citationstyles.csl+json; charset=utf-8"
 
-#: Matches a bare DOI, e.g. ``10.48324/dandi.001827/0.260505.1322``.
-#: The prefix may be subdivided by a registrant (``10.1000.10/123``), which the
-#: DOI Handbook allows, so the leading number is followed by zero or more
+#: Matches a bare DOI, e.g. ``10.48324/dandi.001827/0.260505.1322``.  What a
+#: DOI prefix looks like is defined once, in dandischema.  The general pattern
+#: is used rather than the instance-specific ``DOI_PREFIX_PATTERN`` because the
+#: DOI given to this command is usually a publication's, not one minted by the
+#: instance.  The registrant may subdivide the prefix (``10.1000.10/123``),
+#: which the DOI Handbook allows, so it is followed by zero or more
 #: ``.``-separated groups.
-DOI_REGEX = re.compile(r"10\.\d{4,9}(?:\.\d+)*/\S+")
+DOI_REGEX = re.compile(rf"{UNVENDORED_DOI_PREFIX_PATTERN}(?:\.\d+)*/\S+")
 
 #: Prefixes a DOI may be spelled with, in the order they are stripped.  The
 #: second is a resolver URL, and only that spelling may carry a query string or
 #: fragment that is part of the URL rather than of the DOI.
 DOI_PREFIX_REGEXES = (r"doi:", r"(?:https?://)?(?:dx\.)?doi\.org/")
 DOI_URL_PREFIX_REGEX = DOI_PREFIX_REGEXES[1]
+
+
+def example_doi() -> str:
+    """Return an example DOI to show in messages.
+
+    On a vendored instance that mints its own DOIs, the example is one that
+    instance could have issued, so that users are not pointed at a DANDI DOI on
+    an unrelated deployment.  Otherwise it is a real DANDI DOI.
+    """
+    config = get_instance_config()
+    if config.doi_prefix is not None:
+        return (
+            f"{config.doi_prefix}/{config.instance_name.lower()}.000001/0.240101.1234"
+        )
+    return "10.48324/dandi.001827/0.260505.1322"
 
 
 def normalize_doi(doi: str) -> str:
@@ -92,8 +111,8 @@ def normalize_doi(doi: str) -> str:
     if not DOI_REGEX.fullmatch(value):
         raise ValueError(
             f"{doi!r} does not look like a DOI.  Expected something like "
-            "'10.48324/dandi.001827/0.260505.1322', optionally prefixed with "
-            "'doi:' or 'https://doi.org/'."
+            f"'{example_doi()}', optionally prefixed with 'doi:' or "
+            "'https://doi.org/'."
         )
     return value
 
