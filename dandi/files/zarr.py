@@ -56,7 +56,7 @@ from dandi.utils import (
     pre_upload_size_check,
 )
 
-from .bases import LocalDirectoryAsset, multipart_upload
+from .bases import LocalDirectoryAsset, _retry_s3_upload, multipart_upload
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     MissingFileContent,
@@ -1177,7 +1177,7 @@ def _upload_zarr_file(
                 upload_url,
                 data=fp,
                 json_resp=False,
-                retry_if=_retry_zarr_file,
+                retry_if=_retry_s3_upload,
                 headers=headers,
                 timeout=(60, 7200),
             )
@@ -1213,22 +1213,6 @@ def _upload_zarr_file(
     else:
         post_upload_size_check(item.filepath, item.size, False)
         return UploadResult(item=item, status=UploadStatus.SUCCESS, size=item.size)
-
-
-def _retry_zarr_file(r: requests.Response) -> bool:
-    return (
-        # Some sort of filesystem hiccup can cause requests to be unable to get the
-        # filesize, leading to it falling back to "chunked" transfer encoding,
-        # which S3 doesn't support.
-        r.status_code == 501
-        and "header you provided implies functionality that is not implemented"
-        in r.text
-    ) or (
-        # Network issue or rate limiting can cause a timeout, which results in a 400.
-        # Case: https://github.com/dandi/dandi-cli/issues/1662
-        r.status_code == 400
-        and "was not read from or written to within the timeout period" in r.text
-    )
 
 
 @dataclass
