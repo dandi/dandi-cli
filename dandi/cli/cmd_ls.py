@@ -371,7 +371,10 @@ def get_metadata_ls(
                             digest = "0" * 32 + "-0--0"
                         else:
                             lgr.info("Calculating digest for %s", path)
-                            digest = get_digest(path, digest="zarr-checksum")
+                            # `dandi upload` creates new Zarrs with multipart
+                            # upload, so report the checksum this Zarr would
+                            # have in the archive.
+                            digest = get_digest(path, digest="zarr-checksum-multipart")
                         rec = get_metadata(path, Digest.dandi_zarr(digest))
                     else:
                         if use_fake_digest:
