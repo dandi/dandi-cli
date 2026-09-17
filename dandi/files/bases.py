@@ -644,6 +644,16 @@ def _upload_blob_part(
         retry_statuses=[500],
         retry_if=_retry_s3_upload,
     )
+    if "ETag" not in r.headers:
+        # A part upload that reports no ETag cannot be completed, as the ETag is
+        # what the completion request identifies the part by.  Raise it as an
+        # HTTP error carrying the response, so that the caller can decide from
+        # the response whether the condition is worth retrying.
+        raise requests.HTTPError(
+            f"{asset_path}: upload of part {part['part_number']} returned no"
+            f" ETag (status {r.status_code})",
+            response=r,
+        )
     server_etag = r.headers["ETag"].strip('"')
     lgr.debug(
         "%s: Part upload finished ETag=%s Content-Length=%s",
