@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import os
 from pathlib import Path
-from shutil import copyfile, rmtree
+from shutil import copyfile, copytree, rmtree
 from typing import Any
 from unittest.mock import Mock
 from urllib.parse import urlparse
@@ -22,7 +22,9 @@ from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
 from ..consts import (
     DOWNLOAD_SUFFIX,
+    S3_MAX_SINGLE_PART_UPLOAD,
     ZARR_MIME_TYPE,
+    ZARR_UPLOAD_TYPE_SINGLEPART,
     EmbargoStatus,
     SyncMode,
     dandiset_metadata_file,
@@ -1093,3 +1095,117 @@ def test_upload_modified_zarr_reports_descriptive_message(
     assert "adding " in msg, msg
     assert "modifying " in msg, msg
     assert "deleting " in msg, msg
+
+
+#: Size of a Zarr entry that S3 cannot accept as a single-part PUT, and which
+#: therefore can only be uploaded via S3 multipart upload.
+OVERSIZED_ENTRY_SIZE = S3_MAX_SINGLE_PART_UPLOAD + 1024**2
+
+#: These tests write an oversized entry to disk and upload it, which costs
+#: several GiB and several minutes, and they need an archive that supports
+#: multipart Zarr upload, so they are opt-in.
+oversized_zarr = pytest.mark.skipif(
+    not os.environ.get("DANDI_TESTS_OVERSIZED_ZARR"),
+    reason=(
+        "Set DANDI_TESTS_OVERSIZED_ZARR=1 to run tests that write a >5 GiB file"
+        " against a multipart-capable archive"
+    ),
+)
+
+
+@pytest.fixture(scope="module")
+def oversized_zarr_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """
+    A valid Zarr whose single chunk is just over `S3_MAX_SINGLE_PART_UPLOAD`.
+
+    The array is created without data and its one chunk is then written
+    directly, so that the entry never has to be held in memory.  The chunk is
+    filled with random bytes, both because the uncompressed array stores them
+    verbatim and so that the digests under test are of content that cannot be
+    trivially deduplicated.
+    """
+    path = tmp_path_factory.mktemp("oversized") / "oversized.zarr"
+    root = zarr.open_group(str(path), mode="w")
+    root.create_dataset(
+        "arr",
+        shape=(OVERSIZED_ENTRY_SIZE,),
+        chunks=(OVERSIZED_ENTRY_SIZE,),
+        dtype="u1",
+        compressor=None,
+    )
+    chunk = path / "arr" / "0"
+    with chunk.open("wb") as fp:
+        remaining = OVERSIZED_ENTRY_SIZE
+        while remaining > 0:
+            block = os.urandom(min(64 * 1024**2, remaining))
+            fp.write(block)
+            remaining -= len(block)
+    assert chunk.stat().st_size == OVERSIZED_ENTRY_SIZE
+    return path
+
+
+@pytest.mark.ai_generated
+@oversized_zarr
+def test_upload_zarr_oversized_entry(
+    new_dandiset: SampleDandiset, oversized_zarr_path: Path
+) -> None:
+    """
+    An entry too large for a single-part S3 PUT uploads via S3 multipart
+    upload, and the Zarr the archive ingests has the checksum computed locally
+    for a multipart Zarr.
+    """
+    # Avoid heavy import by importing within function:
+    from ..support.digests import get_zarr_multipart_checksum, is_multipart_etag
+
+    copytree(oversized_zarr_path, new_dandiset.dspath / "oversized.zarr")
+    new_dandiset.upload()
+
+    (asset,) = new_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.path == "oversized.zarr"
+
+    # The oversized entry is stored under a multipart ETag, which is what makes
+    # it a multipart upload rather than a single-part PUT that happened to work.
+    entries = {str(e): e for e in asset.iterfiles()}
+    oversized = entries["arr/0"]
+    assert oversized.size == OVERSIZED_ENTRY_SIZE
+    assert is_multipart_etag(oversized.digest.value)
+    # S3 records the number of parts after the hyphen; more than one of them is
+    # what distinguishes a genuine multipart upload from a single-part PUT.
+    assert int(oversized.digest.value.split("-")[1]) > 1
+
+    # The archive's own checksum of what it ingested must match the checksum we
+    # compute locally for a multipart Zarr.
+    assert asset.get_digest().value == get_zarr_multipart_checksum(
+        new_dandiset.dspath / "oversized.zarr"
+    )
+
+
+@pytest.mark.ai_generated
+@oversized_zarr
+def test_upload_zarr_oversized_entry_to_singlepart_zarr(
+    new_dandiset: SampleDandiset, oversized_zarr_path: Path
+) -> None:
+    """
+    An oversized entry cannot be uploaded to a Zarr that was created as
+    single-part, since a Zarr's entries all have to use the scheme it was
+    created with.  The upload is refused up front rather than failing partway
+    through.
+    """
+    copytree(oversized_zarr_path, new_dandiset.dspath / "oversized.zarr")
+
+    # Mint the Zarr ahead of the upload as a single-part one, so that `dandi
+    # upload` finds and reuses it instead of creating a multipart Zarr.  This
+    # stands in for a Zarr created before the archive supported multipart
+    # upload.
+    new_dandiset.client.post(
+        "/zarr/",
+        json={
+            "name": "oversized.zarr",
+            "dandiset": new_dandiset.dandiset_id,
+            "upload_type": ZARR_UPLOAD_TYPE_SINGLEPART,
+        },
+    )
+
+    with pytest.raises(UploadError, match="requires multipart upload"):
+        new_dandiset.upload()
