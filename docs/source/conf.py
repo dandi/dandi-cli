@@ -23,8 +23,9 @@ project = "dandi"
 copyright = "2021-%Y The DANDI Team"
 author = "The DANDI Team"
 
-# The full version, including alpha/beta/rc tags
-version = dandi.__version__
+# The released portion of the version
+version = dandi.__version__.split("+")[0]
+# The full version, including alpha/beta/rc tags and any local version segment
 release = dandi.__version__
 
 
@@ -59,6 +60,8 @@ default_role = "py:obj"
 
 
 # -- Options for HTML output -------------------------------------------------
+
+html_title = f"{project} {version} documentation"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
