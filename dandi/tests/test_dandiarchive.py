@@ -23,9 +23,9 @@ from dandi.dandiarchive import (
 )
 from dandi.exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from dandi.tests.skip import mark
+from dandi.zarr_filter import ZarrFilter
 
 from .fixtures import DandiAPI, SampleDandiset
-from ..zarr_filter import ZarrFilter
 
 
 @pytest.mark.parametrize(

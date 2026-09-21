@@ -529,6 +529,10 @@ class AssetZarrEntryURL(SingleAssetURL):
 
     def get_zarr_filter(self) -> list[ZarrFilter]:
         """Restrict the download to the entries at or under `zarr_subpath`."""
+        if not self.zarr_subpath:
+            # `parse_dandi_url()` never produces this, but the class is public
+            # and an empty subpath would otherwise reject every entry.
+            return []
         return [ZarrFilter("path", self.zarr_subpath)]
 
 

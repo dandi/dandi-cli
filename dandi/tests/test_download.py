@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -19,7 +19,7 @@ import time
 from typing import Any
 from unittest import mock
 
-from dandischema.models import ID_PATTERN
+from dandischema.models import ID_PATTERN, DigestType
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
@@ -27,6 +27,8 @@ import requests
 from requests.exceptions import HTTPError
 import responses
 import zarr
+
+import dandi.download
 
 from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
@@ -46,9 +48,10 @@ from ..download import (
     download,
 )
 from ..exceptions import NotFoundError
+from ..misctypes import Digest
 from ..support.digests import Digester
 from ..utils import list_paths, yaml_load
-from ..zarr_filter import ZarrFilter
+from ..zarr_filter import ZarrFilter, make_zarr_entry_filter
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -1656,7 +1659,7 @@ def test_download_zarr_sync_conflict() -> None:
 
 
 def _make_downloader(
-    url: str, tmp_path: Path, zarr_filters: list[ZarrFilter] | None = None
+    url: str, tmp_path: Path, zarr_filters: Sequence[ZarrFilter] = ()
 ) -> Downloader:
     return Downloader(
         url=parse_dandi_url(url),
@@ -1667,7 +1670,7 @@ def _make_downloader(
         preserve_tree=False,
         jobs_per_zarr=None,
         on_error="raise",
-        zarr_filters=zarr_filters if zarr_filters is not None else [],
+        zarr_filters=list(zarr_filters),
     )
 
 
@@ -1679,12 +1682,12 @@ def test_downloader_zarr_filter_is_per_url(tmp_path: Path) -> None:
     assert dl.zarr_entry_filter("0/0/.zarray")
     assert not dl.zarr_entry_filter("1/1/.zarray")
     # Entries the URL asked for must exist, so matching nothing is an error
-    assert dl.empty_zarr_filter_error is not None
+    assert dl.url_zarr_filters == [ZarrFilter("path", "0/0")]
 
     # A second URL downloaded in the same invocation is unaffected
     other = _make_downloader("dandi://dandi/000108/sub-2/other.ome.zarr", tmp_path)
     assert other.zarr_entry_filter is None
-    assert other.empty_zarr_filter_error is None
+    assert other.url_zarr_filters == []
 
 
 @pytest.mark.ai_generated
@@ -1698,7 +1701,7 @@ def test_downloader_explicit_zarr_filters_apply_to_all_urls(tmp_path: Path) -> N
     assert dl.zarr_entry_filter is not None
     assert dl.zarr_entry_filter("a/data.bin")
     assert not dl.zarr_entry_filter("b/data.bin")
-    assert dl.empty_zarr_filter_error is None
+    assert dl.url_zarr_filters == []
 
 
 @pytest.mark.ai_generated
@@ -1743,7 +1746,7 @@ def test_download_zarr_url_subpath(
 
 @pytest.mark.ai_generated
 def test_download_zarr_url_subpath_nonexistent(
-    tmp_path: Path, new_dandiset: SampleDandiset
+    tmp_path: Path, new_dandiset: SampleDandiset, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A URL naming a nonexistent path inside a Zarr asset errors out."""
     _upload_two_zarrs(new_dandiset)
@@ -1753,6 +1756,7 @@ def test_download_zarr_url_subpath_nonexistent(
             f"/{new_dandiset.dandiset_id}/sample.zarr/nonexistent",
             tmp_path,
         )
+    assert "No entries in the Zarr asset match 'nonexistent'" in caplog.text
 
 
 @pytest.mark.ai_generated
@@ -1769,3 +1773,114 @@ def test_download_zarr_url_subpath_does_not_filter_other_urls(
     # Second URL: the whole Zarr, unaffected by the first URL's subpath
     assert (tmp_path / "other.zarr" / "c" / "data.bin").read_text() == "data-c"
     assert (tmp_path / "other.zarr" / "d" / "data.bin").read_text() == "data-d"
+
+
+class _FakeZarrEntry:
+    """Minimal stand-in for a `RemoteZarrEntry` for `_download_zarr` tests."""
+
+    def __init__(self, path: str, size: int = 10) -> None:
+        self.path = path
+        self.size = size
+        self.digest = Digest(algorithm=DigestType.md5, value="0" * 32)
+        self.modified = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+    def __str__(self) -> str:
+        return self.path
+
+    def get_download_file_iter(self) -> Callable[[], Iterator[bytes]]:
+        return lambda: iter([])
+
+
+class _FakeZarrAsset:
+    """Minimal stand-in for a `BaseRemoteZarrAsset` for `_download_zarr` tests."""
+
+    def __init__(self, paths: Sequence[str]) -> None:
+        self.paths = list(paths)
+        self.size = 10 * len(self.paths)
+
+    def iterfiles(self, prefix: str | None = None) -> Iterator[_FakeZarrEntry]:
+        return iter([_FakeZarrEntry(p) for p in self.paths])
+
+
+def _run_download_zarr(
+    tmp_path: Path,
+    paths: Sequence[str],
+    filters: Sequence[ZarrFilter],
+    required_filters: Sequence[ZarrFilter] = (),
+) -> list[dict]:
+    """Drive `_download_zarr` over a fake asset, stubbing out the file transfer."""
+    with mock.patch.object(
+        dandi.download,
+        "_download_file",
+        lambda *args, **kwargs: iter(
+            [{"size": 10}, {"status": "downloading"}, {"status": "done"}]
+        ),
+    ):
+        return list(
+            dandi.download._download_zarr(
+                _FakeZarrAsset(paths),  # type: ignore[arg-type]
+                tmp_path / "sample.zarr",
+                toplevel_path=tmp_path,
+                existing=DownloadExisting.OVERWRITE,
+                lock=Lock(),
+                jobs=1,
+                zarr_entry_filter=make_zarr_entry_filter(list(filters)),
+                required_filters=list(required_filters),
+            )
+        )
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_required_filter_no_match_errors(tmp_path: Path) -> None:
+    """A URL subpath matching no entry is reported as an error."""
+    required = [ZarrFilter("path", "nonexistent")]
+    out = _run_download_zarr(
+        tmp_path, [".zgroup", "a/data.bin"], required, required_filters=required
+    )
+    errors = [r for r in out if r.get("status") == "error"]
+    assert len(errors) == 1
+    assert errors[0]["message"] == "No entries in the Zarr asset match 'nonexistent'"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_required_filter_not_masked_by_explicit_filter(
+    tmp_path: Path,
+) -> None:
+    """``--zarr`` entries downloaded alongside must not hide a missing subpath."""
+    required = [ZarrFilter("path", "nonexistent")]
+    # ``--zarr metadata``-style filter matches .zgroup, so entries are downloaded
+    out = _run_download_zarr(
+        tmp_path,
+        [".zgroup", "a/data.bin"],
+        required + [ZarrFilter("glob", "**/.z*")],
+        required_filters=required,
+    )
+    # The metadata entry really was downloaded ...
+    assert any("size" in r or "done" in r for r in out)
+    # ... and yet the missing subpath is still reported
+    errors = [r for r in out if r.get("status") == "error"]
+    assert len(errors) == 1
+    assert errors[0]["message"] == "No entries in the Zarr asset match 'nonexistent'"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_explicit_filter_no_match_is_not_an_error(
+    tmp_path: Path,
+) -> None:
+    """Without required filters, matching nothing stays a silent no-op."""
+    out = _run_download_zarr(
+        tmp_path, [".zgroup", "a/data.bin"], [ZarrFilter("path", "nonexistent")]
+    )
+    assert not [r for r in out if r.get("status") == "error"]
+    assert out[-1] == {"status": "done"}
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_required_filter_match_is_not_an_error(tmp_path: Path) -> None:
+    """A URL subpath that does match downloads without error."""
+    required = [ZarrFilter("path", "a")]
+    out = _run_download_zarr(
+        tmp_path, [".zgroup", "a/data.bin"], required, required_filters=required
+    )
+    assert not [r for r in out if r.get("status") == "error"]
+    assert out[-1] == {"status": "done"}

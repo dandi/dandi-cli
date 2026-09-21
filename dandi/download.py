@@ -271,13 +271,14 @@ class Downloader:
     #: Filters from the ``--zarr`` option; they apply to every Zarr asset, and
     #: matching no entries in a given asset is not an error
     zarr_filters: list[ZarrFilter] = field(default_factory=list)
+    #: Filters implied by `url` pointing inside a Zarr asset.  Unlike
+    #: `zarr_filters`, these name entries the user explicitly asked for, so
+    #: matching none of them is an error
+    url_zarr_filters: list[ZarrFilter] = field(init=False, default_factory=list)
     #: Predicate for selecting entries within a Zarr asset, combining
-    #: `zarr_filters` with the filters implied by `url`; `None` means that
-    #: every entry is to be downloaded
-    zarr_entry_filter: Callable[[str], bool] | None = field(init=False)
-    #: Message to report when the filters implied by `url` match no entries in
-    #: a Zarr asset; `None` when `url` implies no filters
-    empty_zarr_filter_error: str | None = field(init=False)
+    #: `zarr_filters` with `url_zarr_filters`; `None` means that every entry is
+    #: to be downloaded
+    zarr_entry_filter: Callable[[str], bool] | None = field(init=False, default=None)
     #: which will be set .gen to assets.  Purpose is to make it possible to get
     #: summary statistics while already downloading.  TODO: reimplement
     #: properly!
@@ -297,21 +298,11 @@ class Downloader:
         else:
             self.output_prefix = Path()
         self.output_path = Path(output_dir, self.output_prefix)
-        # Filters implied by the URL (i.e., a URL pointing inside a Zarr
-        # asset) name entries the user explicitly asked for, so -- unlike the
-        # ``--zarr`` filters -- matching nothing is an error.
-        url_zarr_filters = self.url.get_zarr_filter()
-        all_filters = url_zarr_filters + list(self.zarr_filters)
+        self.url_zarr_filters = self.url.get_zarr_filter()
+        all_filters = self.url_zarr_filters + list(self.zarr_filters)
         self.zarr_entry_filter = (
             make_zarr_entry_filter(all_filters) if all_filters else None
         )
-        if url_zarr_filters:
-            patterns = ", ".join(repr(f.pattern) for f in url_zarr_filters)
-            self.empty_zarr_filter_error = (
-                f"No entries in the Zarr asset match {patterns}"
-            )
-        else:
-            self.empty_zarr_filter_error = None
 
     def is_dandiset_yaml(self) -> bool:
         return isinstance(self.url, AssetItemURL) and self.url.path == "dandiset.yaml"
@@ -364,6 +355,17 @@ class Downloader:
                 self.asset_download_paths.add(path)
                 download_path = Path(self.output_path, path)
                 path = str(self.output_prefix / path)
+
+                if self.url_zarr_filters and asset.asset_type is not AssetType.ZARR:
+                    # The URL named a path inside the asset, but the asset is
+                    # not a Zarr, so there is nothing to descend into.
+                    yield {
+                        "path": path,
+                        "status": "error",
+                        "message": f"Asset {asset.path!r} is not a Zarr asset,"
+                        " so it has no entries to download",
+                    }
+                    continue
 
                 try:
                     metadata = asset.get_raw_metadata()
@@ -418,7 +420,7 @@ class Downloader:
                         jobs=self.jobs_per_zarr,
                         lock=lock,
                         zarr_entry_filter=self.zarr_entry_filter,
-                        empty_filter_error=self.empty_zarr_filter_error,
+                        required_filters=self.url_zarr_filters,
                     )
 
                 def _progress_filter(gen):
@@ -1062,7 +1064,7 @@ def _download_zarr(
     lock: Lock,
     jobs: int | None = None,
     zarr_entry_filter: Callable[[str], bool] | None = None,
-    empty_filter_error: str | None = None,
+    required_filters: list[ZarrFilter] | None = None,
 ) -> Iterator[dict]:
     # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
@@ -1072,16 +1074,34 @@ def _download_zarr(
     entries: list = []
     digests: dict[str, str] = {}
     pc = ProgressCombiner(zarr_size=asset.size)
+    # `zarr_entry_filter` is the OR of the required filters and the ``--zarr``
+    # ones, so a non-empty `entries` does not mean the required filters
+    # matched; track them separately.
+    required_match = (
+        make_zarr_entry_filter(required_filters) if required_filters else None
+    )
+    matched_required = False
+
+    def unmatched_required_error() -> dict:
+        assert required_filters is not None
+        patterns = ", ".join(repr(f.pattern) for f in required_filters)
+        return {
+            "status": "error",
+            "message": f"No entries in the Zarr asset match {patterns}",
+        }
 
     def digest_callback(path: str, algoname: str, d: str) -> None:
         if algoname == "md5":
             digests[path] = d
 
     def downloads_gen():
+        nonlocal matched_required
         for entry in asset.iterfiles():
             entry_path = str(entry)
             if zarr_entry_filter is not None and not zarr_entry_filter(entry_path):
                 continue
+            if required_match is not None and required_match(entry_path):
+                matched_required = True
             entries.append(entry)
             etag = entry.digest
             assert etag.algorithm is DigestType.md5
@@ -1116,13 +1136,18 @@ def _download_zarr(
             if final_out is not None:
                 break
         else:
-            if zarr_entry_filter is not None:
-                if not entries and empty_filter_error is not None:
-                    yield {"status": "error", "message": empty_filter_error}
-                else:
-                    # Filter matched no entries; still report completion
-                    yield {"status": "done"}
+            if required_filters and not matched_required:
+                yield unmatched_required_error()
+            elif zarr_entry_filter is not None:
+                # Filter matched no entries; still report completion
+                yield {"status": "done"}
             return
+
+    if required_filters and not matched_required:
+        # Entries downloaded for the ``--zarr`` filters do not make up for the
+        # ones the URL named but the asset does not have.
+        yield unmatched_required_error()
+        return
 
     if zarr_entry_filter is not None:
         # Partial download: skip deleting extra local files and skip
