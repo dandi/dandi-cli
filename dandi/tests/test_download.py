@@ -32,7 +32,7 @@ from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
 from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, assert_dirtrees_eq, zarr_format_of
 from ..consts import DRAFT, MTIME_TOLERANCE, SyncMode, dandiset_metadata_file
-from ..dandiarchive import DandisetURL
+from ..dandiarchive import DandisetURL, parse_dandi_url
 from ..download import (
     DownloadDirectory,
     Downloader,
@@ -48,6 +48,7 @@ from ..download import (
 from ..exceptions import NotFoundError
 from ..support.digests import Digester
 from ..utils import list_paths, yaml_load
+from ..zarr_filter import ZarrFilter
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -1652,3 +1653,119 @@ def test_download_zarr_sync_conflict() -> None:
             sync=True,
             zarr_filters=("metadata",),
         )
+
+
+def _make_downloader(
+    url: str, tmp_path: Path, zarr_filters: list[ZarrFilter] | None = None
+) -> Downloader:
+    return Downloader(
+        url=parse_dandi_url(url),
+        output_dir=tmp_path,
+        existing=DownloadExisting.ERROR,
+        get_metadata=True,
+        get_assets=True,
+        preserve_tree=False,
+        jobs_per_zarr=None,
+        on_error="raise",
+        zarr_filters=zarr_filters if zarr_filters is not None else [],
+    )
+
+
+@pytest.mark.ai_generated
+def test_downloader_zarr_filter_is_per_url(tmp_path: Path) -> None:
+    """A URL's Zarr subpath must not restrict the download of any other URL."""
+    dl = _make_downloader("dandi://dandi/000108/sub-1/file.ome.zarr/0/0", tmp_path)
+    assert dl.zarr_entry_filter is not None
+    assert dl.zarr_entry_filter("0/0/.zarray")
+    assert not dl.zarr_entry_filter("1/1/.zarray")
+    # Entries the URL asked for must exist, so matching nothing is an error
+    assert dl.empty_zarr_filter_error is not None
+
+    # A second URL downloaded in the same invocation is unaffected
+    other = _make_downloader("dandi://dandi/000108/sub-2/other.ome.zarr", tmp_path)
+    assert other.zarr_entry_filter is None
+    assert other.empty_zarr_filter_error is None
+
+
+@pytest.mark.ai_generated
+def test_downloader_explicit_zarr_filters_apply_to_all_urls(tmp_path: Path) -> None:
+    """``--zarr`` filters apply to every asset, and matching nothing is not an error."""
+    dl = _make_downloader(
+        "dandi://dandi/000108/sub-2/other.ome.zarr",
+        tmp_path,
+        zarr_filters=[ZarrFilter("path", "a")],
+    )
+    assert dl.zarr_entry_filter is not None
+    assert dl.zarr_entry_filter("a/data.bin")
+    assert not dl.zarr_entry_filter("b/data.bin")
+    assert dl.empty_zarr_filter_error is None
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_url_sync_conflict() -> None:
+    """--sync cannot be combined with a URL pointing inside a Zarr asset."""
+    with pytest.raises(
+        ValueError, match="--sync cannot be used with a URL pointing inside a Zarr"
+    ):
+        download(
+            "dandi://dandi/000027/sample.zarr/0/0",
+            "/tmp/unused",
+            sync=True,
+        )
+
+
+def _upload_two_zarrs(ds: SampleDandiset) -> None:
+    """Upload ``sample.zarr`` (subdirs a, b) and ``other.zarr`` (subdirs c, d)."""
+    for name, subdirs in [("sample.zarr", "ab"), ("other.zarr", "cd")]:
+        zf = ds.dspath / name
+        zf.mkdir()
+        for sub in subdirs:
+            (zf / sub).mkdir()
+            (zf / sub / "data.bin").write_text(f"data-{sub}")
+    ds.upload(validation="skip")
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_url_subpath(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """A URL pointing inside a Zarr asset downloads only that subtree."""
+    _upload_two_zarrs(new_dandiset)
+    download(
+        f"dandi://{new_dandiset.api.instance_id}"
+        f"/{new_dandiset.dandiset_id}/sample.zarr/a",
+        tmp_path,
+    )
+    zarr_dir = tmp_path / "sample.zarr"
+    assert (zarr_dir / "a" / "data.bin").read_text() == "data-a"
+    assert not (zarr_dir / "b").exists()
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_url_subpath_nonexistent(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """A URL naming a nonexistent path inside a Zarr asset errors out."""
+    _upload_two_zarrs(new_dandiset)
+    with pytest.raises(RuntimeError, match="1 error while downloading"):
+        download(
+            f"dandi://{new_dandiset.api.instance_id}"
+            f"/{new_dandiset.dandiset_id}/sample.zarr/nonexistent",
+            tmp_path,
+        )
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_url_subpath_does_not_filter_other_urls(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """A Zarr subpath in one URL must not restrict a second URL's download."""
+    _upload_two_zarrs(new_dandiset)
+    prefix = f"dandi://{new_dandiset.api.instance_id}/{new_dandiset.dandiset_id}"
+    download([f"{prefix}/sample.zarr/a", f"{prefix}/other.zarr"], tmp_path)
+    # First URL: only the requested subtree
+    assert (tmp_path / "sample.zarr" / "a" / "data.bin").exists()
+    assert not (tmp_path / "sample.zarr" / "b").exists()
+    # Second URL: the whole Zarr, unaffected by the first URL's subpath
+    assert (tmp_path / "other.zarr" / "c" / "data.bin").read_text() == "data-c"
+    assert (tmp_path / "other.zarr" / "d" / "data.bin").read_text() == "data-d"

@@ -25,6 +25,7 @@ from dandi.exceptions import FailedToConnectError, NotFoundError, UnknownURLErro
 from dandi.tests.skip import mark
 
 from .fixtures import DandiAPI, SampleDandiset
+from ..zarr_filter import ZarrFilter
 
 
 @pytest.mark.parametrize(
@@ -407,6 +408,29 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
 )
 def test_split_zarr_location(location: str, expected: tuple[str, str] | None) -> None:
     assert split_zarr_location(location) == expected
+
+
+@pytest.mark.ai_generated
+def test_asset_zarr_entry_url_get_zarr_filter() -> None:
+    """A URL pointing inside a Zarr asset restricts the download to its subpath."""
+    url = parse_dandi_url("dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0")
+    assert isinstance(url, AssetZarrEntryURL)
+    assert url.get_zarr_filter() == [ZarrFilter("path", "0/0/0")]
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "url",
+    [
+        "dandi://dandi/000108",
+        "dandi://dandi/000108/sub-1/file.ome.zarr",
+        "dandi://dandi/000108/sub-1/file.nwb",
+        "dandi://dandi/000108/sub-1/",
+    ],
+)
+def test_non_zarr_entry_urls_have_no_zarr_filter(url: str) -> None:
+    """Any other URL leaves Zarr assets unfiltered."""
+    assert parse_dandi_url(url).get_zarr_filter() == []
 
 
 @pytest.mark.parametrize(

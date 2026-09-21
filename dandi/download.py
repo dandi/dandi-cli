@@ -48,7 +48,6 @@ from .consts import (
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
 from .dandiarchive import (
     AssetItemURL,
-    AssetZarrEntryURL,
     DandisetURL,
     ParsedDandiURL,
     SingleAssetURL,
@@ -122,23 +121,20 @@ def download(
 
     parsed_urls = [parse_dandi_url(u, glob=path_type is PathType.GLOB) for u in urls]
 
-    # Parse zarr entry filters
-    zarr_entry_filter: Callable[[str], bool] | None = None
-    all_zf: list[ZarrFilter] = []
-    if zarr_filters:
-        for spec in zarr_filters:
-            all_zf.extend(parse_zarr_filter(spec))
+    # Parse the explicit ``--zarr`` filters.  Filters implied by a URL that
+    # points inside a Zarr asset are resolved per-URL by each `Downloader`, so
+    # that the subpath of one URL does not restrict the download of another.
+    explicit_zarr_filters: list[ZarrFilter] = []
+    for spec in zarr_filters:
+        explicit_zarr_filters.extend(parse_zarr_filter(spec))
 
-    # Merge URL-derived path filters from AssetZarrEntryURL
-    for purl in parsed_urls:
-        if isinstance(purl, AssetZarrEntryURL):
-            all_zf.append(ZarrFilter("path", purl.zarr_subpath))
-
-    if all_zf:
-        zarr_entry_filter = make_zarr_entry_filter(all_zf)
-
-    if sync and zarr_entry_filter is not None:
-        raise ValueError("--sync and --zarr cannot be used together")
+    if sync:
+        if explicit_zarr_filters:
+            raise ValueError("--sync and --zarr cannot be used together")
+        if any(purl.get_zarr_filter() for purl in parsed_urls):
+            raise ValueError(
+                "--sync cannot be used with a URL pointing inside a Zarr asset"
+            )
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
@@ -176,7 +172,7 @@ def download(
             preserve_tree=preserve_tree,
             jobs_per_zarr=jobs_per_zarr,
             on_error="yield" if format is DownloadFormat.PYOUT else "raise",
-            zarr_entry_filter=zarr_entry_filter,
+            zarr_filters=explicit_zarr_filters,
             **kw,
         )
         for purl in parsed_urls
@@ -272,7 +268,16 @@ class Downloader:
     preserve_tree: bool
     jobs_per_zarr: int | None
     on_error: Literal["raise", "yield"]
-    zarr_entry_filter: Callable[[str], bool] | None = None
+    #: Filters from the ``--zarr`` option; they apply to every Zarr asset, and
+    #: matching no entries in a given asset is not an error
+    zarr_filters: list[ZarrFilter] = field(default_factory=list)
+    #: Predicate for selecting entries within a Zarr asset, combining
+    #: `zarr_filters` with the filters implied by `url`; `None` means that
+    #: every entry is to be downloaded
+    zarr_entry_filter: Callable[[str], bool] | None = field(init=False)
+    #: Message to report when the filters implied by `url` match no entries in
+    #: a Zarr asset; `None` when `url` implies no filters
+    empty_zarr_filter_error: str | None = field(init=False)
     #: which will be set .gen to assets.  Purpose is to make it possible to get
     #: summary statistics while already downloading.  TODO: reimplement
     #: properly!
@@ -292,6 +297,21 @@ class Downloader:
         else:
             self.output_prefix = Path()
         self.output_path = Path(output_dir, self.output_prefix)
+        # Filters implied by the URL (i.e., a URL pointing inside a Zarr
+        # asset) name entries the user explicitly asked for, so -- unlike the
+        # ``--zarr`` filters -- matching nothing is an error.
+        url_zarr_filters = self.url.get_zarr_filter()
+        all_filters = url_zarr_filters + list(self.zarr_filters)
+        self.zarr_entry_filter = (
+            make_zarr_entry_filter(all_filters) if all_filters else None
+        )
+        if url_zarr_filters:
+            patterns = ", ".join(repr(f.pattern) for f in url_zarr_filters)
+            self.empty_zarr_filter_error = (
+                f"No entries in the Zarr asset match {patterns}"
+            )
+        else:
+            self.empty_zarr_filter_error = None
 
     def is_dandiset_yaml(self) -> bool:
         return isinstance(self.url, AssetItemURL) and self.url.path == "dandiset.yaml"
@@ -398,6 +418,7 @@ class Downloader:
                         jobs=self.jobs_per_zarr,
                         lock=lock,
                         zarr_entry_filter=self.zarr_entry_filter,
+                        empty_filter_error=self.empty_zarr_filter_error,
                     )
 
                 def _progress_filter(gen):
@@ -1041,6 +1062,7 @@ def _download_zarr(
     lock: Lock,
     jobs: int | None = None,
     zarr_entry_filter: Callable[[str], bool] | None = None,
+    empty_filter_error: str | None = None,
 ) -> Iterator[dict]:
     # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
@@ -1095,8 +1117,11 @@ def _download_zarr(
                 break
         else:
             if zarr_entry_filter is not None:
-                # Filter matched no entries; still report completion
-                yield {"status": "done"}
+                if not entries and empty_filter_error is not None:
+                    yield {"status": "error", "message": empty_filter_error}
+                else:
+                    # Filter matched no entries; still report completion
+                    yield {"status": "done"}
             return
 
     if zarr_entry_filter is not None:

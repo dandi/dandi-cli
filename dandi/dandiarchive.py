@@ -54,6 +54,7 @@ from .consts import (
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance, get_retry_after
+from .zarr_filter import ZarrFilter
 
 lgr = get_logger()
 
@@ -200,6 +201,20 @@ class ParsedDandiURL(ABC):
         :meta private:
         """
         ...
+
+    def get_zarr_filter(self) -> list[ZarrFilter]:
+        """
+        Returns the filters restricting which entries within the Zarr assets
+        returned by `get_assets()` should be downloaded.  An empty list means
+        that no restriction is implied by the URL and all entries are to be
+        downloaded.
+
+        Only `AssetZarrEntryURL` — a URL pointing inside a Zarr asset — returns
+        a non-empty list.
+
+        :meta private:
+        """
+        return []
 
     @abstractmethod
     def is_under_download_path(self, path: str) -> bool:
@@ -511,6 +526,10 @@ class AssetZarrEntryURL(SingleAssetURL):
                 return
         with _maybe_strict(strict):
             yield dandiset.get_asset_by_path(self.asset_path)
+
+    def get_zarr_filter(self) -> list[ZarrFilter]:
+        """Restrict the download to the entries at or under `zarr_subpath`."""
+        return [ZarrFilter("path", self.zarr_subpath)]
 
 
 @dataclass
