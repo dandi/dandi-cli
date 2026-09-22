@@ -22,6 +22,7 @@ from ..digests import (
     get_dandietag,
     get_zarr_checksum,
     get_zarr_multipart_checksum,
+    is_multipart_etag,
     md5file_nocache,
 )
 
@@ -193,3 +194,32 @@ def test_dandietag_nocache_multipart(tmp_path: Path) -> None:
     digest = dandietag_nocache(f)
     assert digest != md5file_nocache(f)
     assert digest == get_dandietag(f).as_str()
+
+
+@pytest.mark.ai_generated
+def test_dandietag_nocache_empty_file(tmp_path: Path) -> None:
+    """
+    S3 rejects a multipart upload with no parts, so an empty object is stored
+    under its plain MD5 under either upload scheme.  `DandiETag` would give it
+    ``<md5>-0``, which is not an ETag S3 ever produces, so `dandietag_nocache`
+    has to fall back to the plain MD5 or the digest would match nothing in the
+    archive.
+    """
+    f = tmp_path / "empty.txt"
+    f.write_bytes(b"")
+    assert dandietag_nocache(f) == md5file_nocache(f)
+    assert dandietag_nocache(f) == "d41d8cd98f00b204e9800998ecf8427e"
+    assert not is_multipart_etag(dandietag_nocache(f))
+
+
+@pytest.mark.ai_generated
+def test_zarr_checksums_agree_on_empty_entry(tmp_path: Path) -> None:
+    """
+    An empty entry is stored under the same ETag under either scheme, so a Zarr
+    of nothing but empty entries has the same checksum either way.
+    """
+    zarr_path = tmp_path / "empty.zarr"
+    (zarr_path / "sub").mkdir(parents=True)
+    (zarr_path / "a").write_bytes(b"")
+    (zarr_path / "sub" / "b").write_bytes(b"")
+    assert get_zarr_multipart_checksum(zarr_path) == get_zarr_checksum(zarr_path)

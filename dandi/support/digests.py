@@ -114,7 +114,9 @@ def get_dandietag(filepath: str | Path) -> DandiETag:
 
 
 #: Pattern of an S3 multipart ETag: an MD5 hex digest, a hyphen, and the number
-#: of parts (e.g. ``d41d8cd98f00b204e9800998ecf8427e-3``).
+#: of parts (e.g. ``d41d8cd98f00b204e9800998ecf8427e-3``).  The part count is
+#: never zero: S3 rejects a multipart upload with no parts, so an empty object
+#: is always stored under its plain MD5 (see `dandietag_nocache`).
 _MULTIPART_ETAG_RE = re.compile(r"[0-9a-f]{32}-[1-9][0-9]*\Z")
 
 
@@ -167,7 +169,14 @@ def dandietag_nocache(filepath: str | Path) -> str:
     This is the digest of an entry of a **multipart** Zarr, which S3 stores
     under its multipart ETag; multipart is the scheme `dandi upload` uses for
     new Zarrs.  For the single-part counterpart, see `md5file_nocache`.
+
+    An empty file is the one exception: `DandiETag` gives it zero parts and so
+    an etag of ``<md5>-0``, but S3 rejects a multipart upload with no parts and
+    stores an empty object under its plain MD5 under either scheme.  The plain
+    MD5 is therefore what the archive will have digested the entry as.
     """
+    if os.path.getsize(filepath) == 0:
+        return md5file_nocache(filepath)
     s = DandiETag.from_file(filepath).as_str()
     assert isinstance(s, str)
     return s
