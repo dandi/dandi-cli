@@ -673,6 +673,36 @@ def _upload_blob_part(
     }
 
 
+def _abort_upload(
+    client: RESTFullAPIClient, upload_root: str, upload_id: str, asset_path: str
+) -> None:
+    """
+    Release a multipart upload that will not be completed, so that the archive
+    does not keep an upload record (and an in-progress S3 multipart upload)
+    around until it is garbage-collected a week later.  Until such a record is
+    gone it counts as an active upload, which blocks finalizing the Zarr it
+    belongs to and unembargoing its Dandiset.
+
+    Best-effort: a failure here must not displace whatever went wrong with the
+    upload itself, and an archive with no such endpoint simply leaves the
+    record for garbage collection, as before.
+
+    :meta private:
+    """
+    try:
+        client.delete(f"{upload_root}/{upload_id}/")
+    except Exception as e:
+        lgr.debug(
+            "%s: Failed to abort upload %s: %s: %s",
+            asset_path,
+            upload_id,
+            type(e).__name__,
+            str(e),
+        )
+    else:
+        lgr.debug("%s: Aborted upload %s", asset_path, upload_id)
+
+
 def multipart_upload(
     client: RESTFullAPIClient,
     filepath: Path,
@@ -700,6 +730,9 @@ def multipart_upload(
     as ``etagger`` so that the file is not hashed a second time here.
     Otherwise, if ``expected_etag`` is non-`None` and does not match the etag
     computed for ``filepath``, `RuntimeError` is raised.
+
+    An upload that fails after ``initialize`` is aborted, so that the archive
+    does not count it as active until garbage collection (see `_abort_upload`).
 
     An HTTP 409 from ``initialize`` — the blob is already present — is raised
     as `BlobExistsError`.  A 409 from any other point of the upload (e.g. from
@@ -741,6 +774,7 @@ def multipart_upload(
         ):
             raise BlobExistsError(blob_id) from e
         raise
+    upload_id: str | None = None
     try:
         upload_id = resp["upload_id"]
         parts = resp["parts"]
@@ -809,6 +843,8 @@ def multipart_upload(
             validated = client.post(f"{upload_root}/{upload_id}/validate/")
     except Exception:
         post_upload_size_check(filepath, total_size, True)
+        if upload_id is not None:
+            _abort_upload(client, upload_root, upload_id, asset_path)
         raise
     else:
         post_upload_size_check(filepath, total_size, False)

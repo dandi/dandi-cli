@@ -900,7 +900,24 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     "%s: Waiting for server to calculate Zarr checksum", asset_path
                 )
                 yield {"status": "server calculating checksum"}
-                client.post(f"/zarr/{zarr_id}/finalize/")
+                try:
+                    client.post(f"/zarr/{zarr_id}/finalize/")
+                except requests.HTTPError as e:
+                    # The archive refuses to ingest a Zarr with uploads still
+                    # outstanding, as their chunks could land after it has
+                    # listed the Zarr's contents.  An upload this client gave
+                    # up on is aborted (see `_abort_upload`), so reaching this
+                    # means some upload was left behind -- by an older client,
+                    # or by this one being killed mid-upload -- and only
+                    # garbage collection will clear it.
+                    if e.response is not None and ("active uploads" in e.response.text):
+                        raise UploadError(
+                            f"{asset_path}: the archive will not finalize this"
+                            f" Zarr while it has uploads outstanding; they are"
+                            f" cleared by garbage collection once they expire."
+                            f"  Server response: {e.response.text}"
+                        ) from e
+                    raise
                 while True:
                     sleep(2)
                     r = client.get(f"/zarr/{zarr_id}/")
@@ -1172,7 +1189,8 @@ def _upload_zarr_entry(
         # A 403 means the presigned part URLs timed out; the other conditions
         # are transient S3 hiccups (see `_retry_s3_upload`).  Either way the
         # entry is retried from a fresh multipart upload, since its part URLs
-        # cannot be re-signed in place.
+        # cannot be re-signed in place; `multipart_upload` has already aborted
+        # the one that failed, which the Zarr cannot be finalized until.
         if e.response is not None and (
             e.response.status_code == 403 or _retry_s3_upload(e.response)
         ):

@@ -674,6 +674,51 @@ def test_multipart_upload_conflict_without_location(tmp_path: Path) -> None:
             pass
 
 
+@pytest.mark.ai_generated
+def test_multipart_upload_aborts_on_failure(tmp_path: Path) -> None:
+    """
+    An upload that fails after initialize is released, so that the archive does
+    not go on counting it as active -- which would block finalizing the Zarr it
+    belongs to, and unembargoing its Dandiset -- until garbage collection.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    # Initialize succeeds, but the part list disagrees with what we computed.
+    client.post.return_value = {"upload_id": "upload-1", "parts": []}
+    with pytest.raises(RuntimeError, match="number of parts"):
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+            upload_root="/zarr/uploads",
+        ):
+            pass
+    client.delete.assert_called_once_with("/zarr/uploads/upload-1/")
+
+
+@pytest.mark.ai_generated
+def test_multipart_upload_abort_failure_is_not_masked(tmp_path: Path) -> None:
+    """
+    Aborting is best-effort: against an archive with no such endpoint it must
+    not displace the error that actually stopped the upload.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    client.post.return_value = {"upload_id": "upload-1", "parts": []}
+    client.delete.side_effect = _http_error(404)
+    with pytest.raises(RuntimeError, match="number of parts"):
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+        ):
+            pass
+
+
 def test_validate_deep_zarr(tmp_path: Path) -> None:
     zarr_path = tmp_path / "foo.zarr"
     zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
