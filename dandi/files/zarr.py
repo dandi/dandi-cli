@@ -1216,6 +1216,15 @@ def _upload_zarr_entry_multipart(
 
     :meta private:
     """
+    if item.size == 0:
+        # `contentSize` must be positive at the archive's initialize endpoint,
+        # and S3 rejects a multipart upload with no parts, so an empty entry
+        # cannot go through this path at all.  Say so, rather than let it
+        # surface as an opaque 400.
+        raise UploadError(
+            f"{item.entry_path}: this Zarr entry is empty, and an empty entry"
+            f" cannot be uploaded to a multipart Zarr"
+        )
     init_fields: dict[str, Any] = {"zarr_id": zarr_id, "chunk_key": item.entry_path}
     if item.content_type is not None:
         # S3 fixes an object's Content-Type when the multipart upload is
