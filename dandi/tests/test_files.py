@@ -4,11 +4,12 @@ from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
-from unittest.mock import ANY
+from unittest.mock import ANY, Mock
 
 from dandischema.models import get_schema_version
 import numpy as np
 import pytest
+import requests
 import zarr
 
 from .fixtures import SampleDandiset
@@ -16,7 +17,7 @@ from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, zarr_format_of
 from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
-from ..exceptions import UnknownAssetError
+from ..exceptions import BlobExistsError, UnknownAssetError
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -31,6 +32,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..files.bases import multipart_upload
 from ..files.zarr import EntryUploadTracker, UploadItem
 from ..support.digests import dandietag_nocache, md5file_nocache
 
@@ -619,6 +621,57 @@ def test_zarr_upload_item_carries_etagger(tmp_path: Path) -> None:
 
     assert tracker._mkitem(entries["empty"]).etagger is None
     assert EntryUploadTracker(multipart=False)._mkitem(nonempty).etagger is None
+
+
+def _http_error(
+    status: int, headers: dict[str, str] | None = None
+) -> requests.HTTPError:
+    r = requests.Response()
+    r.status_code = status
+    r.headers.update(headers or {})
+    return requests.HTTPError(f"{status} error", response=r)
+
+
+@pytest.mark.ai_generated
+def test_multipart_upload_blob_exists(tmp_path: Path) -> None:
+    """
+    A 409 from ``initialize`` means the blob is already present, and the
+    response's ``Location`` header identifies it.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    client.post.side_effect = _http_error(409, {"Location": "some-blob-id"})
+    with pytest.raises(BlobExistsError) as excinfo:
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+        ):
+            pass
+    assert excinfo.value.blob_id == "some-blob-id"
+
+
+@pytest.mark.ai_generated
+def test_multipart_upload_conflict_without_location(tmp_path: Path) -> None:
+    """
+    Only ``initialize`` reports a pre-existing blob.  A 409 that identifies no
+    blob -- as ``validate`` returns when two clients race to upload the same
+    one -- is an ordinary error and must not be mistaken for one.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    client.post.side_effect = _http_error(409)
+    with pytest.raises(requests.HTTPError):
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+        ):
+            pass
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:

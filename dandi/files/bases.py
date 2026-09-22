@@ -31,6 +31,7 @@ from dandi.dandiapi import (
     RESTFullAPIClient,
     set_asset_schema_key,
 )
+from dandi.exceptions import BlobExistsError
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
@@ -376,12 +377,9 @@ class LocalFileAsset(LocalAsset):
                 expected_etag=metadata.get("digest", {}).get("dandi:dandi-etag"),
                 jobs=jobs,
             )
-        except requests.HTTPError as e:
-            if e.response is not None and e.response.status_code == 409:
-                lgr.debug("%s: Blob already exists on server", asset_path)
-                blob_id = e.response.headers["Location"]
-            else:
-                raise
+        except BlobExistsError as e:
+            lgr.debug("%s: Blob already exists on server", asset_path)
+            blob_id = e.blob_id
         else:
             blob_id = resp["blob_id"]
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
@@ -701,8 +699,12 @@ def multipart_upload(
     upload path does, in order to compare against the remote — should pass it
     as ``etagger`` so that the file is not hashed a second time here.
     Otherwise, if ``expected_etag`` is non-`None` and does not match the etag
-    computed for ``filepath``, `RuntimeError` is raised.  An HTTP 409 from
-    ``initialize`` (i.e., the blob already exists) propagates to the caller.
+    computed for ``filepath``, `RuntimeError` is raised.
+
+    An HTTP 409 from ``initialize`` — the blob is already present — is raised
+    as `BlobExistsError`.  A 409 from any other point of the upload (e.g. from
+    ``validate``, when two clients race to upload the same blob) identifies no
+    blob and so propagates as an ordinary `requests.HTTPError`.
 
     :meta private:
     """
@@ -722,14 +724,23 @@ def multipart_upload(
     yield {"status": "initiating upload"}
     lgr.debug("%s: Beginning upload", asset_path)
     total_size = pre_upload_size_check(filepath)
-    resp = client.post(
-        f"{upload_root}/initialize/",
-        json={
-            "contentSize": total_size,
-            "digest": {"algorithm": "dandi:dandi-etag", "value": filetag},
-            **init_fields,
-        },
-    )
+    try:
+        resp = client.post(
+            f"{upload_root}/initialize/",
+            json={
+                "contentSize": total_size,
+                "digest": {"algorithm": "dandi:dandi-etag", "value": filetag},
+                **init_fields,
+            },
+        )
+    except requests.HTTPError as e:
+        if (
+            e.response is not None
+            and e.response.status_code == 409
+            and (blob_id := e.response.headers.get("Location")) is not None
+        ):
+            raise BlobExistsError(blob_id) from e
+        raise
     try:
         upload_id = resp["upload_id"]
         parts = resp["parts"]
