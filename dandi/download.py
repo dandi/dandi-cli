@@ -788,10 +788,13 @@ def _download_file(
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
             if algo == "dandi-etag" and size is not None:
-                # Instantiate outside the lambda so that mypy is assured that
-                # `size` is not None:
-                hasher = ETagHashlike(size)
-                digester = lambda: hasher  # noqa: E731
+                # Bind `size` to a local so that mypy is assured it is not
+                # None.  The lambda must construct a fresh `ETagHashlike` on
+                # each call, as the hashlib branch does: a download attempt
+                # that is retried starts the hashing over, and an
+                # `ETagHashlike` fed past `size` bytes raises `ValueError`.
+                etag_size = size
+                digester = lambda: ETagHashlike(etag_size)  # noqa: E731
             else:
                 digester = getattr(hashlib, algo, None)
             if digester is not None:
