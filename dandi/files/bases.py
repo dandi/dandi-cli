@@ -681,6 +681,7 @@ def multipart_upload(
     asset_path: str,
     init_fields: dict[str, Any],
     expected_etag: str | None = None,
+    etagger: DandiETag | None = None,
     jobs: int | None = None,
     upload_root: str = "/uploads",
 ) -> Generator[dict, None, dict]:
@@ -696,9 +697,12 @@ def multipart_upload(
     endpoint: ``{"dandiset": ...}`` for an asset blob or
     ``{"zarr_id": ..., "chunk_key": ...}`` for a Zarr chunk.
 
-    If ``expected_etag`` is non-`None` and does not match the etag computed for
-    ``filepath``, `RuntimeError` is raised.  An HTTP 409 from ``initialize``
-    (i.e., the blob already exists) propagates to the caller.
+    A caller that has already computed ``filepath``'s `DandiETag` — as the Zarr
+    upload path does, in order to compare against the remote — should pass it
+    as ``etagger`` so that the file is not hashed a second time here.
+    Otherwise, if ``expected_etag`` is non-`None` and does not match the etag
+    computed for ``filepath``, `RuntimeError` is raised.  An HTTP 409 from
+    ``initialize`` (i.e., the blob already exists) propagates to the caller.
 
     :meta private:
     """
@@ -706,9 +710,10 @@ def multipart_upload(
     from dandi.support.digests import get_dandietag
 
     yield {"status": "calculating etag"}
-    etagger = get_dandietag(filepath)
+    if etagger is None:
+        etagger = get_dandietag(filepath)
+        lgr.debug("Calculated dandi-etag of %s for %s", etagger.as_str(), filepath)
     filetag = etagger.as_str()
-    lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
     if expected_etag is not None and expected_etag != filetag:
         raise RuntimeError(
             f"{filepath}: File etag changed; was originally"

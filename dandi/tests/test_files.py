@@ -31,7 +31,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
-from ..files.zarr import UploadItem
+from ..files.zarr import EntryUploadTracker, UploadItem
 from ..support.digests import dandietag_nocache, md5file_nocache
 
 lgr = get_logger()
@@ -594,6 +594,31 @@ def test_zarr_upload_item_multipart(tmp_path: Path) -> None:
     # A multipart ETag is not a hex digest, so it has no base64 MD5 form.
     with pytest.raises(ValueError, match="multipart ETag"):
         item.base64_digest
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_item_carries_etagger(tmp_path: Path) -> None:
+    """
+    An entry digested for a multipart upload keeps the `DandiETag` it was
+    digested with, so that uploading it does not read & hash the file a second
+    time.  There is none to keep for a single-part entry, nor for an empty one,
+    which S3 stores under its plain MD5 under either scheme.
+    """
+    zarr_path = tmp_path / "example.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    (zarr_path / "empty").write_bytes(b"")
+    zf = dandi_file(zarr_path)
+    assert isinstance(zf, ZarrAsset)
+    entries = {str(e): e for e in zf.iterfiles()}
+    nonempty = next(e for e in entries.values() if e.size > 0)
+
+    tracker = EntryUploadTracker(multipart=True)
+    item = tracker._mkitem(nonempty)
+    assert item.etagger is not None
+    assert item.etagger.as_str() == item.digest
+
+    assert tracker._mkitem(entries["empty"]).etagger is None
+    assert EntryUploadTracker(multipart=False)._mkitem(nonempty).etagger is None
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:
