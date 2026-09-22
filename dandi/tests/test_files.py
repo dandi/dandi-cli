@@ -38,7 +38,7 @@ from ..files import (
     find_dandi_files,
 )
 from ..files.bases import multipart_upload
-from ..files.zarr import EntryUploadTracker, UploadItem
+from ..files.zarr import EntryUploadTracker, UploadItem, _abort_zarr_uploads
 from ..support.digests import dandietag_nocache, md5file_nocache
 from ..validate._types import Validator
 
@@ -738,6 +738,16 @@ def test_multipart_upload_conflict_without_location(tmp_path: Path) -> None:
             init_fields={"dandiset": "000001"},
         ):
             pass
+
+
+@pytest.mark.ai_generated
+def test_abort_zarr_uploads() -> None:
+    """
+    Outstanding uploads are aborted through the Zarr's ``uploads`` endpoint.
+    """
+    client = Mock()
+    _abort_zarr_uploads(client, "zarr-1", "foo.zarr")
+    client.delete.assert_called_once_with("/zarr/zarr-1/uploads/")
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:

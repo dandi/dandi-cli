@@ -900,7 +900,18 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     "%s: Waiting for server to calculate Zarr checksum", asset_path
                 )
                 yield {"status": "server calculating checksum"}
-                client.post(f"/zarr/{zarr_id}/finalize/")
+                if multipart:
+                    _abort_zarr_uploads(client, zarr_id, asset_path)
+                try:
+                    client.post(f"/zarr/{zarr_id}/finalize/")
+                except requests.HTTPError as e:
+                    if e.response is not None and ("active uploads" in e.response.text):
+                        raise UploadError(
+                            f"{asset_path}: the archive will not finalize this"
+                            f" Zarr while it has uploads outstanding."
+                            f"  Server response: {e.response.text}"
+                        ) from e
+                    raise
                 while True:
                     sleep(2)
                     r = client.get(f"/zarr/{zarr_id}/")
@@ -1172,7 +1183,9 @@ def _upload_zarr_entry(
         # A 403 means the presigned part URLs timed out; the other conditions
         # are transient S3 hiccups (see `_retry_s3_upload`).  Either way the
         # entry is retried from a fresh multipart upload, since its part URLs
-        # cannot be re-signed in place.
+        # cannot be re-signed in place.  The one that failed is left
+        # outstanding, and is aborted before the Zarr is finalized (see
+        # `_abort_zarr_uploads`).
         if e.response is not None and (
             e.response.status_code == 403 or _retry_s3_upload(e.response)
         ):
@@ -1200,6 +1213,28 @@ def _zarr_is_multipart(zarr: dict[str, Any]) -> bool:
     :meta private:
     """
     return zarr.get("upload_type") == ZARR_UPLOAD_TYPE_MULTIPART
+
+
+def _abort_zarr_uploads(
+    client: RESTFullAPIClient, zarr_id: str, asset_path: str
+) -> None:
+    """
+    Abort every multipart upload outstanding on the Zarr ``zarr_id``, so that
+    the archive will finalize it.
+
+    :meta private:
+    """
+    try:
+        client.delete(f"/zarr/{zarr_id}/uploads/")
+    except Exception as e:
+        lgr.debug(
+            "%s: Failed to abort outstanding uploads: %s: %s",
+            asset_path,
+            type(e).__name__,
+            str(e),
+        )
+    else:
+        lgr.debug("%s: Aborted outstanding uploads", asset_path)
 
 
 def _handle_failed_items_and_raise(
