@@ -22,6 +22,7 @@ import urllib.parse
 if TYPE_CHECKING:
     from ..upload import ZarrMode
 
+from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset
 from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
@@ -700,7 +701,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             to_upload = EntryUploadTracker(multipart=multipart)
             if old_zarr_entries:
                 to_delete: list[RemoteZarrEntry] = []
-                digesting: list[Future[tuple[LocalZarrEntry, str, bool]]] = []
+                digesting: list[
+                    Future[tuple[LocalZarrEntry, str, DandiETag | None, bool]]
+                ] = []
                 yield {"status": "comparing against remote Zarr"}
                 with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                     for local_entry in self.iterfiles():
@@ -762,9 +765,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 d.cancel()
                             raise
                         else:
-                            local_entry, local_digest, differs = item
+                            local_entry, local_digest, etagger, differs = item
                             if differs:
-                                to_upload.register(local_entry, local_digest)
+                                to_upload.register(local_entry, local_digest, etagger)
                             else:
                                 zcc.add_leaf(
                                     Path(str(local_entry)),
@@ -1261,6 +1264,7 @@ def _upload_zarr_entry_multipart(
             asset_path=item.entry_path,
             init_fields=init_fields,
             expected_etag=item.digest,
+            etagger=item.etagger,
             jobs=jobs,
             upload_root="/zarr/uploads",
         )
@@ -1387,24 +1391,21 @@ class EntryUploadTracker:
     digested_entries: list[UploadItem] = field(default_factory=list)
     fresh_entries: list[LocalZarrEntry] = field(default_factory=list)
 
-    def register(self, e: LocalZarrEntry, digest: str | None = None) -> None:
+    def register(
+        self,
+        e: LocalZarrEntry,
+        digest: str | None = None,
+        etagger: DandiETag | None = None,
+    ) -> None:
         if digest is not None:
-            self.digested_entries.append(UploadItem.from_entry(e, digest))
+            self.digested_entries.append(UploadItem.from_entry(e, digest, etagger))
         else:
             self.fresh_entries.append(e)
         self.total_size += e.size
 
     def _mkitem(self, e: LocalZarrEntry) -> UploadItem:
-        # Avoid heavy import by importing within function:
-        from dandi.support.digests import dandietag_nocache, md5file_nocache
-
-        # Dispatch to the digest matching the Zarr's upload scheme.
-        digest = (
-            dandietag_nocache(e.filepath)
-            if self.multipart
-            else md5file_nocache(e.filepath)
-        )
-        return UploadItem.from_entry(e, digest)
+        digest, etagger = _digest_entry(e.filepath, self.multipart)
+        return UploadItem.from_entry(e, digest, etagger)
 
     def get_items(self, jobs: int = 5) -> Generator[UploadItem, None, None]:
         # Note: In order for the ThreadPoolExecutor to be closed if an error
@@ -1438,9 +1439,15 @@ class UploadItem:
     digest: str
     size: int
     content_type: str | None
+    #: The `DandiETag` that ``digest`` was computed from, when the entry is
+    #: digested for a multipart upload, so that the upload need not hash the
+    #: file again
+    etagger: DandiETag | None = None
 
     @classmethod
-    def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
+    def from_entry(
+        cls, e: LocalZarrEntry, digest: str, etagger: DandiETag | None = None
+    ) -> UploadItem:
         # JSON metadata files. ``.zarray`` / ``.zattrs`` / ``.zgroup`` /
         # ``.zmetadata`` are the V2 names; ``zarr.json`` is the V3 name (a
         # single file per group/array containing all metadata).
@@ -1461,15 +1468,19 @@ class UploadItem:
             digest=digest,
             size=size,
             content_type=content_type,
+            etagger=etagger,
         )
 
     @property
     def base64_digest(self) -> str:
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import is_multipart_etag
+
         # An entry of a multipart Zarr is digested with its S3 multipart ETag
         # (``<md5>-<parts>``), which is not a plain MD5 and so has no base64 MD5
         # representation.  Such entries are uploaded via multipart upload and do
         # not go through the single-part path that needs this header.
-        if "-" in self.digest:
+        if is_multipart_etag(self.digest):
             raise ValueError(
                 f"{self.entry_path}: digest {self.digest!r} is a multipart"
                 f" ETag, which has no base64 MD5 representation"
@@ -1480,31 +1491,49 @@ class UploadItem:
         return {"path": self.entry_path, "base64md5": self.base64_digest}
 
 
+def _digest_entry(filepath: Path, multipart: bool) -> tuple[str, DandiETag | None]:
+    """
+    Digest a Zarr entry the way the archive will have stored it: with its S3
+    multipart ETag for an entry of a multipart Zarr, or with its plain MD5 for
+    a single-part one.
+
+    For a multipart entry the `DandiETag` that produced the digest is returned
+    alongside it, so that uploading the entry need not hash the file a second
+    time.  There is none for an empty entry, which S3 stores under its plain
+    MD5 under either scheme (see `dandietag_nocache`).
+
+    :meta private:
+    """
+    # Avoid heavy import by importing within function:
+    from dandi.support.digests import dandietag_nocache, md5file_nocache
+
+    if not multipart:
+        return (md5file_nocache(filepath), None)
+    if os.path.getsize(filepath) == 0:
+        return (dandietag_nocache(filepath), None)
+    etagger = DandiETag.from_file(filepath)
+    digest = etagger.as_str()
+    assert isinstance(digest, str)
+    return (digest, etagger)
+
+
 def _cmp_digests(
     asset_path: str,
     local_entry: LocalZarrEntry,
     remote_digest: str,
     multipart: bool = False,
-) -> tuple[LocalZarrEntry, str, bool]:
-    # Avoid heavy import by importing within function:
-    from dandi.support.digests import dandietag_nocache, md5file_nocache
-
-    # Dispatch to the digest matching the Zarr's upload scheme.
-    local_digest = (
-        dandietag_nocache(local_entry.filepath)
-        if multipart
-        else md5file_nocache(local_entry.filepath)
-    )
+) -> tuple[LocalZarrEntry, str, DandiETag | None, bool]:
+    local_digest, etagger = _digest_entry(local_entry.filepath, multipart)
     if local_digest != remote_digest:
         lgr.debug(
             "%s: Path %s in Zarr differs from local file; re-uploading",
             asset_path,
             local_entry,
         )
-        return (local_entry, local_digest, True)
+        return (local_entry, local_digest, etagger, True)
     else:
         lgr.debug("%s: File %s already on server; skipping", asset_path, local_entry)
-        return (local_entry, local_digest, False)
+        return (local_entry, local_digest, etagger, False)
 
 
 def _rmfiles(
