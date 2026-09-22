@@ -560,6 +560,16 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 return True
         return False
 
+    def _has_oversized_entry(self) -> bool:
+        """
+        Whether any entry is larger than `S3_MAX_SINGLE_PART_UPLOAD`.  Such a
+        Zarr can only be uploaded via S3 multipart upload, since S3 rejects
+        single-part PUTs above that size.
+
+        :meta private:
+        """
+        return any(e.size > S3_MAX_SINGLE_PART_UPLOAD for e in self.iterfiles())
+
     def iter_upload(
         self,
         dandiset: RemoteDandiset,
@@ -598,9 +608,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
 
-        # Avoid heavy import by importing within function:
-        from dandi.support.digests import zarr_has_oversized_entry
-
         # New Zarrs are created with multipart upload enabled.  The archive
         # records the scheme per Zarr in an immutable ``upload_type`` field set
         # at creation time; all of a Zarr's entries must use the same scheme,
@@ -610,7 +617,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         # such content cannot be uploaded to a single-part Zarr (a pre-existing
         # one, or any Zarr on an archive predating the field, which always
         # creates single-part Zarrs).
-        needs_multipart = zarr_has_oversized_entry(self.filepath)
 
         def mkzarr() -> tuple[str, bool]:
             try:
@@ -666,6 +672,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     "%s: Pre-existing asset is not a Zarr; minting new Zarr", asset_path
                 )
                 zarr_id, multipart = mkzarr()
+            _check_single_part_ok(self, asset_path, multipart)
             r = client.put(
                 replacing.api_path,
                 json={"metadata": metadata, "zarr_id": zarr_id},
@@ -673,19 +680,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         else:
             lgr.debug("%s: Minting new Zarr", asset_path)
             zarr_id, multipart = mkzarr()
+            _check_single_part_ok(self, asset_path, multipart)
             r = client.post(
                 f"{dandiset.version_api_path}assets/",
                 json={"metadata": metadata, "zarr_id": zarr_id},
             )
 
-        if needs_multipart and not multipart:
-            raise UploadError(
-                f"{asset_path}: this Zarr contains an entry larger than"
-                f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB and so requires"
-                f" multipart upload, but the target Zarr does not support it."
-                f"  The archive may not support multipart Zarr upload, or the"
-                f" Zarr being replaced was created as single-part."
-            )
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
         mismatched = True
@@ -949,6 +949,28 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         else:
             lgr.info("%s: Asset successfully uploaded", asset_path)
             yield {"status": "done", "asset": a}
+
+
+def _check_single_part_ok(zarr: ZarrAsset, asset_path: str, multipart: bool) -> None:
+    """
+    Raise `UploadError` if ``zarr`` can only be uploaded via multipart upload
+    but the target Zarr is single-part.  Called before the asset is minted or
+    updated, so that a Zarr that cannot be uploaded leaves no asset behind.
+
+    The tree is walked only when the scheme is single-part, which is the
+    uncommon case; nothing about a multipart Zarr turns on the answer.
+
+    :meta private:
+    """
+    if multipart or not zarr._has_oversized_entry():
+        return
+    raise UploadError(
+        f"{asset_path}: this Zarr contains an entry larger than"
+        f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB and so requires"
+        f" multipart upload, but the target Zarr does not support it."
+        f"  The archive may not support multipart Zarr upload, or the"
+        f" Zarr being replaced was created as single-part."
+    )
 
 
 #: Hands an attempt's worth of a batch's items to a worker pool, returning one

@@ -30,7 +30,6 @@ from zarr_checksum.checksum import ZarrChecksum, ZarrChecksumManifest
 from zarr_checksum.tree import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
-from ..consts import S3_MAX_SINGLE_PART_UPLOAD
 from ..utils import Hasher, exclude_from_zarr
 
 lgr = logging.getLogger("dandi.support.digests")
@@ -128,24 +127,6 @@ def is_multipart_etag(digest: str) -> bool:
     multipart Zarr's entries from a single-part Zarr's.
     """
     return bool(_MULTIPART_ETAG_RE.match(digest))
-
-
-def zarr_has_oversized_entry(path: Path) -> bool:
-    """
-    Return whether the Zarr at ``path`` contains any entry larger than
-    `S3_MAX_SINGLE_PART_UPLOAD`.  Such a Zarr must be uploaded via S3 multipart
-    upload, since S3 rejects single-part PUTs above that size.
-    """
-    for dirpath, dirnames, filenames in os.walk(path):
-        dp = Path(dirpath)
-        dirnames[:] = [d for d in dirnames if not exclude_from_zarr(dp / d)]
-        for fn in filenames:
-            fp = dp / fn
-            if exclude_from_zarr(fp):
-                continue
-            if os.path.getsize(fp) > S3_MAX_SINGLE_PART_UPLOAD:
-                return True
-    return False
 
 
 def md5file_nocache(filepath: str | Path) -> str:
