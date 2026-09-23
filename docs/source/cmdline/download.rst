@@ -65,3 +65,46 @@ Options
 .. option:: --sync
 
     Delete local assets that do not exist on the server after downloading
+
+    Cannot be combined with ``--zarr`` or with a URL that points inside a Zarr
+    asset: a partial download of a Zarr leaves out entries that are on the
+    server, which ``--sync`` would then delete locally.
+
+.. option:: --zarr <filter>
+
+    Download only the entries within Zarr assets that match ``filter``, given
+    as :samp:`{type}:{pattern}` where ``type`` is one of:
+
+    ``glob``
+        Match the entry path against a glob pattern.  ``*`` matches within a
+        single path component and ``**`` matches across components, e.g.
+        ``glob:**/.zarray``.
+
+    ``path``
+        Match the entry at ``pattern`` and everything under it, e.g.
+        ``path:0/0``.
+
+    ``regex``
+        Match the entry path against a Python regular expression, e.g.
+        ``regex:^0/[0-9]+/``.
+
+    In place of :samp:`{type}:{pattern}`, the predefined filter ``metadata``
+    may be given; it selects the Zarr metadata files (``.zarray``, ``.zgroup``,
+    ``.zattrs``, ``.zmetadata``, and ``zarr.json``).
+
+    The option may be given more than once, in which case an entry is
+    downloaded if it matches **any** of the filters.
+
+    A URL that points inside a Zarr asset (see :ref:`resource_ids`) restricts
+    the download in the same way, as though ``path:`` had been given for the
+    portion of the URL below the Zarr asset::
+
+        dandi download dandi://dandi/000108/sub-1/file.ome.zarr/0/0
+
+    Unlike ``--zarr``, such a URL names entries that the Dandiset is expected
+    to have: if no entry matches, the download fails rather than quietly
+    downloading nothing.
+
+    Because only part of a Zarr is fetched, extra local files are not deleted
+    and the Zarr checksum of the result is not verified; the checksum of each
+    individual downloaded entry still is.

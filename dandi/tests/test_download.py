@@ -1729,19 +1729,40 @@ def _upload_two_zarrs(ds: SampleDandiset) -> None:
 
 
 @pytest.mark.ai_generated
+@pytest.mark.parametrize("suffix", ["a", "a/"])
 def test_download_zarr_url_subpath(
-    tmp_path: Path, new_dandiset: SampleDandiset
+    tmp_path: Path, new_dandiset: SampleDandiset, suffix: str
 ) -> None:
-    """A URL pointing inside a Zarr asset downloads only that subtree."""
+    """A URL pointing inside a Zarr asset downloads only that subtree.
+
+    A trailing slash is not meaningful below a zarr boundary, so both
+    spellings behave the same.
+    """
     _upload_two_zarrs(new_dandiset)
     download(
         f"dandi://{new_dandiset.api.instance_id}"
-        f"/{new_dandiset.dandiset_id}/sample.zarr/a",
+        f"/{new_dandiset.dandiset_id}/sample.zarr/{suffix}",
         tmp_path,
     )
     zarr_dir = tmp_path / "sample.zarr"
     assert (zarr_dir / "a" / "data.bin").read_text() == "data-a"
     assert not (zarr_dir / "b").exists()
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_url_trailing_slash_at_boundary(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """``.../x.zarr/`` downloads the whole zarr asset, as ``.../x.zarr`` does."""
+    _upload_two_zarrs(new_dandiset)
+    download(
+        f"dandi://{new_dandiset.api.instance_id}"
+        f"/{new_dandiset.dandiset_id}/sample.zarr/",
+        tmp_path,
+    )
+    zarr_dir = tmp_path / "sample.zarr"
+    assert (zarr_dir / "a" / "data.bin").read_text() == "data-a"
+    assert (zarr_dir / "b" / "data.bin").read_text() == "data-b"
 
 
 @pytest.mark.ai_generated

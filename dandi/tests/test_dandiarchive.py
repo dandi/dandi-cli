@@ -16,6 +16,7 @@ from dandi.dandiarchive import (
     BaseAssetIDURL,
     DandisetURL,
     ParsedDandiURL,
+    at_zarr_boundary,
     follow_redirect,
     multiasset_target,
     parse_dandi_url,
@@ -431,6 +432,78 @@ def test_asset_zarr_entry_url_get_zarr_filter() -> None:
 def test_non_zarr_entry_urls_have_no_zarr_filter(url: str) -> None:
     """Any other URL leaves Zarr assets unfiltered."""
     assert parse_dandi_url(url).get_zarr_filter() == []
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "location,expected",
+    [
+        ("sub-1/file.ome.zarr/", True),
+        ("sub-1/file.ome.zarr", True),
+        ("sub-1/file.ngff/", True),
+        ("file.zarr", True),
+        # Below the boundary
+        ("sub-1/file.ome.zarr/0/0", False),
+        # Not a zarr at all
+        ("sub-1/", False),
+        ("sub-1/file.nwb", False),
+        ("", False),
+    ],
+)
+def test_at_zarr_boundary(location: str, expected: bool) -> None:
+    assert at_zarr_boundary(location) == expected
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "url,parsed_url",
+    [
+        # A trailing slash below a zarr boundary names entries, not a folder
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0",
+            ),
+        ),
+        # A trailing slash at a zarr boundary names the zarr asset itself
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/file.ome.zarr",
+            ),
+        ),
+        # Folders that are not zarrs are unaffected
+        (
+            "dandi://dandi/000108/sub-1/",
+            AssetFolderURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/",
+            ),
+        ),
+    ],
+)
+def test_parse_zarr_url_with_trailing_slash(
+    url: str, parsed_url: ParsedDandiURL
+) -> None:
+    """A trailing slash is not meaningful at or below a zarr boundary."""
+    assert parse_dandi_url(url) == parsed_url
+
+
+@pytest.mark.ai_generated
+def test_parse_zarr_glob_url_unaffected_by_trailing_slash() -> None:
+    """``--path-type glob`` still yields a glob URL for a zarr-looking path."""
+    url = parse_dandi_url("dandi://dandi/000108/sub-1/*.zarr/a/", glob=True)
+    assert isinstance(url, AssetGlobURL)
+    assert url.path == "sub-1/*.zarr/a/"
 
 
 @pytest.mark.parametrize(

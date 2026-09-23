@@ -496,6 +496,32 @@ def split_zarr_location(location: str) -> tuple[str, str] | None:
     return None
 
 
+def at_zarr_boundary(location: str) -> bool:
+    """Whether ``location``'s last component ends with a Zarr extension.
+
+    Parameters
+    ----------
+    location : str
+        A POSIX-style path, e.g. ``"sub-1/file.ome.zarr/"``.
+
+    Returns
+    -------
+    bool
+        True if the path ends at a Zarr asset (ignoring a trailing slash).
+
+    Examples
+    --------
+    >>> at_zarr_boundary("sub-1/file.ome.zarr/")
+    True
+    >>> at_zarr_boundary("sub-1/file.ome.zarr/0/0")  # below the boundary
+    False
+    >>> at_zarr_boundary("sub-1/")
+    False
+    """
+    parts = [p for p in location.split("/") if p]
+    return bool(parts) and any(parts[-1].endswith(ext) for ext in ZARR_EXTENSIONS)
+
+
 @dataclass
 class AssetZarrEntryURL(SingleAssetURL):
     """Parsed from a URL that points into entries within a Zarr asset.
@@ -928,6 +954,28 @@ class _dandi_url_parser:
                     version_id=version_id,
                     path=location,
                 )
+            elif (zarr_split := split_zarr_location(location)) is not None:
+                # The location crosses a zarr boundary.  This is checked
+                # before the folder case, as a path within a zarr never names
+                # a folder of assets: entries within a zarr are not assets.
+                asset_path, zarr_subpath = zarr_split
+                parsed_url = AssetZarrEntryURL(
+                    instance=instance,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    asset_path=asset_path,
+                    zarr_subpath=zarr_subpath,
+                )
+            elif location.endswith("/") and at_zarr_boundary(location):
+                # `.../x.zarr/` names the zarr asset itself; a folder of
+                # assets by that name could never hold it, as the asset's own
+                # path does not end in a slash.
+                parsed_url = AssetItemURL(
+                    instance=instance,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    path=location.rstrip("/"),
+                )
             elif location.endswith("/"):
                 parsed_url = AssetFolderURL(
                     instance=instance,
@@ -936,24 +984,12 @@ class _dandi_url_parser:
                     path=location,
                 )
             else:
-                # Check if location crosses a zarr boundary
-                zarr_split = split_zarr_location(location)
-                if zarr_split is not None:
-                    asset_path, zarr_subpath = zarr_split
-                    parsed_url = AssetZarrEntryURL(
-                        instance=instance,
-                        dandiset_id=dandiset_id,
-                        version_id=version_id,
-                        asset_path=asset_path,
-                        zarr_subpath=zarr_subpath,
-                    )
-                else:
-                    parsed_url = AssetItemURL(
-                        instance=instance,
-                        dandiset_id=dandiset_id,
-                        version_id=version_id,
-                        path=location,
-                    )
+                parsed_url = AssetItemURL(
+                    instance=instance,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    path=location,
+                )
         elif asset_id:
             if dandiset_id is None:
                 parsed_url = BaseAssetIDURL(instance=instance, asset_id=asset_id)
