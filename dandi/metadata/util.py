@@ -963,17 +963,116 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "technique": "fourier analysis technique",
         "approach": None,
     },
-    "OptogeneticStimulusSIte": {
+    "OptogeneticStimulusSite": {
         "module": "ogen",
-        "neurodata_type": "OptogeneticStimulusSIte",
-        "technique": None,
+        "neurodata_type": "OptogeneticStimulusSite",
+        "technique": "surgical technique",
         "approach": "optogenetic approach",
     },
     "OptogeneticSeries": {
         "module": "ogen",
         "neurodata_type": "OptogeneticSeries",
-        "technique": None,
+        "technique": "optogenetic stimulation technique",
         "approach": "optogenetic approach",
+    },
+    "PoseEstimationSeries": {
+        "module": "motion",
+        "neurodata_type": "PoseEstimationSeries",
+        "technique": "pose estimation technique",
+        "approach": "behavioral approach",
+    },
+    "PoseEstimation": {
+        "module": "motion",
+        "neurodata_type": "PoseEstimation",
+        "technique": "pose estimation technique",
+        "approach": "behavioral approach",
+    },
+    "PoseTraining": {
+        "module": "motion",
+        "neurodata_type": "PoseTraining",
+        "technique": "pose estimation training technique",
+        "approach": "behavioral approach",
+    },
+    # defined by both the deprecated ndx-photometry and ndx-fiber-photometry
+    "FiberPhotometryResponseSeries": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometryResponseSeries",
+        "technique": "fiber photometry technique",
+        "approach": "fiber photometry approach",
+    },
+    "FiberPhotometry": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometry",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "CommandedVoltageSeries": {
+        "module": "fiberphotometry",
+        "neurodata_type": "CommandedVoltageSeries",
+        "technique": "fiber photometry technique",
+        "approach": "fiber photometry approach",
+    },
+    # defined by the deprecated ndx-photometry
+    "FibersTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FibersTable",
+        "technique": "surgical technique",
+        "approach": "fiber photometry approach",
+    },
+    "ExcitationSourcesTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "ExcitationSourcesTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "PhotodetectorsTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "PhotodetectorsTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "FluorophoresTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FluorophoresTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "DeconvolvedFiberPhotometryResponseSeries": {
+        "module": "fiberphotometry",
+        "neurodata_type": "DeconvolvedFiberPhotometryResponseSeries",
+        "technique": "fiber photometry technique",
+        "approach": "fiber photometry approach",
+    },
+    "MultiCommandedVoltage": {
+        "module": "fiberphotometry",
+        "neurodata_type": "MultiCommandedVoltage",
+        "technique": "fiber photometry technique",
+        "approach": "fiber photometry approach",
+    },
+    # defined by ndx-fiber-photometry
+    "FiberPhotometryTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometryTable",
+        "technique": "surgical technique",
+        "approach": "fiber photometry approach",
+    },
+    "FiberPhotometryIndicators": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometryIndicators",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "FiberPhotometryViruses": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometryViruses",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "FiberPhotometryVirusInjections": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometryVirusInjections",
+        "technique": None,
+        "approach": "fiber photometry approach",
     },
 }
 
