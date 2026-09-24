@@ -489,7 +489,7 @@ def split_zarr_location(location: str) -> tuple[str, str] | None:
     """
     parts = [p for p in location.split("/") if p]
     for i, part in enumerate(parts):
-        if any(part.endswith(ext) for ext in ZARR_EXTENSIONS):
+        if part.endswith(tuple(ZARR_EXTENSIONS)):
             asset_path = "/".join(parts[: i + 1])
             zarr_subpath = "/".join(parts[i + 1 :])
             return (asset_path, zarr_subpath) if zarr_subpath else None
@@ -518,8 +518,7 @@ def at_zarr_boundary(location: str) -> bool:
     >>> at_zarr_boundary("sub-1/")
     False
     """
-    parts = [p for p in location.split("/") if p]
-    return bool(parts) and any(parts[-1].endswith(ext) for ext in ZARR_EXTENSIONS)
+    return location.rstrip("/").endswith(tuple(ZARR_EXTENSIONS))
 
 
 @dataclass

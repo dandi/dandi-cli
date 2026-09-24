@@ -292,8 +292,27 @@ from .fixtures import DandiAPI, SampleDandiset
                 zarr_subpath="scale0/0/0",
             ),
         ),
+        (  # a trailing slash below the boundary still names entries
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0",
+            ),
+        ),
         (  # plain .zarr URL without subpath should stay AssetItemURL
             "dandi://dandi/000108/sub-1/file.ome.zarr",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/file.ome.zarr",
+            ),
+        ),
+        (  # ... as should one with a trailing slash at the boundary
+            "dandi://dandi/000108/sub-1/file.ome.zarr/",
             AssetItemURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000108",
@@ -391,119 +410,53 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
 
 @pytest.mark.ai_generated
 @pytest.mark.parametrize(
-    "location,expected",
+    "location,split,boundary",
     [
-        # Crosses zarr boundary
-        ("sub-1/file.ome.zarr/0/0/0", ("sub-1/file.ome.zarr", "0/0/0")),
-        ("file.zarr/scale0/data", ("file.zarr", "scale0/data")),
-        ("sub-1/file.ngff/0/0", ("sub-1/file.ngff", "0/0")),
-        # No zarr extension
-        ("sub-1/file.nwb", None),
-        ("some/path/file.txt", None),
-        # Zarr without subpath — no split
-        ("sub-1/file.ome.zarr", None),
-        ("file.zarr", None),
-        # Deeply nested subpath
-        ("a/b.zarr/c/d/e/f", ("a/b.zarr", "c/d/e/f")),
-    ],
-)
-def test_split_zarr_location(location: str, expected: tuple[str, str] | None) -> None:
-    assert split_zarr_location(location) == expected
-
-
-@pytest.mark.ai_generated
-def test_asset_zarr_entry_url_get_zarr_filter() -> None:
-    """A URL pointing inside a Zarr asset restricts the download to its subpath."""
-    url = parse_dandi_url("dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0")
-    assert isinstance(url, AssetZarrEntryURL)
-    assert url.get_zarr_filter() == [ZarrFilter("path", "0/0/0")]
-
-
-@pytest.mark.ai_generated
-@pytest.mark.parametrize(
-    "url",
-    [
-        "dandi://dandi/000108",
-        "dandi://dandi/000108/sub-1/file.ome.zarr",
-        "dandi://dandi/000108/sub-1/file.nwb",
-        "dandi://dandi/000108/sub-1/",
-    ],
-)
-def test_non_zarr_entry_urls_have_no_zarr_filter(url: str) -> None:
-    """Any other URL leaves Zarr assets unfiltered."""
-    assert parse_dandi_url(url).get_zarr_filter() == []
-
-
-@pytest.mark.ai_generated
-@pytest.mark.parametrize(
-    "location,expected",
-    [
-        ("sub-1/file.ome.zarr/", True),
-        ("sub-1/file.ome.zarr", True),
-        ("sub-1/file.ngff/", True),
-        ("file.zarr", True),
-        # Below the boundary
-        ("sub-1/file.ome.zarr/0/0", False),
+        # Crosses a zarr boundary
+        ("sub-1/file.ome.zarr/0/0/0", ("sub-1/file.ome.zarr", "0/0/0"), False),
+        ("file.zarr/scale0/data", ("file.zarr", "scale0/data"), False),
+        ("sub-1/file.ngff/0/0", ("sub-1/file.ngff", "0/0"), False),
+        ("a/b.zarr/c/d/e/f", ("a/b.zarr", "c/d/e/f"), False),
+        # At a zarr boundary: no subpath to split off
+        ("sub-1/file.ome.zarr", None, True),
+        ("sub-1/file.ome.zarr/", None, True),
+        ("sub-1/file.ngff/", None, True),
+        ("file.zarr", None, True),
         # Not a zarr at all
-        ("sub-1/", False),
-        ("sub-1/file.nwb", False),
-        ("", False),
+        ("sub-1/file.nwb", None, False),
+        ("some/path/file.txt", None, False),
+        ("sub-1/", None, False),
+        ("", None, False),
     ],
 )
-def test_at_zarr_boundary(location: str, expected: bool) -> None:
-    assert at_zarr_boundary(location) == expected
+def test_zarr_location_helpers(
+    location: str, split: tuple[str, str] | None, boundary: bool
+) -> None:
+    """`split_zarr_location()` finds a subpath; `at_zarr_boundary()` finds the asset."""
+    assert split_zarr_location(location) == split
+    assert at_zarr_boundary(location) is boundary
 
 
 @pytest.mark.ai_generated
 @pytest.mark.parametrize(
-    "url,parsed_url",
+    "url,expected",
     [
-        # A trailing slash below a zarr boundary names entries, not a folder
+        # Only a URL pointing *inside* a zarr restricts the download
         (
-            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/",
-            AssetZarrEntryURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000108",
-                version_id=None,
-                asset_path="sub-1/file.ome.zarr",
-                zarr_subpath="0/0",
-            ),
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0",
+            [ZarrFilter("path", "0/0/0")],
         ),
-        # A trailing slash at a zarr boundary names the zarr asset itself
-        (
-            "dandi://dandi/000108/sub-1/file.ome.zarr/",
-            AssetItemURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000108",
-                version_id=None,
-                path="sub-1/file.ome.zarr",
-            ),
-        ),
-        # Folders that are not zarrs are unaffected
-        (
-            "dandi://dandi/000108/sub-1/",
-            AssetFolderURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000108",
-                version_id=None,
-                path="sub-1/",
-            ),
-        ),
+        ("dandi://dandi/000108/sub-1/file.ome.zarr/0/0/", [ZarrFilter("path", "0/0")]),
+        # Everything else leaves zarr assets unfiltered
+        ("dandi://dandi/000108", []),
+        ("dandi://dandi/000108/sub-1/file.ome.zarr", []),
+        ("dandi://dandi/000108/sub-1/file.ome.zarr/", []),
+        ("dandi://dandi/000108/sub-1/file.nwb", []),
+        ("dandi://dandi/000108/sub-1/", []),
     ],
 )
-def test_parse_zarr_url_with_trailing_slash(
-    url: str, parsed_url: ParsedDandiURL
-) -> None:
-    """A trailing slash is not meaningful at or below a zarr boundary."""
-    assert parse_dandi_url(url) == parsed_url
-
-
-@pytest.mark.ai_generated
-def test_parse_zarr_glob_url_unaffected_by_trailing_slash() -> None:
-    """``--path-type glob`` still yields a glob URL for a zarr-looking path."""
-    url = parse_dandi_url("dandi://dandi/000108/sub-1/*.zarr/a/", glob=True)
-    assert isinstance(url, AssetGlobURL)
-    assert url.path == "sub-1/*.zarr/a/"
+def test_get_zarr_filter(url: str, expected: list[ZarrFilter]) -> None:
+    assert parse_dandi_url(url).get_zarr_filter() == expected
 
 
 @pytest.mark.parametrize(
@@ -526,6 +479,16 @@ def test_parse_zarr_glob_url_unaffected_by_trailing_slash() -> None:
                 dandiset_id="000002",
                 version_id=None,
                 path="f*/bar.nwb",
+            ),
+        ),
+        (
+            # a zarr-looking path is still a glob, trailing slash and all:
+            "dandi://dandi/000108/sub-1/*.zarr/a/",
+            AssetGlobURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/*.zarr/a/",
             ),
         ),
         (

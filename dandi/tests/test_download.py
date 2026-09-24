@@ -1537,49 +1537,30 @@ def test__check_attempts_and_sleep_retries(status_code: int) -> None:
 
 
 @pytest.mark.ai_generated
-def test_download_zarr_with_glob_filter(
-    tmp_path: Path, zarr_dandiset: SampleDandiset
+@pytest.mark.parametrize(
+    "zarr_filters",
+    [("glob:**/.z*", "glob:**/zarr.json"), ("metadata",)],
+    ids=["glob", "alias"],
+)
+def test_download_zarr_metadata_only(
+    tmp_path: Path, zarr_dandiset: SampleDandiset, zarr_filters: tuple[str, ...]
 ) -> None:
-    """Download only metadata files from a zarr asset via a glob filter.
+    """Download only the metadata files of a zarr asset.
 
     Zarr v2 stores metadata in dot-files (``.zarray``/``.zgroup``/``.zattrs``),
     while Zarr v3 uses ``zarr.json``.  Match both so the test is agnostic to
     the on-disk format produced by the installed zarr-python.
     """
     download(
-        zarr_dandiset.dandiset.version_api_url,
-        tmp_path,
-        zarr_filters=("glob:**/.z*", "glob:**/zarr.json"),
-    )
-    zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
-    assert zarr_dir.exists()
-    # All downloaded files should be metadata files.
-    all_files = list_paths(zarr_dir)
-    assert len(all_files) > 0
-    for f in all_files:
-        assert f.name.startswith(".z") or f.name == "zarr.json", (
-            f"Non-metadata file downloaded: {f}"
-        )
-
-
-@pytest.mark.ai_generated
-def test_download_zarr_metadata_alias(
-    tmp_path: Path, zarr_dandiset: SampleDandiset
-) -> None:
-    """Test the 'metadata' alias for --zarr."""
-    download(
-        zarr_dandiset.dandiset.version_api_url,
-        tmp_path,
-        zarr_filters=("metadata",),
+        zarr_dandiset.dandiset.version_api_url, tmp_path, zarr_filters=zarr_filters
     )
     zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
     assert zarr_dir.exists()
     all_files = list_paths(zarr_dir)
     assert len(all_files) > 0
     for f in all_files:
-        assert f.name.startswith(".z") or f.name in (
-            "zarr.json",
-            ".zmetadata",
+        assert (
+            f.name.startswith(".z") or f.name == "zarr.json"
         ), f"Non-metadata file downloaded: {f}"
 
 
@@ -1647,15 +1628,27 @@ def test_download_zarr_filter_nonexistent(
 
 
 @pytest.mark.ai_generated
-def test_download_zarr_sync_conflict() -> None:
-    """--sync and --zarr cannot be used together."""
-    with pytest.raises(ValueError, match="--sync and --zarr cannot be used together"):
-        download(
+@pytest.mark.parametrize(
+    "url,zarr_filters,error",
+    [
+        (
             "https://dandiarchive.org/dandiset/000027",
-            "/tmp/unused",
-            sync=True,
-            zarr_filters=("metadata",),
-        )
+            ("metadata",),
+            "--sync and --zarr cannot be used together",
+        ),
+        (
+            "dandi://dandi/000027/sample.zarr/0/0",
+            (),
+            "--sync cannot be used with a URL pointing inside a Zarr asset",
+        ),
+    ],
+)
+def test_download_zarr_sync_conflict(
+    url: str, zarr_filters: tuple[str, ...], error: str
+) -> None:
+    """A partial zarr download and ``--sync`` are mutually exclusive."""
+    with pytest.raises(ValueError, match=re.escape(error)):
+        download(url, "/tmp/unused", sync=True, zarr_filters=zarr_filters)
 
 
 def _make_downloader(
@@ -1675,46 +1668,52 @@ def _make_downloader(
 
 
 @pytest.mark.ai_generated
-def test_downloader_zarr_filter_is_per_url(tmp_path: Path) -> None:
-    """A URL's Zarr subpath must not restrict the download of any other URL."""
-    dl = _make_downloader("dandi://dandi/000108/sub-1/file.ome.zarr/0/0", tmp_path)
-    assert dl.zarr_entry_filter is not None
-    assert dl.zarr_entry_filter("0/0/.zarray")
-    assert not dl.zarr_entry_filter("1/1/.zarray")
-    # Entries the URL asked for must exist, so matching nothing is an error
-    assert dl.url_zarr_filters == [ZarrFilter("path", "0/0")]
+@pytest.mark.parametrize(
+    "url,zarr_filters,included,excluded,url_filters",
+    [
+        # A URL inside a zarr restricts that download to its subpath ...
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0",
+            (),
+            ["0/0/.zarray"],
+            ["1/1/.zarray"],
+            [ZarrFilter("path", "0/0")],
+        ),
+        # ... and no other URL in the same invocation is affected
+        ("dandi://dandi/000108/sub-2/other.ome.zarr", (), None, None, []),
+        # ``--zarr`` filters apply to every asset, whatever the URL
+        (
+            "dandi://dandi/000108/sub-2/other.ome.zarr",
+            (ZarrFilter("path", "a"),),
+            ["a/data.bin"],
+            ["b/data.bin"],
+            [],
+        ),
+    ],
+)
+def test_downloader_zarr_filters(
+    tmp_path: Path,
+    url: str,
+    zarr_filters: Sequence[ZarrFilter],
+    included: list[str] | None,
+    excluded: list[str] | None,
+    url_filters: list[ZarrFilter],
+) -> None:
+    """Only the URL's own subpath filters its download; ``--zarr`` filters all.
 
-    # A second URL downloaded in the same invocation is unaffected
-    other = _make_downloader("dandi://dandi/000108/sub-2/other.ome.zarr", tmp_path)
-    assert other.zarr_entry_filter is None
-    assert other.url_zarr_filters == []
-
-
-@pytest.mark.ai_generated
-def test_downloader_explicit_zarr_filters_apply_to_all_urls(tmp_path: Path) -> None:
-    """``--zarr`` filters apply to every asset, and matching nothing is not an error."""
-    dl = _make_downloader(
-        "dandi://dandi/000108/sub-2/other.ome.zarr",
-        tmp_path,
-        zarr_filters=[ZarrFilter("path", "a")],
-    )
-    assert dl.zarr_entry_filter is not None
-    assert dl.zarr_entry_filter("a/data.bin")
-    assert not dl.zarr_entry_filter("b/data.bin")
-    assert dl.url_zarr_filters == []
-
-
-@pytest.mark.ai_generated
-def test_download_zarr_url_sync_conflict() -> None:
-    """--sync cannot be combined with a URL pointing inside a Zarr asset."""
-    with pytest.raises(
-        ValueError, match="--sync cannot be used with a URL pointing inside a Zarr"
-    ):
-        download(
-            "dandi://dandi/000027/sample.zarr/0/0",
-            "/tmp/unused",
-            sync=True,
-        )
+    ``included``/``excluded`` of `None` means no filtering at all, i.e. the
+    whole zarr is downloaded.  A non-empty ``url_filters`` marks the entries as
+    named by the user, so matching none of them is an error.
+    """
+    dl = _make_downloader(url, tmp_path, zarr_filters)
+    assert dl.url_zarr_filters == url_filters
+    if included is None:
+        assert dl.zarr_entry_filter is None
+    else:
+        assert dl.zarr_entry_filter is not None
+        assert all(dl.zarr_entry_filter(p) for p in included)
+        assert excluded is not None
+        assert not any(dl.zarr_entry_filter(p) for p in excluded)
 
 
 def _upload_two_zarrs(ds: SampleDandiset) -> None:
@@ -1729,40 +1728,31 @@ def _upload_two_zarrs(ds: SampleDandiset) -> None:
 
 
 @pytest.mark.ai_generated
-@pytest.mark.parametrize("suffix", ["a", "a/"])
+@pytest.mark.parametrize(
+    "suffix,whole_zarr",
+    [
+        # A subpath fetches only that subtree ...
+        ("/a", False),
+        # ... and a trailing slash below the boundary means the same
+        ("/a/", False),
+        # At the boundary, with or without a slash, the whole zarr is fetched
+        ("", True),
+        ("/", True),
+    ],
+)
 def test_download_zarr_url_subpath(
-    tmp_path: Path, new_dandiset: SampleDandiset, suffix: str
+    tmp_path: Path, new_dandiset: SampleDandiset, suffix: str, whole_zarr: bool
 ) -> None:
-    """A URL pointing inside a Zarr asset downloads only that subtree.
-
-    A trailing slash is not meaningful below a zarr boundary, so both
-    spellings behave the same.
-    """
+    """A URL inside a zarr fetches that subtree; a trailing slash is ignored."""
     _upload_two_zarrs(new_dandiset)
     download(
         f"dandi://{new_dandiset.api.instance_id}"
-        f"/{new_dandiset.dandiset_id}/sample.zarr/{suffix}",
+        f"/{new_dandiset.dandiset_id}/sample.zarr{suffix}",
         tmp_path,
     )
     zarr_dir = tmp_path / "sample.zarr"
     assert (zarr_dir / "a" / "data.bin").read_text() == "data-a"
-    assert not (zarr_dir / "b").exists()
-
-
-@pytest.mark.ai_generated
-def test_download_zarr_url_trailing_slash_at_boundary(
-    tmp_path: Path, new_dandiset: SampleDandiset
-) -> None:
-    """``.../x.zarr/`` downloads the whole zarr asset, as ``.../x.zarr`` does."""
-    _upload_two_zarrs(new_dandiset)
-    download(
-        f"dandi://{new_dandiset.api.instance_id}"
-        f"/{new_dandiset.dandiset_id}/sample.zarr/",
-        tmp_path,
-    )
-    zarr_dir = tmp_path / "sample.zarr"
-    assert (zarr_dir / "a" / "data.bin").read_text() == "data-a"
-    assert (zarr_dir / "b" / "data.bin").read_text() == "data-b"
+    assert (zarr_dir / "b").exists() is whole_zarr
 
 
 @pytest.mark.ai_generated
@@ -1851,57 +1841,49 @@ def _run_download_zarr(
         )
 
 
-@pytest.mark.ai_generated
-def test_download_zarr_required_filter_no_match_errors(tmp_path: Path) -> None:
-    """A URL subpath matching no entry is reported as an error."""
-    required = [ZarrFilter("path", "nonexistent")]
-    out = _run_download_zarr(
-        tmp_path, [".zgroup", "a/data.bin"], required, required_filters=required
-    )
-    errors = [r for r in out if r.get("status") == "error"]
-    assert len(errors) == 1
-    assert errors[0]["message"] == "No entries in the Zarr asset match 'nonexistent'"
+NO_MATCH = "No entries in the Zarr asset match 'nonexistent'"
 
 
 @pytest.mark.ai_generated
-def test_download_zarr_required_filter_not_masked_by_explicit_filter(
+@pytest.mark.parametrize(
+    "filters,required,error,downloads",
+    [
+        # A URL subpath matching nothing is an error ...
+        ([ZarrFilter("path", "nonexistent")], True, NO_MATCH, False),
+        # ... even when ``--zarr`` filters match and entries are downloaded
+        (
+            [ZarrFilter("path", "nonexistent"), ZarrFilter("glob", "**/.z*")],
+            True,
+            NO_MATCH,
+            True,
+        ),
+        # Without a URL subpath, matching nothing is a silent no-op
+        ([ZarrFilter("path", "nonexistent")], False, None, False),
+        # A URL subpath that does match downloads without error
+        ([ZarrFilter("path", "a")], True, None, True),
+    ],
+)
+def test_download_zarr_required_filters(
     tmp_path: Path,
+    filters: list[ZarrFilter],
+    required: bool,
+    error: str | None,
+    downloads: bool,
 ) -> None:
-    """``--zarr`` entries downloaded alongside must not hide a missing subpath."""
-    required = [ZarrFilter("path", "nonexistent")]
-    # ``--zarr metadata``-style filter matches .zgroup, so entries are downloaded
+    """Entries named by a URL must exist; ``--zarr`` filters need not match.
+
+    ``required`` marks the first filter as URL-derived.  ``downloads`` says
+    whether any entry was expected to be fetched, which is what distinguishes
+    "matched nothing at all" from "matched only the ``--zarr`` filters".
+    """
     out = _run_download_zarr(
         tmp_path,
         [".zgroup", "a/data.bin"],
-        required + [ZarrFilter("glob", "**/.z*")],
-        required_filters=required,
+        filters,
+        required_filters=filters[:1] if required else (),
     )
-    # The metadata entry really was downloaded ...
-    assert any("size" in r or "done" in r for r in out)
-    # ... and yet the missing subpath is still reported
     errors = [r for r in out if r.get("status") == "error"]
-    assert len(errors) == 1
-    assert errors[0]["message"] == "No entries in the Zarr asset match 'nonexistent'"
-
-
-@pytest.mark.ai_generated
-def test_download_zarr_explicit_filter_no_match_is_not_an_error(
-    tmp_path: Path,
-) -> None:
-    """Without required filters, matching nothing stays a silent no-op."""
-    out = _run_download_zarr(
-        tmp_path, [".zgroup", "a/data.bin"], [ZarrFilter("path", "nonexistent")]
-    )
-    assert not [r for r in out if r.get("status") == "error"]
-    assert out[-1] == {"status": "done"}
-
-
-@pytest.mark.ai_generated
-def test_download_zarr_required_filter_match_is_not_an_error(tmp_path: Path) -> None:
-    """A URL subpath that does match downloads without error."""
-    required = [ZarrFilter("path", "a")]
-    out = _run_download_zarr(
-        tmp_path, [".zgroup", "a/data.bin"], required, required_filters=required
-    )
-    assert not [r for r in out if r.get("status") == "error"]
-    assert out[-1] == {"status": "done"}
+    assert [r["message"] for r in errors] == ([error] if error else [])
+    assert any("size" in r or "done" in r for r in out) is downloads
+    if error is None:
+        assert out[-1] == {"status": "done"}
