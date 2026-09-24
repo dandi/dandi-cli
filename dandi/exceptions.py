@@ -93,6 +93,21 @@ class UploadError(Exception):
     pass
 
 
+class BlobExistsError(UploadError):
+    """
+    Raised when the archive reports, via an HTTP 409 from the ``initialize``
+    endpoint of a multipart upload, that the blob being uploaded is already
+    present.  Only that endpoint identifies the existing blob; a 409 from any
+    other point of an upload is an ordinary error and propagates as such.
+    """
+
+    def __init__(self, blob_id: str) -> None:
+        super().__init__(f"Blob already exists on server with ID {blob_id}")
+        #: The ID of the pre-existing blob, from the response's ``Location``
+        #: header
+        self.blob_id = blob_id
+
+
 class UploadValidationError(UploadError):
     """An upload could not proceed because an asset failed validation."""
 

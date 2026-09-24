@@ -4,11 +4,12 @@ from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
-from unittest.mock import ANY
+from unittest.mock import ANY, Mock
 
 from dandischema.models import get_schema_version
 import numpy as np
 import pytest
+import requests
 import zarr
 
 from .fixtures import SampleDandiset
@@ -16,7 +17,7 @@ from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, zarr_format_of
 from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
-from ..exceptions import UnknownAssetError
+from ..exceptions import BlobExistsError, UnknownAssetError
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -31,6 +32,9 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..files.bases import multipart_upload
+from ..files.zarr import EntryUploadTracker, UploadItem
+from ..support.digests import dandietag_nocache, md5file_nocache
 
 lgr = get_logger()
 
@@ -472,30 +476,30 @@ def test_upload_zarr(new_dandiset, tmp_path):
 _ZARR_PROPERTIES_EXPECTED = {
     "2": {
         "total_size": 1516,
-        "total_digest": "4313ab36412db2981c3ed391b38604d6-5--1516",
+        "total_digest": "8411ffbee3d86259ddbbf9d0d9c754bb-5--1516",
         "entries": [
-            (".zgroup", 24, "e20297935e73dd0154104d4ea53040ab"),
-            ("arr_0", 746, "51c74ec257069ce3a555bdddeb50230a-2--746"),
-            ("arr_0/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
-            ("arr_0/0", 431, "ed4e934a474f1d2096846c6248f18c00"),
-            ("arr_1", 746, "7b99a0ad9bd8bb3331657e54755b1a31-2--746"),
-            ("arr_1/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
-            ("arr_1/0", 431, "fba4dee03a51bde314e9713b00284a93"),
+            (".zgroup", 24, "c42a84c3473618a4013cbb106ada1c14-1"),
+            ("arr_0", 746, "02d454d2efbae1c8359399af1006bec4-2--746"),
+            ("arr_0/.zarray", 315, "980c7afd2e491fd1448dec190f96ed66-1"),
+            ("arr_0/0", 431, "41a358317ae6e63108b0df7a6d210334-1"),
+            ("arr_1", 746, "f0c0530e7ad17b8aab0a7136ce784d93-2--746"),
+            ("arr_1/.zarray", 315, "980c7afd2e491fd1448dec190f96ed66-1"),
+            ("arr_1/0", 431, "5f534328920f7ee3ac417fbf4ac1826e-1"),
         ],
     },
     "3": {
         "total_size": 3935,
-        "total_digest": "00157f091c9a6295e89eb3c4c2efaeff-5--3935",
+        "total_digest": "5dda89edeb0a78f05e5a990a55059223-5--3935",
         "entries": [
-            ("arr_0", 2192, "ae16256ae750e4303674ccf1e23fa3c6-2--2192"),
-            ("arr_0/c", 1573, "93912a45f2107a08090f7b283297d662-1--1573"),
-            ("arr_0/c/0", 1573, "6c237f8d2d4a41bc1e26e31518dafd9e"),
-            ("arr_0/zarr.json", 619, "850fae056c97aa9c76df0a52411f4086"),
-            ("arr_1", 1677, "debc9ca4b2184a6ef1a3d6fcf7d79fd9-2--1677"),
-            ("arr_1/c", 1058, "2642f5d2df2cddf469313abd9910b371-1--1058"),
-            ("arr_1/c/0", 1058, "084d662af7251a807649fb48edc36e95"),
-            ("arr_1/zarr.json", 619, "850fae056c97aa9c76df0a52411f4086"),
-            ("zarr.json", 66, "457126c0639af2eba0140851c39c1aad"),
+            ("arr_0", 2192, "0db93f2603c99fd46e40e88e2fc55513-2--2192"),
+            ("arr_0/c", 1573, "5174f547f2b6124aa6c10b4085eba421-1--1573"),
+            ("arr_0/c/0", 1573, "0f9a883ef281510b0a1c003dc7da5ea1-1"),
+            ("arr_0/zarr.json", 619, "8dec6b2c24e4625f746482abbd0d2028-1"),
+            ("arr_1", 1677, "0be9308adf874a99bca107ac507ec7ec-2--1677"),
+            ("arr_1/c", 1058, "8ca53b9c7ba6f1b52b1962f9de3a3a50-1--1058"),
+            ("arr_1/c/0", 1058, "e8f546d8c4808292e5c7d2d1b066ff24-1"),
+            ("arr_1/zarr.json", 619, "8dec6b2c24e4625f746482abbd0d2028-1"),
+            ("zarr.json", 66, "ad2687bd67b5a2a11bba074b0a9bdf22-1"),
         ],
     },
 }
@@ -559,6 +563,160 @@ def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
     e = asset.get_entry_by_path(root_meta)
     r = new_dandiset.client.get(e.download_url, json_resp=False)
     assert r.headers["Content-Type"] == "application/json"
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_item_single_part(tmp_path: Path) -> None:
+    """
+    An entry of a single-part Zarr carries a plain MD5 digest, which has a
+    base64 representation used by the single-part path as the Content-MD5
+    header.
+    """
+    zarr_path = tmp_path / "example.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    zf = dandi_file(zarr_path)
+    assert isinstance(zf, ZarrAsset)
+    entry = next(e for e in zf.iterfiles() if e.is_file())
+    item = UploadItem.from_entry(entry, md5file_nocache(entry.filepath))
+    assert item.base64_digest
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_item_multipart(tmp_path: Path) -> None:
+    """
+    Every entry of a multipart Zarr is uploaded via multipart upload and carries
+    a multipart ETag rather than an MD5 digest, regardless of the entry's size.
+    """
+    zarr_path = tmp_path / "example.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    zf = dandi_file(zarr_path)
+    assert isinstance(zf, ZarrAsset)
+    entry = next(e for e in zf.iterfiles() if e.is_file())
+    item = UploadItem.from_entry(entry, dandietag_nocache(entry.filepath))
+    # A multipart ETag is not a hex digest, so it has no base64 MD5 form.
+    with pytest.raises(ValueError, match="multipart ETag"):
+        item.base64_digest
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_item_carries_etagger(tmp_path: Path) -> None:
+    """
+    An entry digested for a multipart upload keeps the `DandiETag` it was
+    digested with, so that uploading it does not read & hash the file a second
+    time.  There is none to keep for a single-part entry, nor for an empty one,
+    which S3 stores under its plain MD5 under either scheme.
+    """
+    zarr_path = tmp_path / "example.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    (zarr_path / "empty").write_bytes(b"")
+    zf = dandi_file(zarr_path)
+    assert isinstance(zf, ZarrAsset)
+    entries = {str(e): e for e in zf.iterfiles()}
+    nonempty = next(e for e in entries.values() if e.size > 0)
+
+    tracker = EntryUploadTracker(multipart=True)
+    item = tracker._mkitem(nonempty)
+    assert item.etagger is not None
+    assert item.etagger.as_str() == item.digest
+
+    assert tracker._mkitem(entries["empty"]).etagger is None
+    assert EntryUploadTracker(multipart=False)._mkitem(nonempty).etagger is None
+
+
+def _http_error(
+    status: int, headers: dict[str, str] | None = None
+) -> requests.HTTPError:
+    r = requests.Response()
+    r.status_code = status
+    r.headers.update(headers or {})
+    return requests.HTTPError(f"{status} error", response=r)
+
+
+@pytest.mark.ai_generated
+def test_multipart_upload_blob_exists(tmp_path: Path) -> None:
+    """
+    A 409 from ``initialize`` means the blob is already present, and the
+    response's ``Location`` header identifies it.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    client.post.side_effect = _http_error(409, {"Location": "some-blob-id"})
+    with pytest.raises(BlobExistsError) as excinfo:
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+        ):
+            pass
+    assert excinfo.value.blob_id == "some-blob-id"
+
+
+@pytest.mark.ai_generated
+def test_multipart_upload_conflict_without_location(tmp_path: Path) -> None:
+    """
+    Only ``initialize`` reports a pre-existing blob.  A 409 that identifies no
+    blob -- as ``validate`` returns when two clients race to upload the same
+    one -- is an ordinary error and must not be mistaken for one.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    client.post.side_effect = _http_error(409)
+    with pytest.raises(requests.HTTPError):
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+        ):
+            pass
+
+
+@pytest.mark.ai_generated
+def test_multipart_upload_aborts_on_failure(tmp_path: Path) -> None:
+    """
+    An upload that fails after initialize is released, so that the archive does
+    not go on counting it as active -- which would block finalizing the Zarr it
+    belongs to, and unembargoing its Dandiset -- until garbage collection.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    # Initialize succeeds, but the part list disagrees with what we computed.
+    client.post.return_value = {"upload_id": "upload-1", "parts": []}
+    with pytest.raises(RuntimeError, match="number of parts"):
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+            upload_root="/zarr/uploads",
+        ):
+            pass
+    client.delete.assert_called_once_with("/zarr/uploads/upload-1/")
+
+
+@pytest.mark.ai_generated
+def test_multipart_upload_abort_failure_is_not_masked(tmp_path: Path) -> None:
+    """
+    Aborting is best-effort: against an archive with no such endpoint it must
+    not displace the error that actually stopped the upload.
+    """
+    f = tmp_path / "blob.dat"
+    f.write_bytes(b"data")
+    client = Mock()
+    client.post.return_value = {"upload_id": "upload-1", "parts": []}
+    client.delete.side_effect = _http_error(404)
+    with pytest.raises(RuntimeError, match="number of parts"):
+        for _ in multipart_upload(
+            client=client,
+            filepath=f,
+            asset_path="blob.dat",
+            init_fields={"dandiset": "000001"},
+        ):
+            pass
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:
