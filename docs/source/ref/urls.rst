@@ -37,9 +37,20 @@ has one, and its draft version will be used otherwise.
     a collection of assets whose paths match the glob pattern ``path``, and
     `parse_dandi_url()` will convert the URL to an `AssetGlobURL`.
 
-  - If the ``glob``/``--path-type glob`` option is not in effect, the URL
-    refers to an asset folder by path, and `parse_dandi_url()` will convert the
-    URL to an `AssetFolderURL`.
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    descends into a Zarr asset, the URL refers to the entries at or under that
+    location within the Zarr, and `parse_dandi_url()` will convert the URL to
+    an `AssetZarrEntryURL`.  See :ref:`zarr_entry_urls` below.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    ends *at* a Zarr asset, the URL refers to that asset, and
+    `parse_dandi_url()` will convert the URL to an `AssetItemURL`.  Note that
+    this applies to a plain "browse to this Zarr" GUI URL, as the trailing
+    slash such a URL carries is not meaningful at a Zarr boundary.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    does not involve a Zarr asset, the URL refers to an asset folder by path,
+    and `parse_dandi_url()` will convert the URL to an `AssetFolderURL`.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}[/versions[/{version}]]`
   — Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
@@ -57,6 +68,10 @@ has one, and its draft version will be used otherwise.
   — Refers to all assets in the given Dandiset whose paths begin with the
   prefix ``path``.  `parse_dandi_url()` converts this format to an
   `AssetPathPrefixURL`.
+
+  Note that, unlike the forms above, ``path`` here is a plain prefix and is
+  not interpreted against Zarr boundaries, so a prefix reaching inside a Zarr
+  asset matches no assets.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/?glob={path}`
   — Refers to all assets in the given Dandiset whose paths match the glob
@@ -76,11 +91,48 @@ has one, and its draft version will be used otherwise.
     `parse_dandi_url()` will convert the URL to an `AssetGlobURL`.
 
   - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
-    ends with a trailing slash, the URL refers to an asset folder by path, and
-    `parse_dandi_url()` will convert the URL to an `AssetFolderURL`.
+    descends into a Zarr asset, the URL refers to the entries at or under that
+    location within the Zarr, and `parse_dandi_url()` will convert the URL to
+    an `AssetZarrEntryURL`.  See :ref:`zarr_entry_urls` below.
 
   - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
-    does not end with a trailing slash, the URL refers to a single asset by
-    path, and `parse_dandi_url()` will convert the URL to an `AssetItemURL`.
+    ends with a trailing slash but does not end at a Zarr asset, the URL
+    refers to an asset folder by path, and `parse_dandi_url()` will convert
+    the URL to an `AssetFolderURL`.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    either does not end with a trailing slash or ends at a Zarr asset, the URL
+    refers to a single asset by path, and `parse_dandi_url()` will convert the
+    URL to an `AssetItemURL`.
 
 - Any other HTTPS URL that redirects to one of the above
+
+
+.. _zarr_entry_urls:
+
+Paths Within Zarr Assets
+------------------------
+
+A Zarr asset is a directory, and the paths inside it are entries of that asset
+rather than assets of their own.  A URL whose path continues past a Zarr asset
+therefore refers to entries within it.  The boundary is recognised by the
+extensions in ``dandi.consts.ZARR_EXTENSIONS`` (:file:`.zarr` and
+:file:`.ngff`), so in::
+
+    dandi://dandi/000108/sub-1/file.ome.zarr/0/0
+
+the asset is :file:`sub-1/file.ome.zarr` and ``0/0`` names the entries at or
+under :file:`0/0` within it.  `parse_dandi_url()` converts this to an
+`AssetZarrEntryURL`.
+
+:program:`dandi download` recreates the Zarr's leading directories locally and
+fetches only the matching entries; see the ``--zarr`` option of
+:doc:`dandi download </cmdline/download>`.  :program:`dandi ls`
+lists the matching entries.  Because such a URL names entries the Dandiset is
+expected to have, a download whose path matches no entry fails rather than
+quietly downloading nothing.
+
+A trailing slash is not meaningful at or below a Zarr boundary, since entries
+within a Zarr are not assets: :samp:`{...}/file.ome.zarr/0/0/` is equivalent to
+:samp:`{...}/file.ome.zarr/0/0`, and :samp:`{...}/file.ome.zarr/` refers to the
+Zarr asset as a whole, just as :samp:`{...}/file.ome.zarr` does.
