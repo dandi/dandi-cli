@@ -58,6 +58,9 @@ from .zarr_filter import ZarrFilter
 
 lgr = get_logger()
 
+#: `ZARR_EXTENSIONS` in the form `str.endswith()` takes
+_ZARR_SUFFIXES = tuple(ZARR_EXTENSIONS)
+
 
 @dataclass
 class ParsedDandiURL(ABC):
@@ -489,7 +492,7 @@ def split_zarr_location(location: str) -> tuple[str, str] | None:
     """
     parts = [p for p in location.split("/") if p]
     for i, part in enumerate(parts):
-        if part.endswith(tuple(ZARR_EXTENSIONS)):
+        if part.endswith(_ZARR_SUFFIXES):
             asset_path = "/".join(parts[: i + 1])
             zarr_subpath = "/".join(parts[i + 1 :])
             return (asset_path, zarr_subpath) if zarr_subpath else None
@@ -518,7 +521,7 @@ def at_zarr_boundary(location: str) -> bool:
     >>> at_zarr_boundary("sub-1/")
     False
     """
-    return location.rstrip("/").endswith(tuple(ZARR_EXTENSIONS))
+    return location.rstrip("/").endswith(_ZARR_SUFFIXES)
 
 
 @dataclass
@@ -529,8 +532,10 @@ class AssetZarrEntryURL(SingleAssetURL):
     produce ``asset_path="sub-1/file.ome.zarr"`` and ``zarr_subpath="0/0/0"``.
     """
 
-    asset_path: str  # e.g., "sub-1/file.ome.zarr"
-    zarr_subpath: str  # e.g., "0/0/0"
+    #: The path of the Zarr asset, e.g. ``"sub-1/file.ome.zarr"``
+    asset_path: str
+    #: The path within the Zarr asset, e.g. ``"0/0/0"``
+    zarr_subpath: str
 
     def get_assets(
         self, client: DandiAPIClient, order: str | None = None, strict: bool = False
@@ -553,7 +558,10 @@ class AssetZarrEntryURL(SingleAssetURL):
             yield dandiset.get_asset_by_path(self.asset_path)
 
     def get_zarr_filter(self) -> list[ZarrFilter]:
-        """Restrict the download to the entries at or under `zarr_subpath`."""
+        """Restrict the download to the entries at or under `zarr_subpath`.
+
+        :meta private:
+        """
         if not self.zarr_subpath:
             # `parse_dandi_url()` never produces this, but the class is public
             # and an empty subpath would otherwise reject every entry.

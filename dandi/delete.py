@@ -142,6 +142,13 @@ class Deleter:
             assert parsed_url.dandiset_id is not None
             self.register_dandiset(parsed_url.instance, parsed_url.dandiset_id)
         else:
+            if parsed_url.get_zarr_filter():
+                # The URL points inside a Zarr asset, but `get_assets()` yields
+                # the whole asset, so deleting it would take the entire Zarr.
+                raise NotImplementedError(
+                    "Cannot delete individual entries within a Zarr asset;"
+                    f" {url} points inside one"
+                )
             if parsed_url.version_id is None:
                 parsed_url.version_id = DRAFT
             self.register_assets_url(url, parsed_url)

@@ -1752,7 +1752,29 @@ def test_download_zarr_url_subpath(
     )
     zarr_dir = tmp_path / "sample.zarr"
     assert (zarr_dir / "a" / "data.bin").read_text() == "data-a"
-    assert (zarr_dir / "b").exists() is whole_zarr
+    if whole_zarr:
+        assert (zarr_dir / "b" / "data.bin").read_text() == "data-b"
+    else:
+        assert not (zarr_dir / "b").exists()
+
+
+@pytest.mark.ai_generated
+def test_download_url_subpath_of_non_zarr_asset(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """A subpath under a blob that merely *looks* like a Zarr is an error.
+
+    The URL's subpath cannot be honoured, and downloading the whole blob
+    instead would silently give the user something they did not ask for.
+    """
+    (new_dandiset.dspath / "sample.zarr").write_text("This is not a Zarr.\n")
+    new_dandiset.upload(allow_any_path=True)
+    with pytest.raises(RuntimeError, match="1 error while downloading"):
+        download(
+            f"dandi://{new_dandiset.api.instance_id}"
+            f"/{new_dandiset.dandiset_id}/sample.zarr/0/0",
+            tmp_path,
+        )
 
 
 @pytest.mark.ai_generated

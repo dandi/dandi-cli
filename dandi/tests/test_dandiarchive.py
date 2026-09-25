@@ -292,6 +292,28 @@ from .fixtures import DandiAPI, SampleDandiset
                 zarr_subpath="scale0/0/0",
             ),
         ),
+        (  # the GUI's own "browse to this zarr" URL: the parser appends the
+            # trailing slash, which is not meaningful at a zarr boundary
+            "https://dandiarchive.org/dandiset/000108/draft/files"
+            "?location=sub-1/file.ome.zarr",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id="draft",
+                path="sub-1/file.ome.zarr",
+            ),
+        ),
+        (  # ... and one browsing into it names entries
+            "https://dandiarchive.org/dandiset/000108/draft/files"
+            "?location=sub-1/file.ome.zarr/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id="draft",
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0",
+            ),
+        ),
         (  # a trailing slash below the boundary still names entries
             "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/",
             AssetZarrEntryURL(

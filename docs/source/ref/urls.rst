@@ -42,9 +42,15 @@ has one, and its draft version will be used otherwise.
     location within the Zarr, and `parse_dandi_url()` will convert the URL to
     an `AssetZarrEntryURL`.  See :ref:`zarr_entry_urls` below.
 
-  - If the ``glob``/``--path-type glob`` option is not in effect, the URL
-    refers to an asset folder by path, and `parse_dandi_url()` will convert the
-    URL to an `AssetFolderURL`.
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    ends *at* a Zarr asset, the URL refers to that asset, and
+    `parse_dandi_url()` will convert the URL to an `AssetItemURL`.  Note that
+    this applies to a plain "browse to this Zarr" GUI URL, as the trailing
+    slash such a URL carries is not meaningful at a Zarr boundary.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    does not involve a Zarr asset, the URL refers to an asset folder by path,
+    and `parse_dandi_url()` will convert the URL to an `AssetFolderURL`.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}[/versions[/{version}]]`
   — Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
@@ -62,6 +68,10 @@ has one, and its draft version will be used otherwise.
   — Refers to all assets in the given Dandiset whose paths begin with the
   prefix ``path``.  `parse_dandi_url()` converts this format to an
   `AssetPathPrefixURL`.
+
+  Note that, unlike the forms above, ``path`` here is a plain prefix and is
+  not interpreted against Zarr boundaries, so a prefix reaching inside a Zarr
+  asset matches no assets.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/?glob={path}`
   — Refers to all assets in the given Dandiset whose paths match the glob
@@ -86,12 +96,14 @@ has one, and its draft version will be used otherwise.
     an `AssetZarrEntryURL`.  See :ref:`zarr_entry_urls` below.
 
   - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
-    ends with a trailing slash, the URL refers to an asset folder by path, and
-    `parse_dandi_url()` will convert the URL to an `AssetFolderURL`.
+    ends with a trailing slash but does not end at a Zarr asset, the URL
+    refers to an asset folder by path, and `parse_dandi_url()` will convert
+    the URL to an `AssetFolderURL`.
 
   - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
-    does not end with a trailing slash, the URL refers to a single asset by
-    path, and `parse_dandi_url()` will convert the URL to an `AssetItemURL`.
+    either does not end with a trailing slash or ends at a Zarr asset, the URL
+    refers to a single asset by path, and `parse_dandi_url()` will convert the
+    URL to an `AssetItemURL`.
 
 - Any other HTTPS URL that redirects to one of the above
 

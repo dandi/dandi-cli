@@ -1064,7 +1064,7 @@ def _download_zarr(
     lock: Lock,
     jobs: int | None = None,
     zarr_entry_filter: Callable[[str], bool] | None = None,
-    required_filters: list[ZarrFilter] | None = None,
+    required_filters: Sequence[ZarrFilter] = (),
 ) -> Iterator[dict]:
     # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
@@ -1078,12 +1078,11 @@ def _download_zarr(
     # ones, so a non-empty `entries` does not mean the required filters
     # matched; track them separately.
     required_match = (
-        make_zarr_entry_filter(required_filters) if required_filters else None
+        make_zarr_entry_filter(list(required_filters)) if required_filters else None
     )
     matched_required = False
 
     def unmatched_required_error() -> dict:
-        assert required_filters is not None
         patterns = ", ".join(repr(f.pattern) for f in required_filters)
         return {
             "status": "error",

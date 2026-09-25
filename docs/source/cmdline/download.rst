@@ -85,18 +85,20 @@ Options
         ``path:0/0``.
 
     ``regex``
-        Match the entry path against a Python regular expression, e.g.
+        Search the entry path for a Python regular expression.  The match is
+        unanchored, so anchor it yourself to match from the start, e.g.
         ``regex:^0/[0-9]+/``.
 
     In place of :samp:`{type}:{pattern}`, the predefined filter ``metadata``
-    may be given; it selects the Zarr metadata files (``.zarray``, ``.zgroup``,
-    ``.zattrs``, ``.zmetadata``, and ``zarr.json``).
+    may be given; it selects the Zarr metadata files, i.e. any entry named
+    ``zarr.json`` or whose name begins with ``.z`` (``.zarray``, ``.zgroup``,
+    ``.zattrs``, ``.zmetadata``), at any depth.
 
     The option may be given more than once, in which case an entry is
     downloaded if it matches **any** of the filters.
 
-    A URL that points inside a Zarr asset (see :ref:`resource_ids`) restricts
-    the download in the same way, as though ``path:`` had been given for the
+    A URL that points inside a Zarr asset (see :ref:`resource_ids`) selects
+    entries in the same way, as though ``path:`` had been given for the
     portion of the URL below the Zarr asset::
 
         dandi download dandi://dandi/000108/sub-1/file.ome.zarr/0/0
@@ -104,6 +106,19 @@ Options
     Unlike ``--zarr``, such a URL names entries that the Dandiset is expected
     to have: if no entry matches, the download fails rather than quietly
     downloading nothing.
+
+    .. warning::
+
+        A URL subpath and ``--zarr`` are **unioned**, not intersected, so
+        passing both *widens* the download rather than narrowing it.  In::
+
+            dandi download --zarr metadata \
+                dandi://dandi/000108/sub-1/file.ome.zarr/0/0
+
+        the entries under ``0/0`` are downloaded *and* so is every metadata
+        file anywhere in the Zarr.  To restrict metadata to a subtree, give
+        the subtree in the filter itself (``--zarr 'glob:0/0/**/.z*'``) rather
+        than in the URL.
 
     Because only part of a Zarr is fetched, extra local files are not deleted
     and the Zarr checksum of the result is not verified; the checksum of each
