@@ -60,7 +60,9 @@ jobs:
             python: 3.14
             mode: obolibrary-only
           - os: ubuntu-latest
-            python: '3.11'
+            # cannot use dev-deps on 3.11 now, see
+            # https://github.com/hdmf-dev/hdmf-zarr/issues/406
+            python: '3.12'
             mode: dev-deps
           - os: ubuntu-latest
             python: 3.14
