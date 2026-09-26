@@ -32,6 +32,7 @@ metadata_nwb_file_fields = (
 
 metadata_nwb_subject_fields = (
     "age",
+    "age__reference",
     "date_of_birth",
     "genotype",
     "sex",
