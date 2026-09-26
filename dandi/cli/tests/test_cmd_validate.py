@@ -37,6 +37,15 @@ def redirected_logdir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return logdir
 
 
+@pytest.mark.ai_generated
+def test_validate_missing_path(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.nwb"
+    result = CliRunner().invoke(validate, [str(missing)])
+    assert result.exit_code == 2
+    assert "does not exist" in result.output
+    assert missing.name in result.output
+
+
 @pytest.mark.parametrize(
     "ds_name, expected_err_location",
     [
