@@ -1,3 +1,27 @@
+# 0.80.1 (Sat Sep 26 2026)
+
+#### 🐛 Bug Fix
+
+- Warn when uploads omit unrecognized paths [#1915](https://github.com/dandi/dandi-cli/pull/1915) ([@AtomicGlance](https://github.com/AtomicGlance))
+- Show the released version in the docs instead of "0+untagged" [#1926](https://github.com/dandi/dandi-cli/pull/1926) ([@kabilar](https://github.com/kabilar))
+- Give a descriptive error when a DOI cannot be resolved to citation metadata [#1900](https://github.com/dandi/dandi-cli/pull/1900) ([@adityasingh2400](https://github.com/adityasingh2400) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- BF: run dev-deps testing under 3.12 instead of 3.11 [#1928](https://github.com/dandi/dandi-cli/pull/1928) ([@yarikoptic](https://github.com/yarikoptic))
+- test: run MinIO from `bitnamilegacy/minio`; Quay now requires a login [#1927](https://github.com/dandi/dandi-cli/pull/1927) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 6
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.80.0 (Thu Sep 17 2026)
 
 #### 🚀 Enhancement
