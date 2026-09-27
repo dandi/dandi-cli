@@ -284,6 +284,21 @@ class Readable(ABC):
         """
         ...
 
+    def get_fingerprint(self) -> str | None:
+        """
+        .. versionadded:: 0.81.0
+
+        Returns a fingerprint of the resource's *content*, such as a content
+        digest (e.g., a git-annex key), or `None` if none is known
+
+        Two resources with equal fingerprints must have identical bytes: the
+        fingerprint is what lets results derived from the content (metadata,
+        validation results) be cached and reused across instances, see
+        `dandi.pynwb_utils.memoize_source`.  With the default of `None`, such
+        results are never cached for the resource.
+        """
+        return None
+
 
 class LocalReadableFile(Readable):
     """
@@ -343,9 +358,8 @@ class RemoteReadableAsset(Readable):
 
     def open(self) -> IO[bytes]:
         # Optional dependency:
-        import fsspec
-
         from aiohttp import ClientTimeout
+        import fsspec
 
         # We need to call open() on the return value of fsspec.open() because
         # otherwise the filehandle will only be opened when used to enter a
