@@ -1044,12 +1044,21 @@ def test_validate_missing_file_content_stream(
 
 @pytest.mark.ai_generated
 def test_validate_broken_symlink_path_argument(tmp_path: Path) -> None:
-    """A broken symlink can be given directly as a path to validate."""
+    """A broken symlink can be given directly as a path to validate.
+
+    The --missing-file-content policies then apply to it just as they do when
+    the containing directory is given.
+    """
     ds = _make_dandiset_with_broken_symlinks(tmp_path)
-    r = CliRunner().invoke(validate, [str(ds / "sub-001" / "sub-001.nwb")])
+    link = ds / "sub-001" / "sub-001.nwb"
+    r = CliRunner().invoke(validate, [str(link)])
     assert r.exit_code == 1
     assert "does not exist" not in r.output
     assert "FILE_CONTENT_MISSING" in r.output
+    r = CliRunner().invoke(validate, ["--missing-file-content", "skip", str(link)])
+    assert r.exit_code == 0
+    assert "FILE_CONTENT_MISSING_SKIPPED" in r.output
+    # Paths that truly do not exist are still rejected
     r = CliRunner().invoke(validate, [str(ds / "sub-001" / "nonexistent.nwb")])
     assert r.exit_code == 2
     assert "does not exist" in r.output

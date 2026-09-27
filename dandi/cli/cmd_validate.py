@@ -38,8 +38,11 @@ class TruncationNotice:
 class ExistingPath(click.Path):
     """
     Like ``click.Path(exists=True)``, but also accepting broken symbolic links,
-    such as annexed files whose content is not present, which ``dandi validate``
-    knows how to handle (see ``--missing-file-content``)
+    such as the annexed files of a DataLad dataset whose content has not been
+    fetched.  ``click.Path(exists=True)`` follows the link and rejects those as
+    nonexistent, which prevented the ``--missing-file-content`` policies
+    (``error``, ``skip``, ``only-non-data``) from ever being applied to a file
+    given directly on the command line rather than via its directory.
     """
 
     def convert(
