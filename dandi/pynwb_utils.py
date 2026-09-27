@@ -616,8 +616,9 @@ def _rename_external_images(nwbfile_path: str, external_images: list[dict]) -> N
         f.visititems(rename_if_matched)
 
 
-@validate_cache.memoize_path
-def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResult]:
+def validate(
+    path: str | Path, devel_debug: bool = False, *, readable: Readable | None = None
+) -> list[ValidationResult]:
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -626,8 +627,35 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
     Parameters
     ----------
     path: str or Path
+      Path of the file, as reported in the returned results
+    devel_debug: bool, optional
+      Whether to re-raise exceptions instead of reporting them as errors
+    readable: Readable, optional
+      If given, the file's content is read from this `Readable` instead of from
+      ``path`` (e.g., to stream the content of an annexed file which is not
+      present locally); the results are then not cached.
     """
+    if readable is not None:
+        return _validate(path, readable, devel_debug=devel_debug)
+    # The memoizing decorator hides the return type from mypy
+    return cast(
+        "list[ValidationResult]", _validate_cached(path, devel_debug=devel_debug)
+    )
+
+
+@validate_cache.memoize_path
+def _validate_cached(
+    path: str | Path, devel_debug: bool = False
+) -> list[ValidationResult]:
+    return _validate(path, None, devel_debug=devel_debug)
+
+
+def _validate(
+    path: str | Path, readable: Readable | None, devel_debug: bool = False
+) -> list[ValidationResult]:
     path = str(path)  # Might come in as pathlib's PATH
+    # What to read the content from:
+    source: str | Readable = readable if readable is not None else path
     errors: list[ValidationResult] = []
 
     # To overcome
@@ -639,7 +667,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
     )
     version = None
     try:
-        version = get_nwb_version(path, sanitize=False)
+        version = get_nwb_version(source, sanitize=False)
     except Exception:
         # we just will not remove any errors, it is required so should be some
         pass
@@ -685,7 +713,12 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     )
 
     try:
-        if Version(pynwb.__version__) >= Version("3.0.0"):
+        if readable is not None:
+            with open_readable(readable) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
+                file=h5, mode="r", load_namespaces=True
+            ) as reader:
+                error_outputs = pynwb.validate(io=reader)
+        elif Version(pynwb.__version__) >= Version("3.0.0"):
             error_outputs = pynwb.validate(path=path)
         elif Version(pynwb.__version__) >= Version(
             "2.2.0"
@@ -695,6 +728,9 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
         else:  # Fallback if an older version
             with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
                 error_outputs = pynwb.validate(io=reader)
+        if isinstance(error_outputs, tuple):
+            # Older pynwb versions return (errors, status) for some call forms
+            error_outputs = error_outputs[0]
     except Exception as exc:
         if devel_debug:
             raise

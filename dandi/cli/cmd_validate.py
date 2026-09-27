@@ -7,7 +7,7 @@ import logging
 import os
 import re
 import sys
-from typing import IO, Union, cast
+from typing import IO, Any, Union, cast
 import warnings
 
 import click
@@ -33,6 +33,25 @@ class TruncationNotice:
     #: Number of validation results omitted from this group
     omitted_count: int
     """Number of validation results omitted from this group."""
+
+
+class ExistingPath(click.Path):
+    """
+    Like ``click.Path(exists=True)``, but also accepting broken symbolic links,
+    such as annexed files whose content is not present, which ``dandi validate``
+    knows how to handle (see ``--missing-file-content``)
+    """
+
+    def convert(
+        self, value: Any, param: click.Parameter | None, ctx: click.Context | None
+    ) -> Any:
+        if not os.path.lexists(value):
+            self.fail(
+                f"{self.name.title()} {os.fsdecode(value)!r} does not exist.",
+                param,
+                ctx,
+            )
+        return super().convert(value, param, ctx)
 
 
 STRUCTURED_FORMATS = ("json", "json_pp", "json_lines", "yaml")
@@ -217,8 +236,13 @@ def validate_bids(
     "in a datalad dataset without fetched data). 'error' (default) emits a "
     "concise error per file, 'skip' skips each such file with a warning, "
     "'only-non-data' skips content-dependent validators but still validates "
-    "path layout.",
-    type=click.Choice(["error", "only-non-data", "skip"], case_sensitive=True),
+    "path layout, 'stream' streams the content of annexed files from the URLs "
+    "registered for them in git-annex so that content-dependent validators run "
+    "without the files having to be downloaded (requires fsspec; install with "
+    "`pip install 'dandi[extras]'`).",
+    type=click.Choice(
+        ["error", "only-non-data", "skip", "stream"], case_sensitive=True
+    ),
     default="error",
 )
 @click.option(
@@ -228,7 +252,7 @@ def validate_bids(
     multiple=True,
     default=(),
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@click.argument("paths", nargs=-1, type=ExistingPath(dir_okay=True))
 @click.pass_context
 @devel_debug_option()
 @map_to_click_exceptions
