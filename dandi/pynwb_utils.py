@@ -111,8 +111,14 @@ def memoize_source(cache: PersistentCache, tokens: Sequence[Any]) -> Callable[[F
         by_fingerprint.__module__ = f.__module__
         by_fingerprint.__name__ = f"{f.__name__}__by_fingerprint"
         by_fingerprint.__qualname__ = f"{f.__qualname__}__by_fingerprint"
+        # fscacher >= 0.4 calls the argument `exclude_kwargs`, older ones `ignore`
+        ignore_kwarg = (
+            "exclude_kwargs"
+            if "exclude_kwargs" in inspect.signature(cache.memoize).parameters
+            else "ignore"
+        )
         cached_by_fingerprint = cache.memoize(
-            by_fingerprint, exclude_kwargs=["_source"]
+            by_fingerprint, **{ignore_kwarg: ["_source"]}
         )
 
         @wraps(f)
