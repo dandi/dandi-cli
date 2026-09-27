@@ -713,24 +713,15 @@ def validate(
       `~Readable.get_fingerprint`.
     """
     source: str | Readable = readable if readable is not None else str(path)
-    return _validate_cached(source, str(path), devel_debug=devel_debug)
+    return _validate(source, str(path), devel_debug=devel_debug)
 
 
 @memoize_source(validate_cache, validate_cache_tokens)
-def _validate_cached(
-    source: str | Path | Readable, path: str, devel_debug: bool = False
-) -> list[ValidationResult]:
-    """`_validate` with the content source first, for `memoize_source`"""
-    readable = source if isinstance(source, Readable) else None
-    return _validate(path, readable, devel_debug=devel_debug)
-
-
 def _validate(
-    path: str | Path, readable: Readable | None, devel_debug: bool = False
+    source: str | Readable, path: str, devel_debug: bool = False
 ) -> list[ValidationResult]:
-    path = str(path)  # Might come in as pathlib's PATH
-    # What to read the content from:
-    source: str | Readable = readable if readable is not None else path
+    """`validate` with the content source first, as `memoize_source` needs it"""
+    readable = source if isinstance(source, Readable) else None
     errors: list[ValidationResult] = []
 
     # To overcome
