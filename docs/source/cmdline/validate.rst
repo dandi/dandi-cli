@@ -87,17 +87,7 @@ a Dandiset::
 Each streamed file yields an ``INFO``-level ``DANDI.FILE_CONTENT_STREAMED``
 result naming the URL its content was read from; a file that cannot be streamed
 (not an annexed file, or no URL registered for it) yields a
-``DANDI.FILE_CONTENT_MISSING`` error instead.  To do this for every Dandiset,
-install the subdatasets of the superdataset without fetching any content and
-validate each one (the superdataset itself is not a Dandiset)::
-
-    datalad clone https://github.com/dandisets/dandisets
-    cd dandisets
-    datalad get -n -r .   # or: git submodule update --init
-    for ds in 0*/; do
-        dandi validate --missing-file-content=stream --min-severity=INFO \
-            --format=json_lines --output="records/${ds%/}.jsonl" "$ds"
-    done
+``DANDI.FILE_CONTENT_MISSING`` error instead.
 
 Notes:
 
@@ -109,11 +99,15 @@ Notes:
   of data streamed for a file depends on its content; it is nevertheless
   usually a small fraction of the file.
 - Zarr assets are stored as separate subdatasets (https://github.com/dandizarrs)
-  and are not streamed: an uninstalled Zarr subdataset is an empty directory
-  that is not validated at all.
+  and are not streamed yet: an uninstalled Zarr subdataset is an empty directory
+  that is not validated at all.  Streaming them is a follow-up for when NWB Zarr
+  support has matured across the ecosystem.
 - The BIDS validator cannot stream content, so BIDS errors that require reading
   a file (e.g., unreadable NIfTI headers) are suppressed for annexed files under
-  the ``stream`` and ``only-non-data`` policies.
+  the ``stream`` and ``only-non-data`` policies.  For NWB datasets, the primary
+  use case, nothing is lost: everything the BIDS validator needs is either
+  present (the non-annexed sidecar files, which are kept in git) or encoded in
+  the file and folder names of the annexed files themselves.
 
 Alternatively, `datalad-fuse`_ can mount a DataLad dataset as a file system
 that fetches content transparently on read, in which case plain ``dandi
