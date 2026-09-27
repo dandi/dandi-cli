@@ -56,33 +56,6 @@ Options
     Limit the number of results shown per group (or in total when not
     grouping); the excess is replaced by a count of omitted results
 
-.. option:: --missing-file-content [error|only-non-data|skip]
-
-    How to handle files whose content is unavailable, such as the broken
-    symbolic links of a DataLad_ dataset (a git-annex_ repository) whose
-    content has not been fetched:
-
-    ``error``
-        Emit a concise ``DANDI.FILE_CONTENT_MISSING`` error for each such file
-        (default)
-
-    ``skip``
-        Skip each such file, emitting a warning
-
-    ``only-non-data``
-        Skip content-dependent validators (pynwb, nwbinspector, ...) for each
-        such file but still validate its path layout
-
-.. option:: --load <file>
-
-    Instead of running validation, load previously saved results from the
-    given JSON Lines file (e.g., an automatically saved companion file) and
-    render them.  Can be specified multiple times; cannot be combined with
-    paths.
-
-.. _DataLad: https://www.datalad.org
-.. _git-annex: https://git-annex.branchable.com
-
 .. option:: --missing-file-content [error|only-non-data|skip|stream]
 
     How to handle files whose content is unavailable, such as the broken
@@ -105,14 +78,12 @@ Options
         git-annex so that content-dependent validators run without the file
         having to be downloaded; see `Validating DataLad Dandisets`_ below.
 
-.. option:: -f, --format [text|json|json_pp|json_lines|yaml]
+.. option:: --load <file>
 
-    Output format (``text`` by default)
-
-.. option:: -o, --output <file>
-
-    Write the output to the given file instead of standard output.  The format
-    is inferred from the file's extension unless :option:`--format` is given.
+    Instead of running validation, load previously saved results from the
+    given JSON Lines file (e.g., an automatically saved companion file) and
+    render them.  Can be specified multiple times; cannot be combined with
+    paths.
 
 .. _DataLad: https://www.datalad.org
 .. _git-annex: https://git-annex.branchable.com
