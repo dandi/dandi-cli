@@ -273,9 +273,13 @@ class AnnexReadableFile(Readable):
         # Optional dependency:
         from aiohttp import ClientTimeout
         import fsspec
+        from fsspec.caching import caches as fsspec_caches
 
         if not self.urls:
             raise RuntimeError(f"{self.filepath}: No URLs registered in git-annex")
+        # fsspec's LRU block cache (which suits h5py's random access) was
+        # registered as "block" before it was renamed to "blockcache" in 2023
+        cache_type = "blockcache" if "blockcache" in fsspec_caches else "block"
         # fsspec logs every block it fetches at INFO level, which is too noisy
         # for the (INFO-level by default) dandi CLI output; quiet that unless
         # the user configured that logger themselves
@@ -294,7 +298,7 @@ class AnnexReadableFile(Readable):
                         url,
                         mode="rb",
                         block_size=STREAM_BLOCK_SIZE,
-                        cache_type="blockcache",
+                        cache_type=cache_type,
                         cache_options={"maxblocks": STREAM_MAX_BLOCKS},
                         client_kwargs={
                             # Explicit timeouts prevent indefinite hangs in
