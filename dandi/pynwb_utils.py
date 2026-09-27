@@ -27,9 +27,9 @@ from fscacher import PersistentCache
 import h5py
 import hdmf
 import numpy as np
-from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
+from pynwb.base import ExternalImage
 import semantic_version
 
 from . import __version__, get_logger
@@ -450,12 +450,6 @@ def _get_external_images(nwb: pynwb.NWBFile) -> list[dict]:
         list of dicts : [{id: <ExternalImage uuid>, name: <ExternalImage name>,
         external_files=[ExternalImage.data], field: "data"}]
     """
-    try:
-        from pynwb.base import ExternalImage
-    except ImportError:
-        # `ExternalImage` was added in pynwb 3.1.0; nothing to collect on an older one.
-        return []
-
     out = []
     for ob in nwb.objects.values():
         if not isinstance(ob, ExternalImage) or ob.data is None:
@@ -713,24 +707,15 @@ def _validate(
                     )
 
     try:
+        # Either way, validates against the namespaces cached in the file; pynwb
+        # falls back to its own namespaces if the file has none cached
         if readable is not None:
             with open_readable(readable) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
                 file=h5, mode="r", load_namespaces=True
             ) as reader:
                 error_outputs = pynwb.validate(io=reader)
-        elif Version(pynwb.__version__) >= Version("3.0.0"):
+        else:
             error_outputs = pynwb.validate(path=path)
-        elif Version(pynwb.__version__) >= Version(
-            "2.2.0"
-        ):  # Use cached namespace feature
-            # argument get_cached_namespaces is True by default
-            error_outputs, _ = pynwb.validate(paths=[path])
-        else:  # Fallback if an older version
-            with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
-                error_outputs = pynwb.validate(io=reader)
-        if isinstance(error_outputs, tuple):
-            # Older pynwb versions return (errors, status) for some call forms
-            error_outputs = error_outputs[0]
     except Exception as exc:
         if devel_debug:
             raise
@@ -844,18 +829,15 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
         dest = op.join(dest, op.basename(src))
     else:
         os.makedirs(op.dirname(dest), exist_ok=True)
-    kws = {}
-    if Version(pynwb.__version__) >= Version("2.8.2"):
-        # we might make it leaner by not caching the spec if original
-        # file did not have it.  Possible only since 2.8.2.dev11
-        kws["cache_spec"] = bool(pynwb.NWBHDF5IO.get_namespaces(src))
     with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(dest, "w") as iow:
         data = ior.read()
         data.generate_new_id()
         iow.export(
             ior,
             nwbfile=data,
-            **kws,
+            # keep the copy leaner by not caching the spec if the original
+            # file did not have it cached either
+            cache_spec=bool(pynwb.NWBHDF5IO.get_namespaces(src)),
         )
     return str(dest)
 
