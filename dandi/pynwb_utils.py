@@ -12,8 +12,9 @@ metadata from NWB files using PyNWB. Features include:
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import timedelta
+from functools import wraps
 import inspect
 import os
 import os.path as op
@@ -63,14 +64,76 @@ dandi_cache_tokens = [
     get_module_version(hdmf),
     get_module_version(h5py),
 ]
+metadata_cache_tokens = dandi_cache_tokens
 metadata_cache = PersistentCache(
-    name="dandi-metadata", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
+    name="dandi-metadata", tokens=metadata_cache_tokens, envvar="DANDI_CACHE"
 )
+validate_cache_tokens = dandi_cache_tokens + [get_module_version(dandischema)]
 validate_cache = PersistentCache(
-    name="dandi-validate",
-    tokens=dandi_cache_tokens + [get_module_version(dandischema)],
-    envvar="DANDI_CACHE",
+    name="dandi-validate", tokens=validate_cache_tokens, envvar="DANDI_CACHE"
 )
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def memoize_source(cache: PersistentCache, tokens: Sequence[Any]) -> Callable[[F], F]:
+    """
+    Decorator caching the results of a function of a local path or a `Readable`
+
+    For a path argument (`str` or `Path`), this is exactly ``cache.memoize_path``:
+    the result is cached under the file's location, a fingerprint of the file
+    (mtime, ctime, size, ...), and ``tokens``.  A `Readable` cannot be
+    fingerprinted that way, so `PersistentCache.memoize_path` leaves calls on
+    one uncached; here, a `Readable` whose `~Readable.get_fingerprint` returns
+    a value is cached under its file name, that fingerprint, and ``tokens``
+    instead.  A `Readable` without a fingerprint is still never cached.
+
+    ``tokens`` should be the ones ``cache`` was created with (versions of the
+    software producing the results): `PersistentCache.memoize`, unlike
+    `~PersistentCache.memoize_path`, does not add them by itself.
+    """
+
+    def decorator(f: F) -> F:
+        by_path = cache.memoize_path(f)
+
+        def by_fingerprint(
+            filename: str,
+            fingerprint: str,
+            cache_tokens: tuple[Any, ...],
+            *args: Any,
+            _source: Readable,
+            **kwargs: Any,
+        ) -> Any:
+            return f(_source, *args, **kwargs)
+
+        # Give it an identity of its own under `f`'s module, so that joblib
+        # keeps its results in a per-function directory next to `by_path`'s
+        by_fingerprint.__module__ = f.__module__
+        by_fingerprint.__name__ = f"{f.__name__}__by_fingerprint"
+        by_fingerprint.__qualname__ = f"{f.__qualname__}__by_fingerprint"
+        cached_by_fingerprint = cache.memoize(
+            by_fingerprint, exclude_kwargs=["_source"]
+        )
+
+        @wraps(f)
+        def wrapper(source: Any, *args: Any, **kwargs: Any) -> Any:
+            if not isinstance(source, Readable):
+                return by_path(source, *args, **kwargs)
+            fingerprint = source.get_fingerprint()
+            if fingerprint is None:
+                return f(source, *args, **kwargs)
+            return cached_by_fingerprint(
+                source.get_filename(),
+                fingerprint,
+                tuple(tokens),
+                *args,
+                _source=source,
+                **kwargs,
+            )
+
+        return cast(F, wrapper)
+
+    return decorator
 
 
 def _sanitize_nwb_version(
@@ -194,7 +257,7 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     return ndtypes
 
 
-@metadata_cache.memoize_path
+@memoize_source(metadata_cache, metadata_cache_tokens)
 def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
     with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
@@ -808,7 +871,7 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     return str(dest)
 
 
-@metadata_cache.memoize_path
+@memoize_source(metadata_cache, metadata_cache_tokens)
 def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
     with open_readable(filepath) as f, h5py.File(f, "r") as fp:
         visited = set()
