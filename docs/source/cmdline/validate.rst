@@ -109,14 +109,7 @@ Notes:
   present (the non-annexed sidecar files, which are kept in git) or encoded in
   the file and folder names of the annexed files themselves.
 
-Alternatively, `datalad-fuse`_ can mount a DataLad dataset as a file system
-that fetches content transparently on read, in which case plain ``dandi
-validate`` (without :option:`--missing-file-content`) can be run on the mount
-point; that approach requires FUSE and thus does not work in every
-environment (e.g., many containers).
-
 .. _fsspec: https://github.com/fsspec/filesystem_spec
-.. _datalad-fuse: https://github.com/datalad/datalad-fuse
 
 
 Development Options
