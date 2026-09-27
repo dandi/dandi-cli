@@ -65,6 +65,11 @@ Options
     What to do if files without sufficient metadata are encountered  [default:
     ``fail``]
 
+.. option:: -J, --jobs N
+
+    Number of parallel jobs to use while organizing, e.g., for extracting the
+    metadata from the files  [default: one per CPU core]
+
 .. option:: --media-files-mode [copy|move|symlink|hardlink]
 
     How to relocate video files referenced by NWB files [default: ``symlink``]
