@@ -4,9 +4,11 @@ import dataclasses
 from datetime import datetime, timedelta
 from itertools import chain
 import json
+import os
 from pathlib import Path
 import shutil
 from typing import Any
+from uuid import uuid4
 
 from anys import ANY_AWARE_DATETIME, ANY_INT, AnyFullmatch, AnyIn
 from dandischema.consts import DANDI_SCHEMA_VERSION
@@ -38,7 +40,7 @@ import pytest
 import requests
 from semantic_version import Version
 
-from .fixtures import SampleDandiset
+from .fixtures import FingerprintedReadable, SampleDandiset
 from .skip import mark
 from .. import __version__
 from ..consts import metadata_nwb_subject_fields
@@ -1413,3 +1415,21 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
         approach=[],
         relatedResource=[],
     )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    os.environ.get("DANDI_CACHE") == "ignore", reason="the metadata cache is disabled"
+)
+def test_get_metadata_fingerprinted_readable(simple1_nwb: Path, tmp_path: Path) -> None:
+    # Unique per run: the module-level cache persists across test runs
+    fingerprint = f"test-{uuid4()}"
+    first = FingerprintedReadable(simple1_nwb, fingerprint)
+    metadata = get_metadata(first)
+    assert metadata == get_metadata(simple1_nwb)
+    assert first.opened > 0
+    # Its twin is served from the cache by the fingerprint: never even opened,
+    # which it could not be
+    twin = FingerprintedReadable(tmp_path / "gone" / simple1_nwb.name, fingerprint)
+    assert get_metadata(twin) == metadata
+    assert twin.opened == 0

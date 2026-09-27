@@ -11,7 +11,7 @@ import re
 import shutil
 from subprocess import DEVNULL, check_output, run
 from time import sleep
-from typing import Any, Literal, cast
+from typing import IO, Any, Literal, cast
 from uuid import uuid4
 
 from click.testing import CliRunner
@@ -39,6 +39,7 @@ from ..consts import (
     metadata_nwb_file_fields,
 )
 from ..dandiapi import DandiAPIClient, RemoteDandiset
+from ..misctypes import LocalReadableFile
 from ..pynwb_utils import make_nwb_file
 from ..support.annex import AnnexKey
 from ..upload import upload
@@ -94,6 +95,27 @@ def simple1_nwb_metadata() -> dict[str, Any]:
     for f in "related_publications", "experimenter":
         metadata[f] = (metadata[f],)
     return metadata
+
+
+class FingerprintedReadable(LocalReadableFile):
+    """
+    A local file posing as a `Readable` with a content fingerprint of its own
+
+    Opening it is counted, to tell results served from a cache from those
+    computed from the content.
+    """
+
+    def __init__(self, filepath: str | Path, fingerprint: str | None) -> None:
+        super().__init__(filepath)
+        self.fingerprint = fingerprint
+        self.opened = 0
+
+    def open(self) -> IO[bytes]:
+        self.opened += 1
+        return super().open()
+
+    def get_fingerprint(self) -> str | None:
+        return self.fingerprint
 
 
 @pytest.fixture(scope="session")
