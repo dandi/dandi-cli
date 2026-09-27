@@ -1,30 +1,87 @@
+.. _dandi_validate:
+
 :program:`dandi validate`
 =========================
 
 ::
 
-    dandi [<global options>] validate [<path> ...]
+    dandi [<global options>] validate [<options>] [<path> ...]
 
 Validate files for data standards compliance.
 
 Exits with non-zero exit code if any file is not compliant.
 
+The validation results are automatically saved as a JSON Lines companion file
+next to the dandi-cli log file (unless :option:`--output` is used or
+:option:`--load` is active).  Use :option:`--load` to re-render saved results
+later with different grouping, filtering, or format options.
+
 Options
 -------
 
-.. option:: -g, --grouping [none|path]
+.. option:: -g, --grouping [none|path|severity|id|validator|standard|dandiset]
 
-    Set how to group reported errors & warnings: by path or not at all
-    (default)
+    How to group the reported results.  Repeat the option for hierarchical
+    nesting, e.g., ``-g severity -g id``.  [default: ``none``]
 
 .. option:: --ignore REGEX
 
-    Ignore any validation errors & warnings whose ID matches the given regular
+    Ignore any validation results whose ID matches the given regular
     expression
 
 .. option:: --min-severity [INFO|HINT|WARNING|ERROR|CRITICAL]
 
-    Only display issues with severities above this level (HINT by default)
+    Only display results with severities at or above this level  [default:
+    ``HINT``]
+
+.. option:: -f, --format [text|json|json_pp|json_lines|yaml]
+
+    Output format  [default: ``text``]
+
+.. option:: -o, --output <file>
+
+    Write the output to the given file instead of standard output.  This
+    requires a structured :option:`--format`; if none is given, the format is
+    inferred from the file's extension (``.json``, ``.jsonl``, ``.yaml``, or
+    ``.yml``).  :option:`--grouping` cannot be combined with the ``json_lines``
+    format.
+
+.. option:: --summary, --no-summary
+
+    Whether to show summary statistics (counts of results by severity,
+    validator, and standard) after the results  [default: ``--no-summary``]
+
+.. option:: --max-per-group N
+
+    Limit the number of results shown per group (or in total when not
+    grouping); the excess is replaced by a count of omitted results
+
+.. option:: --missing-file-content [error|only-non-data|skip]
+
+    How to handle files whose content is unavailable, such as the broken
+    symbolic links of a DataLad_ dataset (a git-annex_ repository) whose
+    content has not been fetched:
+
+    ``error``
+        Emit a concise ``DANDI.FILE_CONTENT_MISSING`` error for each such file
+        (default)
+
+    ``skip``
+        Skip each such file, emitting a warning
+
+    ``only-non-data``
+        Skip content-dependent validators (pynwb, nwbinspector, ...) for each
+        such file but still validate its path layout
+
+.. option:: --load <file>
+
+    Instead of running validation, load previously saved results from the
+    given JSON Lines file (e.g., an automatically saved companion file) and
+    render them.  Can be specified multiple times; cannot be combined with
+    paths.
+
+.. _DataLad: https://www.datalad.org
+.. _git-annex: https://git-annex.branchable.com
 
 .. option:: --missing-file-content [error|only-non-data|skip|stream]
 
