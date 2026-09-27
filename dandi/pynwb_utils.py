@@ -788,12 +788,15 @@ def _validate(
                     )
 
     try:
-        # Validates against the namespaces cached in the file; pynwb falls back
-        # to its own namespaces if the file has none cached
-        with open_readable(source) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
-            file=h5, mode="r", load_namespaces=True
-        ) as reader:
-            error_outputs = pynwb.validate(io=reader)
+        # Either way, validates against the namespaces cached in the file; pynwb
+        # falls back to its own namespaces if the file has none cached
+        if isinstance(source, Readable):
+            with open_readable(source) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
+                file=h5, mode="r", load_namespaces=True
+            ) as reader:
+                error_outputs = pynwb.validate(io=reader)
+        else:
+            error_outputs = pynwb.validate(path=source)
     except Exception as exc:
         if devel_debug:
             raise
