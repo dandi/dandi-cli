@@ -94,17 +94,20 @@ def memoize_source(cache: PersistentCache, tokens: Sequence[Any]) -> Callable[[F
     """
 
     def decorator(f: F) -> F:
+        sig = inspect.signature(f)
+        if any(p.kind is p.VAR_POSITIONAL for p in sig.parameters.values()):
+            raise TypeError(f"memoize_source: {f.__qualname__}() must not take *args")
         by_path = cache.memoize_path(f)
 
         def by_fingerprint(
             filename: str,
             fingerprint: str,
             cache_tokens: tuple[Any, ...],
-            *args: Any,
+            *,
             _source: Readable,
             **kwargs: Any,
         ) -> Any:
-            return f(_source, *args, **kwargs)
+            return f(_source, **kwargs)
 
         # Give it an identity of its own under `f`'s module, so that joblib
         # keeps its results in a per-function directory next to `by_path`'s
@@ -128,13 +131,23 @@ def memoize_source(cache: PersistentCache, tokens: Sequence[Any]) -> Callable[[F
             fingerprint = source.get_fingerprint()
             if fingerprint is None:
                 return f(source, *args, **kwargs)
+            # Pass `f`'s other arguments by name (defaults included), so that the
+            # cache key does not depend on how they were passed, and so that
+            # joblib < 1.4 does not mistake positional ones for `_source`
+            bound = sig.bind(source, *args, **kwargs)
+            bound.apply_defaults()
+            others: dict[str, Any] = {}
+            for name, value in list(bound.arguments.items())[1:]:
+                if sig.parameters[name].kind is inspect.Parameter.VAR_KEYWORD:
+                    others.update(value)
+                else:
+                    others[name] = value
             return cached_by_fingerprint(
                 source.get_filename(),
                 fingerprint,
                 tuple(tokens),
-                *args,
                 _source=source,
-                **kwargs,
+                **others,
             )
 
         return cast(F, wrapper)

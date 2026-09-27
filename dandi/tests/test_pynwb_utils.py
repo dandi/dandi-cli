@@ -287,6 +287,9 @@ def test_memoize_source(tmp_path: Path, simple1_nwb: Path) -> None:
         cached(FingerprintedReadable(simple1_nwb, "A"), flag=True) == f"{nbytes}:True"
     )
     assert len(calls) == 7
+    # ... however those other arguments are passed
+    assert cached(FingerprintedReadable(simple1_nwb, "A"), True) == f"{nbytes}:True"
+    assert len(calls) == 7
     other_tokens = memoize_source(cache, ["t2"])(size)
     assert other_tokens(FingerprintedReadable(simple1_nwb, "A")) == expected
     assert len(calls) == 8
@@ -299,6 +302,13 @@ def test_memoize_source(tmp_path: Path, simple1_nwb: Path) -> None:
     assert cached_name(FingerprintedReadable(simple1_nwb, "A")) == simple1_nwb.name
     assert cached(FingerprintedReadable(simple1_nwb, "A")) == expected
     assert len(calls) == 8
+
+    # The other arguments are keyed by name, so `f` must not take *args
+    def varargs(source: str | Path | Readable, *args: Any) -> None:
+        pass
+
+    with pytest.raises(TypeError, match="must not take"):
+        memoize_source(cache, ["t1"])(varargs)
 
 
 @pytest.mark.ai_generated
