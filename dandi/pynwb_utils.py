@@ -720,8 +720,17 @@ def validate(
 def _validate(
     source: str | Readable, path: str, devel_debug: bool = False
 ) -> list[ValidationResult]:
-    """`validate` with the content source first, as `memoize_source` needs it"""
-    readable = source if isinstance(source, Readable) else None
+    """`validate` proper, with its arguments arranged for `memoize_source`
+
+    Parameters
+    ----------
+    source: str or Readable
+      What to read the file's content from: its path or a `Readable`
+    path: str
+      Path of the file, as reported in the returned results
+    devel_debug: bool
+      Whether to re-raise exceptions instead of reporting them as errors
+    """
     errors: list[ValidationResult] = []
 
     # To overcome
@@ -779,15 +788,12 @@ def _validate(
                     )
 
     try:
-        # Either way, validates against the namespaces cached in the file; pynwb
-        # falls back to its own namespaces if the file has none cached
-        if readable is not None:
-            with open_readable(readable) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
-                file=h5, mode="r", load_namespaces=True
-            ) as reader:
-                error_outputs = pynwb.validate(io=reader)
-        else:
-            error_outputs = pynwb.validate(path=path)
+        # Validates against the namespaces cached in the file; pynwb falls back
+        # to its own namespaces if the file has none cached
+        with open_readable(source) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
+            file=h5, mode="r", load_namespaces=True
+        ) as reader:
+            error_outputs = pynwb.validate(io=reader)
     except Exception as exc:
         if devel_debug:
             raise
