@@ -999,6 +999,50 @@ def test_validate_missing_file_content_no_broken_symlinks(tmp_path: Path) -> Non
 
 
 @pytest.mark.ai_generated
+def test_validate_missing_file_content_stream(
+    tmp_path: Path, simple3_nwb: Path
+) -> None:
+    """--missing-file-content=stream validates annexed content via registered URLs."""
+    from ...tests.fixtures import annex_key_for_file, make_annexed_dandiset
+    from ...tests.skip import skipif
+
+    skipif.no_git()
+    pytest.importorskip("fsspec")
+    ds = tmp_path / "ds"
+    make_annexed_dandiset(
+        ds,
+        {
+            "sub-001/sub-001.nwb": (
+                annex_key_for_file(simple3_nwb),
+                [simple3_nwb.as_uri()],
+            )
+        },
+    )
+    out = tmp_path / "out.jsonl"
+    r = CliRunner().invoke(
+        validate,
+        [
+            "--missing-file-content",
+            "stream",
+            "--min-severity",
+            "INFO",
+            "-f",
+            "json_lines",
+            "-o",
+            str(out),
+            str(ds),
+        ],
+    )
+    assert "Traceback" not in r.output
+    ids = [rec.id for rec in load_validation_jsonl([str(out)])]
+    assert "DANDI.FILE_CONTENT_STREAMED" in ids
+    assert "DANDI.FILE_CONTENT_MISSING" not in ids
+    # simple3_nwb lacks a subject_id, which only content-based checks notice
+    assert "NWBI.check_subject_id_exists" in ids
+    assert r.exit_code == 1
+
+
+@pytest.mark.ai_generated
 def test_validate_broken_symlink_path_argument(tmp_path: Path) -> None:
     """A broken symlink can be given directly as a path to validate.
 

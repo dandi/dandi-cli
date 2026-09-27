@@ -239,8 +239,13 @@ def validate_bids(
     "in a datalad dataset without fetched data). 'error' (default) emits a "
     "concise error per file, 'skip' skips each such file with a warning, "
     "'only-non-data' skips content-dependent validators but still validates "
-    "path layout.",
-    type=click.Choice(["error", "only-non-data", "skip"], case_sensitive=True),
+    "path layout, 'stream' streams the content of annexed files from the URLs "
+    "registered for them in git-annex so that content-dependent validators run "
+    "without the files having to be downloaded (requires fsspec; install with "
+    "`pip install 'dandi[extras]'`).",
+    type=click.Choice(
+        ["error", "only-non-data", "skip", "stream"], case_sensitive=True
+    ),
     default="error",
 )
 @click.option(

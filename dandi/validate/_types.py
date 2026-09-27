@@ -26,6 +26,12 @@ class MissingFileContent(StrEnum):
     skip = auto()
     """Skip the file entirely; emit a WARNING noting that validation was skipped."""
 
+    stream = auto()
+    """Stream the content of annexed files from the URLs registered for them in
+    git-annex (see `dandi.support.annex`) so that content-dependent validators
+    run without the content being present locally.  An INFO result is emitted
+    for each streamed file, and an ERROR for each file that cannot be streamed."""
+
 
 lgr = logging.getLogger(__name__)
 
