@@ -335,6 +335,11 @@ class AnnexReadableFile(Readable):
     def get_filename(self) -> str:
         return self.filepath.name
 
+    def get_fingerprint(self) -> str:
+        # The key is a digest of the content (plus its size), so results
+        # computed from it (validation, metadata) can be cached under it
+        return self.key.key
+
     def __str__(self) -> str:
         return str(self.filepath)
 

@@ -204,6 +204,7 @@ def test_get_annex_readable(tmp_path: Path, simple2_nwb: Path) -> None:
     assert r.urls == [simple2_nwb.as_uri()]
     assert r.get_size() == simple2_nwb.stat().st_size
     assert r.get_filename() == "sub-01.nwb"
+    assert r.get_fingerprint() == r.key.key
     assert str(r) == str(ds / "sub-01" / "sub-01.nwb")
     # No URLs registered
     r = get_annex_readable(ds / "sub-02" / "sub-02.nwb")
@@ -228,6 +229,7 @@ def test_annex_readable_file_open_file_url(tmp_path: Path) -> None:
     assert r.get_size() == 1000
     assert r.get_mtime() is None
     assert r.get_filename() == "content.bin"
+    assert r.get_fingerprint() == key.key
     # The first URL cannot be opened, so the second one is used
     fp = r.open()
     try:

@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import shutil
 from typing import Any
@@ -18,6 +19,8 @@ from .._types import (
 )
 from ... import __version__
 from ...consts import dandiset_metadata_file
+from ...pynwb_utils import validate as pynwb_validate
+from ...support.annex import AnnexKey, AnnexReadableFile, get_annex_readable
 from ...tests.fixtures import (
     BIDS_TESTDATA_SELECTION,
     annex_key_for_file,
@@ -393,6 +396,37 @@ def test_validate_stream(tmp_path: Path, simple3_nwb: Path) -> None:
     assert _content_results(results, "sub-001.nwb") == _content_results(
         expected, "sub-001.nwb"
     )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    os.environ.get("DANDI_CACHE") == "ignore", reason="the validation cache is disabled"
+)
+def test_validate_stream_cached_by_key(tmp_path: Path, simple3_nwb: Path) -> None:
+    """pynwb validation results of a streamed file are cached under its annex key."""
+    skipif.no_git()
+    pytest.importorskip("fsspec")
+    ds = _make_streamable_dandiset(tmp_path, simple3_nwb)
+    nwb = ds / "sub-001" / "sub-001.nwb"
+    readable = get_annex_readable(nwb)
+    assert readable is not None
+    results = pynwb_validate(nwb, readable=readable)
+    assert not [r for r in results if r.id == "pynwb.GENERIC"]
+
+    # The same file under the same key, but with a URL that cannot be opened:
+    # served from the cache (an attempt to read it would have been reported as
+    # a pynwb.GENERIC error instead)
+    twin = AnnexReadableFile(
+        filepath=nwb, key=readable.key, urls=["file:///nonexistent/sub-001.nwb"]
+    )
+    assert pynwb_validate(nwb, readable=twin) == results
+    # ... unlike the same file with a different key
+    other = AnnexReadableFile(
+        filepath=nwb,
+        key=AnnexKey.parse(f"SHA256E-s{readable.key.size}--{'0' * 64}.nwb"),
+        urls=["file:///nonexistent/sub-001.nwb"],
+    )
+    assert [r.id for r in pynwb_validate(nwb, readable=other)] == ["pynwb.GENERIC"]
 
 
 @pytest.mark.ai_generated

@@ -127,6 +127,12 @@ Notes:
 - Some nwbinspector checks read data arrays (e.g., timestamps), so the amount
   of data streamed for a file depends on its content; it is nevertheless
   usually a small fraction of the file.
+- The pynwb validation results and the metadata of a streamed file are cached
+  under its git-annex key (a digest of its content), just as those of a local
+  file are cached under its modification time and size, so re-running the
+  command skips that work for files whose key has not changed since.  As for
+  local files, set the :envvar:`DANDI_CACHE` environment variable to ``clear``
+  to start afresh or to ``ignore`` to bypass the cache.
 - Zarr assets are stored as separate subdatasets (https://github.com/dandizarrs)
   and are not streamed yet: an uninstalled Zarr subdataset is an empty directory
   that is not validated at all.  Streaming them is a follow-up for when NWB Zarr

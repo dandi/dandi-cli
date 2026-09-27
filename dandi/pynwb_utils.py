@@ -690,21 +690,20 @@ def validate(
     readable: Readable, optional
       If given, the file's content is read from this `Readable` instead of from
       ``path`` (e.g., to stream the content of an annexed file which is not
-      present locally); the results are then not cached.
+      present locally); the results are then cached only if it has a
+      `~Readable.get_fingerprint`.
     """
-    if readable is not None:
-        return _validate(path, readable, devel_debug=devel_debug)
-    # The memoizing decorator hides the return type from mypy
-    return cast(
-        "list[ValidationResult]", _validate_cached(path, devel_debug=devel_debug)
-    )
+    source: str | Readable = readable if readable is not None else str(path)
+    return _validate_cached(source, str(path), devel_debug=devel_debug)
 
 
-@validate_cache.memoize_path
+@memoize_source(validate_cache, validate_cache_tokens)
 def _validate_cached(
-    path: str | Path, devel_debug: bool = False
+    source: str | Path | Readable, path: str, devel_debug: bool = False
 ) -> list[ValidationResult]:
-    return _validate(path, None, devel_debug=devel_debug)
+    """`_validate` with the content source first, for `memoize_source`"""
+    readable = source if isinstance(source, Readable) else None
+    return _validate(path, readable, devel_debug=devel_debug)
 
 
 def _validate(
