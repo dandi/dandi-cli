@@ -76,7 +76,8 @@ Options
     ``stream``
         Stream the content of each such file from the URLs registered for it in
         git-annex so that content-dependent validators run without the file
-        having to be downloaded; see `Validating DataLad Dandisets`_ below.
+        having to be downloaded; see `Validating DataLad Dandisets Remotely`_
+        below.
 
 .. option:: --load <file>
 
@@ -89,8 +90,8 @@ Options
 .. _git-annex: https://git-annex.branchable.com
 
 
-Validating DataLad Dandisets
-----------------------------
+Validating DataLad Dandisets Remotely
+-------------------------------------
 
 Every Dandiset on the DANDI Archive is mirrored as a DataLad dataset at
 https://github.com/dandisets (with https://github.com/dandisets/dandisets as
