@@ -19,10 +19,9 @@ from ..pynwb_utils import (
     get_neurodata_types,
     get_nwb_version,
     ignore_benign_pynwb_warnings,
-    memoize_source,
     metadata_cache,
-    metadata_cache_tokens,
     nwb_has_external_links,
+    readable_fingerprint,
 )
 from ..utils import find_parent_directory_containing
 
@@ -30,7 +29,7 @@ lgr = get_logger()
 
 
 # Disable this for clean hacking
-@memoize_source(metadata_cache, metadata_cache_tokens)
+@metadata_cache.memoize_path(content_fingerprint=readable_fingerprint)
 def get_metadata(
     path: str | Path | Readable, digest: Digest | None = None
 ) -> dict[str, Any]:

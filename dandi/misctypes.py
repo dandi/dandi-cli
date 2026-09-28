@@ -294,8 +294,9 @@ class Readable(ABC):
         Two resources with equal fingerprints must have identical bytes: the
         fingerprint is what lets results derived from the content (metadata,
         validation results) be cached and reused across instances, see
-        `dandi.pynwb_utils.memoize_source`.  With the default of `None`, such
-        results are never cached for the resource.
+        `dandi.pynwb_utils.readable_fingerprint`.  With the default of `None`, such
+        results are only cached for a path-like resource (by the ``stat()`` of
+        its path), never for others.
         """
         return None
 
