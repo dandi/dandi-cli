@@ -65,3 +65,23 @@ Options
 .. option:: --sync
 
     Delete local assets that do not exist on the server after downloading
+
+.. option:: --zarr FILTER
+
+    Only download the entries of Zarr assets that match the given filter.  The
+    filter is either the predefined name ``metadata``, which selects the Zarr
+    metadata files (``.zarray``, ``.zattrs``, ``.zgroup``, ``.zmetadata``, and
+    ``zarr.json``), or ``TYPE:PATTERN``, where ``TYPE`` is one of:
+
+    - ``glob`` — ``PATTERN`` is a glob matched against the entry's path within
+      the Zarr, with ``**`` matching across directories (e.g.,
+      ``glob:0/**/*``)
+
+    - ``path`` — ``PATTERN`` is a path within the Zarr; the entry at that path
+      and all entries under it are downloaded
+
+    - ``regex`` — ``PATTERN`` is a regular expression searched for in the
+      entry's path within the Zarr
+
+    Can be specified multiple times, in which case an entry is downloaded if it
+    matches any of the filters.
