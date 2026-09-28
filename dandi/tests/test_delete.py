@@ -407,6 +407,30 @@ def test_delete_version(
     delete_spy.assert_not_called()
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "suffix", ["/acquisition/data_00000_AD0", "/acquisition/data_00000_AD0/"]
+)
+def test_delete_within_zarr_refused(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, suffix: str
+) -> None:
+    """A URL inside a Zarr asset must not delete the whole asset.
+
+    `AssetZarrEntryURL.get_assets()` yields the Zarr asset itself, so without
+    a guard the deletion would take every entry, not the named ones.
+    """
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    with pytest.raises(NotImplementedError) as excinfo:
+        delete(
+            [f"dandi://dandi/000108/sub-1/file.ome.zarr{suffix}"],
+            dandi_instance="dandi",
+            devel_debug=True,
+            force=True,
+        )
+    assert "Cannot delete individual entries within a Zarr asset" in str(excinfo.value)
+    delete_spy.assert_not_called()
+
+
 def test_delete_no_dandiset(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
