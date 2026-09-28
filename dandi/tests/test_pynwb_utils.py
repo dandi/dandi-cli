@@ -256,7 +256,7 @@ def test_memoize_path_readable_fingerprint(tmp_path: Path, simple1_nwb: Path) ->
     cache = PersistentCache(path=tmp_path / "cache", tokens=["t1"])
     calls: list[Any] = []
 
-    @cache.memoize_path(content_fingerprint=readable_fingerprint)
+    @cache.memoize_path(custom_fingerprint=readable_fingerprint)
     def size(source: str | Path | Readable, flag: bool = False) -> str:
         calls.append(source)
         with open_readable(source) as fp:
