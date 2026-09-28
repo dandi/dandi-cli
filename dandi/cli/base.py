@@ -1,8 +1,11 @@
 from enum import Enum
 from functools import wraps
+from gettext import gettext as _
 import os
+from typing import Any
 
 import click
+from click.utils import format_filename
 
 from .. import get_logger
 
@@ -68,6 +71,44 @@ class ChoiceList(click.ParamType):
 
     def get_metavar(self, param, ctx=None):
         return "[" + ",".join(self.values) + ",all]"
+
+
+class PathOrBrokenSymlink(click.Path):
+    """
+    Like ``click.Path(exists=True)``, but also accepting broken symbolic links,
+    such as the annexed files of a DataLad dataset whose content has not been
+    fetched.  ``click.Path(exists=True)`` follows the link and rejects those as
+    nonexistent, which prevented ``dandi validate``'s ``--missing-file-content``
+    policies (``error``, ``skip``, ``only-non-data``) from ever being applied to
+    a file given directly on the command line rather than via its directory.
+
+    The existence check is done here with ``os.path.lexists()``, so ``exists``
+    cannot be enabled (``click.Path``'s own check would reject broken links
+    again), nor can ``resolve_path`` (it would replace an annexed link with its
+    ``.git/annex/objects/...`` target).
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        if kwargs.pop("exists", False) or kwargs.get("resolve_path"):
+            raise ValueError(
+                "PathOrBrokenSymlink does its own existence check and supports"
+                " neither exists=True nor resolve_path=True"
+            )
+        super().__init__(exists=False, **kwargs)
+
+    def convert(
+        self, value: Any, param: click.Parameter | None, ctx: click.Context | None
+    ) -> Any:
+        is_dash = self.file_okay and self.allow_dash and value in ("-", b"-")
+        if not is_dash and not os.path.lexists(value):
+            self.fail(
+                _("{name} {filename!r} does not exist.").format(
+                    name=self.name.title(), filename=format_filename(value)
+                ),
+                param,
+                ctx,
+            )
+        return super().convert(value, param, ctx)
 
 
 # ???: could make them always available but hidden

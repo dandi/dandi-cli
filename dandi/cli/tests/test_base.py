@@ -1,10 +1,12 @@
 from enum import StrEnum
+import os
+from pathlib import Path
 
 import click
 from click.testing import CliRunner
 import pytest
 
-from ..base import EnumChoice
+from ..base import EnumChoice, PathOrBrokenSymlink
 
 
 class _Existing(StrEnum):
@@ -69,3 +71,33 @@ def test_enum_choice_string_default_converted_to_member():
     r = CliRunner().invoke(cmd, [])
     assert r.exit_code == 0, r.output
     assert captured["existing"] is _Existing.SKIP
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("kwargs", [{"exists": True}, {"resolve_path": True}])
+def test_path_or_broken_symlink_rejects_options(kwargs):
+    with pytest.raises(ValueError, match="own existence check"):
+        PathOrBrokenSymlink(**kwargs)
+
+
+@pytest.mark.ai_generated
+def test_path_or_broken_symlink(tmp_path: Path) -> None:
+    @click.command()
+    @click.argument("path", type=PathOrBrokenSymlink(allow_dash=True))
+    def cmd(path):
+        click.echo(f"got:{path}")
+
+    (tmp_path / "file.txt").write_text("content")
+    broken = tmp_path / "broken"
+    try:
+        os.symlink(tmp_path / "missing", broken)
+    except OSError:
+        pytest.skip("symlinks are not supported here")
+    for ok in [str(tmp_path / "file.txt"), str(broken), "-"]:
+        r = CliRunner().invoke(cmd, [ok])
+        assert r.exit_code == 0, r.output
+        assert r.output == f"got:{ok}\n"
+    missing = str(tmp_path / "missing")
+    r = CliRunner().invoke(cmd, [missing])
+    assert r.exit_code == 2
+    assert f"Path {missing!r} does not exist." in r.output

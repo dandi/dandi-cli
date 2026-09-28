@@ -7,12 +7,17 @@ import logging
 import os
 import re
 import sys
-from typing import IO, Any, Union, cast
+from typing import IO, Union, cast
 import warnings
 
 import click
 
-from .base import devel_debug_option, devel_option, map_to_click_exceptions
+from .base import (
+    PathOrBrokenSymlink,
+    devel_debug_option,
+    devel_option,
+    map_to_click_exceptions,
+)
 from .formatter import JSONFormatter, JSONLinesFormatter, TextFormatter, YAMLFormatter
 from ..utils import pluralize
 from ..validate._core import validate as validate_
@@ -33,28 +38,6 @@ class TruncationNotice:
     #: Number of validation results omitted from this group
     omitted_count: int
     """Number of validation results omitted from this group."""
-
-
-class ExistingPath(click.Path):
-    """
-    Like ``click.Path(exists=True)``, but also accepting broken symbolic links,
-    such as the annexed files of a DataLad dataset whose content has not been
-    fetched.  ``click.Path(exists=True)`` follows the link and rejects those as
-    nonexistent, which prevented the ``--missing-file-content`` policies
-    (``error``, ``skip``, ``only-non-data``) from ever being applied to a file
-    given directly on the command line rather than via its directory.
-    """
-
-    def convert(
-        self, value: Any, param: click.Parameter | None, ctx: click.Context | None
-    ) -> Any:
-        if not os.path.lexists(value):
-            self.fail(
-                f"{self.name.title()} {os.fsdecode(value)!r} does not exist.",
-                param,
-                ctx,
-            )
-        return super().convert(value, param, ctx)
 
 
 STRUCTURED_FORMATS = ("json", "json_pp", "json_lines", "yaml")
@@ -250,7 +233,7 @@ def validate_bids(
     multiple=True,
     default=(),
 )
-@click.argument("paths", nargs=-1, type=ExistingPath(dir_okay=True))
+@click.argument("paths", nargs=-1, type=PathOrBrokenSymlink(dir_okay=True))
 @click.pass_context
 @devel_debug_option()
 @map_to_click_exceptions
