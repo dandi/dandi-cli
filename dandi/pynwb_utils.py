@@ -12,9 +12,8 @@ metadata from NWB files using PyNWB. Features include:
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from datetime import timedelta
-from functools import wraps
 import inspect
 import os
 import os.path as op
@@ -64,95 +63,31 @@ dandi_cache_tokens = [
     get_module_version(hdmf),
     get_module_version(h5py),
 ]
-metadata_cache_tokens = dandi_cache_tokens
 metadata_cache = PersistentCache(
-    name="dandi-metadata", tokens=metadata_cache_tokens, envvar="DANDI_CACHE"
+    name="dandi-metadata", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
 )
-validate_cache_tokens = dandi_cache_tokens + [get_module_version(dandischema)]
 validate_cache = PersistentCache(
-    name="dandi-validate", tokens=validate_cache_tokens, envvar="DANDI_CACHE"
+    name="dandi-validate",
+    tokens=dandi_cache_tokens + [get_module_version(dandischema)],
+    envvar="DANDI_CACHE",
 )
 
-F = TypeVar("F", bound=Callable[..., Any])
 
-
-def memoize_source(cache: PersistentCache, tokens: Sequence[Any]) -> Callable[[F], F]:
+def readable_fingerprint(source: Any) -> tuple[str, str] | None:
     """
-    Decorator caching the results of a function of a local path or a `Readable`
+    Content fingerprint of ``source`` for ``PersistentCache.memoize_path``
 
-    For a path argument (`str` or `Path`), this is exactly ``cache.memoize_path``:
-    the result is cached under the file's location, a fingerprint of the file
-    (mtime, ctime, size, ...), and ``tokens``.  A `Readable` cannot be
-    fingerprinted that way, so `PersistentCache.memoize_path` leaves calls on
-    one uncached; here, a `Readable` whose `~Readable.get_fingerprint` returns
-    a value is cached under its file name, that fingerprint, and ``tokens``
-    instead.  A `Readable` without a fingerprint is still never cached.
-
-    ``tokens`` should be the ones ``cache`` was created with (versions of the
-    software producing the results): `PersistentCache.memoize`, unlike
-    `~PersistentCache.memoize_path`, does not add them by itself.
+    Pass it as ``content_fingerprint`` to cache the results of a function of a
+    local path or a `Readable`.  Paths keep being cached under their location
+    and ``stat()``; a `Readable` cannot be fingerprinted that way, so one whose
+    `~Readable.get_fingerprint` returns a value is cached under its file name
+    and that fingerprint instead.  A `Readable` without a fingerprint is handled
+    as without this: cached by its path if it is path-like (as
+    `LocalReadableFile` is), not cached at all otherwise.
     """
-
-    def decorator(f: F) -> F:
-        sig = inspect.signature(f)
-        if any(p.kind is p.VAR_POSITIONAL for p in sig.parameters.values()):
-            raise TypeError(f"memoize_source: {f.__qualname__}() must not take *args")
-        by_path = cache.memoize_path(f)
-
-        def by_fingerprint(
-            filename: str,
-            fingerprint: str,
-            cache_tokens: tuple[Any, ...],
-            *,
-            _source: Readable,
-            **kwargs: Any,
-        ) -> Any:
-            return f(_source, **kwargs)
-
-        # Give it an identity of its own under `f`'s module, so that joblib
-        # keeps its results in a per-function directory next to `by_path`'s
-        by_fingerprint.__module__ = f.__module__
-        by_fingerprint.__name__ = f"{f.__name__}__by_fingerprint"
-        by_fingerprint.__qualname__ = f"{f.__qualname__}__by_fingerprint"
-        # fscacher >= 0.4 calls the argument `exclude_kwargs`, older ones `ignore`
-        ignore_kwarg = (
-            "exclude_kwargs"
-            if "exclude_kwargs" in inspect.signature(cache.memoize).parameters
-            else "ignore"
-        )
-        cached_by_fingerprint = cache.memoize(
-            by_fingerprint, **{ignore_kwarg: ["_source"]}
-        )
-
-        @wraps(f)
-        def wrapper(source: Any, *args: Any, **kwargs: Any) -> Any:
-            if not isinstance(source, Readable):
-                return by_path(source, *args, **kwargs)
-            fingerprint = source.get_fingerprint()
-            if fingerprint is None:
-                return f(source, *args, **kwargs)
-            # Pass `f`'s other arguments by name (defaults included), so that the
-            # cache key does not depend on how they were passed, and so that
-            # joblib < 1.4 does not mistake positional ones for `_source`
-            bound = sig.bind(source, *args, **kwargs)
-            bound.apply_defaults()
-            others: dict[str, Any] = {}
-            for name, value in list(bound.arguments.items())[1:]:
-                if sig.parameters[name].kind is inspect.Parameter.VAR_KEYWORD:
-                    others.update(value)
-                else:
-                    others[name] = value
-            return cached_by_fingerprint(
-                source.get_filename(),
-                fingerprint,
-                tuple(tokens),
-                _source=source,
-                **others,
-            )
-
-        return cast(F, wrapper)
-
-    return decorator
+    if isinstance(source, Readable) and (fp := source.get_fingerprint()) is not None:
+        return (source.get_filename(), fp)
+    return None
 
 
 def _sanitize_nwb_version(
@@ -276,7 +211,7 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     return ndtypes
 
 
-@memoize_source(metadata_cache, metadata_cache_tokens)
+@metadata_cache.memoize_path(content_fingerprint=readable_fingerprint)
 def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
     with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
@@ -890,7 +825,7 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     return str(dest)
 
 
-@memoize_source(metadata_cache, metadata_cache_tokens)
+@metadata_cache.memoize_path(content_fingerprint=readable_fingerprint)
 def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
     with open_readable(filepath) as f, h5py.File(f, "r") as fp:
         visited = set()
