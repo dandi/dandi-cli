@@ -29,7 +29,7 @@ lgr = get_logger()
 
 
 # Disable this for clean hacking
-@metadata_cache.memoize_path(content_fingerprint=readable_fingerprint)
+@metadata_cache.memoize_path(custom_fingerprint=readable_fingerprint)
 def get_metadata(
     path: str | Path | Readable, digest: Digest | None = None
 ) -> dict[str, Any]:
