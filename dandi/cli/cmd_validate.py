@@ -12,12 +12,7 @@ import warnings
 
 import click
 
-from .base import (
-    PathOrBrokenSymlink,
-    devel_debug_option,
-    devel_option,
-    map_to_click_exceptions,
-)
+from .base import Path, devel_debug_option, devel_option, map_to_click_exceptions
 from .formatter import JSONFormatter, JSONLinesFormatter, TextFormatter, YAMLFormatter
 from ..utils import pluralize
 from ..validate._core import validate as validate_
@@ -233,7 +228,7 @@ def validate_bids(
     multiple=True,
     default=(),
 )
-@click.argument("paths", nargs=-1, type=PathOrBrokenSymlink(dir_okay=True))
+@click.argument("paths", nargs=-1, type=Path(lexists=True, dir_okay=True))
 @click.pass_context
 @devel_debug_option()
 @map_to_click_exceptions

@@ -6,7 +6,8 @@ import click
 from click.testing import CliRunner
 import pytest
 
-from ..base import EnumChoice, PathOrBrokenSymlink
+from ..base import EnumChoice
+from ..base import Path as CliPath
 
 
 class _Existing(StrEnum):
@@ -74,16 +75,23 @@ def test_enum_choice_string_default_converted_to_member():
 
 
 @pytest.mark.ai_generated
-@pytest.mark.parametrize("kwargs", [{"exists": True}, {"resolve_path": True}])
-def test_path_or_broken_symlink_rejects_options(kwargs):
-    with pytest.raises(ValueError, match="own existence check"):
-        PathOrBrokenSymlink(**kwargs)
+def test_path_lexists_rejects_resolve_path():
+    with pytest.raises(ValueError, match="resolve_path"):
+        CliPath(lexists=True, resolve_path=True)
 
 
 @pytest.mark.ai_generated
-def test_path_or_broken_symlink(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "kwargs,broken_ok",
+    [
+        ({"lexists": True}, True),
+        ({"lexists": True, "exists": True}, False),
+        ({"exists": True}, False),
+    ],
+)
+def test_path_lexists(tmp_path: Path, kwargs: dict, broken_ok: bool) -> None:
     @click.command()
-    @click.argument("path", type=PathOrBrokenSymlink(allow_dash=True))
+    @click.argument("path", type=CliPath(allow_dash=True, **kwargs))
     def cmd(path):
         click.echo(f"got:{path}")
 
@@ -93,11 +101,11 @@ def test_path_or_broken_symlink(tmp_path: Path) -> None:
         os.symlink(tmp_path / "missing", broken)
     except OSError:
         pytest.skip("symlinks are not supported here")
-    for ok in [str(tmp_path / "file.txt"), str(broken), "-"]:
+    for ok in [str(tmp_path / "file.txt"), "-"] + ([str(broken)] if broken_ok else []):
         r = CliRunner().invoke(cmd, [ok])
         assert r.exit_code == 0, r.output
         assert r.output == f"got:{ok}\n"
-    missing = str(tmp_path / "missing")
-    r = CliRunner().invoke(cmd, [missing])
-    assert r.exit_code == 2
-    assert f"Path {missing!r} does not exist." in r.output
+    for bad in [str(tmp_path / "missing")] + ([] if broken_ok else [str(broken)]):
+        r = CliRunner().invoke(cmd, [bad])
+        assert r.exit_code == 2
+        assert f"Path {bad!r} does not exist." in r.output

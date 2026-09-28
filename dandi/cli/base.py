@@ -73,34 +73,28 @@ class ChoiceList(click.ParamType):
         return "[" + ",".join(self.values) + ",all]"
 
 
-class PathOrBrokenSymlink(click.Path):
+class Path(click.Path):
     """
-    Like ``click.Path(exists=True)``, but also accepting broken symbolic links,
-    such as the annexed files of a DataLad dataset whose content has not been
-    fetched.  ``click.Path(exists=True)`` follows the link and rejects those as
-    nonexistent, which prevented ``dandi validate``'s ``--missing-file-content``
-    policies (``error``, ``skip``, ``only-non-data``) from ever being applied to
-    a file given directly on the command line rather than via its directory.
+    ``click.Path`` with an additional ``lexists`` flag
 
-    The existence check is done here with ``os.path.lexists()``, so ``exists``
-    cannot be enabled (``click.Path``'s own check would reject broken links
-    again), nor can ``resolve_path`` (it would replace an annexed link with its
-    ``.git/annex/objects/...`` target).
+    With ``lexists=True``, the path must satisfy `os.path.lexists`: it must
+    exist or be a symbolic link, possibly a broken one.  ``exists=True`` keeps
+    its ``click.Path`` meaning, requiring the target of a link to exist too.
+    ``lexists=True`` cannot be combined with ``resolve_path=True``, which would
+    replace a link with its target.
     """
 
-    def __init__(self, **kwargs: Any) -> None:
-        if kwargs.pop("exists", False) or kwargs.get("resolve_path"):
-            raise ValueError(
-                "PathOrBrokenSymlink does its own existence check and supports"
-                " neither exists=True nor resolve_path=True"
-            )
-        super().__init__(exists=False, **kwargs)
+    def __init__(self, *, lexists: bool = False, **kwargs: Any) -> None:
+        if lexists and kwargs.get("resolve_path"):
+            raise ValueError("lexists=True cannot be combined with resolve_path=True")
+        super().__init__(**kwargs)
+        self.lexists = lexists
 
     def convert(
         self, value: Any, param: click.Parameter | None, ctx: click.Context | None
     ) -> Any:
         is_dash = self.file_okay and self.allow_dash and value in ("-", b"-")
-        if not is_dash and not os.path.lexists(value):
+        if self.lexists and not is_dash and not os.path.lexists(value):
             self.fail(
                 _("{name} {filename!r} does not exist.").format(
                     name=self.name.title(), filename=format_filename(value)
