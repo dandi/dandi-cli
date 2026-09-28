@@ -60,6 +60,15 @@ Options
     Data should pass validation before uploading.  Use of this option is highly
     discouraged.
 
+.. option:: --zarr-mode [full|patch]
+
+    How to synchronize Zarr assets with the server:
+
+    - ``full`` [default] — make the Zarr on the server identical to the local
+      one, deleting entries on the server that do not exist locally
+    - ``patch`` — upload new and changed entries only, without deleting
+      anything on the server
+
 
 Development Options
 -------------------
