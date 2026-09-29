@@ -66,37 +66,40 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         ".ignored.dir/ignored.nwb",
     )
 
+    video = VideoAsset(
+        filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
+    )
+    image = ImageAsset(
+        filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
+    )
+    zarr1 = ZarrAsset(
+        filepath=tmp_path / "sample01.zarr",
+        path="sample01.zarr",
+        dandiset_path=tmp_path,
+    )
+    nwb2 = NWBAsset(
+        filepath=tmp_path / "sample02.nwb",
+        path="sample02.nwb",
+        dandiset_path=tmp_path,
+    )
+    nwb3 = NWBAsset(
+        filepath=tmp_path / "subdir" / "sample03.nwb",
+        path="subdir/sample03.nwb",
+        dandiset_path=tmp_path,
+    )
+    zarr4 = ZarrAsset(
+        filepath=tmp_path / "subdir" / "sample04.zarr",
+        path="subdir/sample04.zarr",
+        dandiset_path=tmp_path,
+    )
+    metadata_file = DandisetMetadataFile(
+        filepath=tmp_path / dandiset_metadata_file, dandiset_path=tmp_path
+    )
+
     files = sorted(
         find_dandi_files(tmp_path, dandiset_path=tmp_path), key=attrgetter("filepath")
     )
-    assert files == [
-        VideoAsset(
-            filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
-        ),
-        ImageAsset(
-            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
-        ),
-        ZarrAsset(
-            filepath=tmp_path / "sample01.zarr",
-            path="sample01.zarr",
-            dandiset_path=tmp_path,
-        ),
-        NWBAsset(
-            filepath=tmp_path / "sample02.nwb",
-            path="sample02.nwb",
-            dandiset_path=tmp_path,
-        ),
-        NWBAsset(
-            filepath=tmp_path / "subdir" / "sample03.nwb",
-            path="subdir/sample03.nwb",
-            dandiset_path=tmp_path,
-        ),
-        ZarrAsset(
-            filepath=tmp_path / "subdir" / "sample04.zarr",
-            path="subdir/sample04.zarr",
-            dandiset_path=tmp_path,
-        ),
-    ]
+    assert files == [video, image, zarr1, nwb2, nwb3, zarr4]
 
     files = sorted(
         find_dandi_files(tmp_path, dandiset_path=tmp_path, allow_all=True),
@@ -106,26 +109,12 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         GenericAsset(
             filepath=tmp_path / "bar.txt", path="bar.txt", dandiset_path=tmp_path
         ),
-        DandisetMetadataFile(
-            filepath=tmp_path / dandiset_metadata_file, dandiset_path=tmp_path
-        ),
+        metadata_file,
         GenericAsset(filepath=tmp_path / "foo", path="foo", dandiset_path=tmp_path),
-        VideoAsset(
-            filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
-        ),
-        ImageAsset(
-            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
-        ),
-        ZarrAsset(
-            filepath=tmp_path / "sample01.zarr",
-            path="sample01.zarr",
-            dandiset_path=tmp_path,
-        ),
-        NWBAsset(
-            filepath=tmp_path / "sample02.nwb",
-            path="sample02.nwb",
-            dandiset_path=tmp_path,
-        ),
+        video,
+        image,
+        zarr1,
+        nwb2,
         GenericAsset(
             filepath=tmp_path / "subdir" / "cleesh.txt",
             path="subdir/cleesh.txt",
@@ -136,53 +125,15 @@ def test_find_dandi_files(tmp_path: Path) -> None:
             path="subdir/gnusto",
             dandiset_path=tmp_path,
         ),
-        NWBAsset(
-            filepath=tmp_path / "subdir" / "sample03.nwb",
-            path="subdir/sample03.nwb",
-            dandiset_path=tmp_path,
-        ),
-        ZarrAsset(
-            filepath=tmp_path / "subdir" / "sample04.zarr",
-            path="subdir/sample04.zarr",
-            dandiset_path=tmp_path,
-        ),
+        nwb3,
+        zarr4,
     ]
 
     files = sorted(
         find_dandi_files(tmp_path, dandiset_path=tmp_path, include_metadata=True),
         key=attrgetter("filepath"),
     )
-    assert files == [
-        DandisetMetadataFile(
-            filepath=tmp_path / dandiset_metadata_file, dandiset_path=tmp_path
-        ),
-        VideoAsset(
-            filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
-        ),
-        ImageAsset(
-            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
-        ),
-        ZarrAsset(
-            filepath=tmp_path / "sample01.zarr",
-            path="sample01.zarr",
-            dandiset_path=tmp_path,
-        ),
-        NWBAsset(
-            filepath=tmp_path / "sample02.nwb",
-            path="sample02.nwb",
-            dandiset_path=tmp_path,
-        ),
-        NWBAsset(
-            filepath=tmp_path / "subdir" / "sample03.nwb",
-            path="subdir/sample03.nwb",
-            dandiset_path=tmp_path,
-        ),
-        ZarrAsset(
-            filepath=tmp_path / "subdir" / "sample04.zarr",
-            path="subdir/sample04.zarr",
-            dandiset_path=tmp_path,
-        ),
-    ]
+    assert files == [metadata_file, video, image, zarr1, nwb2, nwb3, zarr4]
 
 
 def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
@@ -202,6 +153,61 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         "bids2/subbids/data.json",
     )
 
+    bidsignore = GenericBIDSAsset(
+        filepath=tmp_path / "bids1" / ".bidsignore",
+        path="bids1/.bidsignore",
+        dandiset_path=tmp_path,
+        bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+    )
+    bids1_dd = BIDSDatasetDescriptionAsset(
+        filepath=tmp_path / "bids1" / "dataset_description.json",
+        path="bids1/dataset_description.json",
+        dandiset_path=tmp_path,
+        dataset_files=ANY,  # type: ignore[arg-type]
+    )
+    bids1_file = GenericBIDSAsset(
+        filepath=tmp_path / "bids1" / "file.txt",
+        path="bids1/file.txt",
+        dandiset_path=tmp_path,
+        bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+    )
+    bids1_zarr = ZarrBIDSAsset(
+        filepath=tmp_path / "bids1" / "subdir" / "glarch.zarr",
+        path="bids1/subdir/glarch.zarr",
+        dandiset_path=tmp_path,
+        bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+    )
+    bids1_nwb = NWBBIDSAsset(
+        filepath=tmp_path / "bids1" / "subdir" / "quux.nwb",
+        path="bids1/subdir/quux.nwb",
+        dandiset_path=tmp_path,
+        bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+    )
+    bids2_dd = BIDSDatasetDescriptionAsset(
+        filepath=tmp_path / "bids2" / "dataset_description.json",
+        path="bids2/dataset_description.json",
+        dandiset_path=tmp_path,
+        dataset_files=ANY,  # type: ignore[arg-type]
+    )
+    bids2_movie = GenericBIDSAsset(
+        filepath=tmp_path / "bids2" / "movie.mp4",
+        path="bids2/movie.mp4",
+        dandiset_path=tmp_path,
+        bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+    )
+    bids2_data = GenericBIDSAsset(
+        filepath=tmp_path / "bids2" / "subbids" / "data.json",
+        path="bids2/subbids/data.json",
+        dandiset_path=tmp_path,
+        bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+    )
+    bids2_subdd = GenericBIDSAsset(
+        filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
+        path="bids2/subbids/dataset_description.json",
+        dandiset_path=tmp_path,
+        bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+    )
+
     files = sorted(
         find_dandi_files(tmp_path, dandiset_path=tmp_path, allow_all=False),
         key=attrgetter("filepath"),
@@ -209,89 +215,24 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
 
     assert files == [
         NWBAsset(filepath=tmp_path / "bar.nwb", path="bar.nwb", dandiset_path=tmp_path),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids1" / ".bidsignore",
-            path="bids1/.bidsignore",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        BIDSDatasetDescriptionAsset(
-            filepath=tmp_path / "bids1" / "dataset_description.json",
-            path="bids1/dataset_description.json",
-            dandiset_path=tmp_path,
-            dataset_files=ANY,  # type: ignore[arg-type]
-        ),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids1" / "file.txt",
-            path="bids1/file.txt",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        ZarrBIDSAsset(
-            filepath=tmp_path / "bids1" / "subdir" / "glarch.zarr",
-            path="bids1/subdir/glarch.zarr",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        NWBBIDSAsset(
-            filepath=tmp_path / "bids1" / "subdir" / "quux.nwb",
-            path="bids1/subdir/quux.nwb",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        BIDSDatasetDescriptionAsset(
-            filepath=tmp_path / "bids2" / "dataset_description.json",
-            path="bids2/dataset_description.json",
-            dandiset_path=tmp_path,
-            dataset_files=ANY,  # type: ignore[arg-type]
-        ),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids2" / "movie.mp4",
-            path="bids2/movie.mp4",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids2" / "subbids" / "data.json",
-            path="bids2/subbids/data.json",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
-            path="bids2/subbids/dataset_description.json",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
+        bidsignore,
+        bids1_dd,
+        bids1_file,
+        bids1_zarr,
+        bids1_nwb,
+        bids2_dd,
+        bids2_movie,
+        bids2_data,
+        bids2_subdd,
     ]
 
     bidsdd = files[2]
     assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids1" / ".bidsignore",
-            path="bids1/.bidsignore",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids1" / "file.txt",
-            path="bids1/file.txt",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        ZarrBIDSAsset(
-            filepath=tmp_path / "bids1" / "subdir" / "glarch.zarr",
-            path="bids1/subdir/glarch.zarr",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        NWBBIDSAsset(
-            filepath=tmp_path / "bids1" / "subdir" / "quux.nwb",
-            path="bids1/subdir/quux.nwb",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
+        bidsignore,
+        bids1_file,
+        bids1_zarr,
+        bids1_nwb,
     ]
     for asset in bidsdd.dataset_files:
         assert asset.bids_dataset_description is bidsdd
@@ -299,24 +240,9 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     bidsdd = files[6]
     assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids2" / "movie.mp4",
-            path="bids2/movie.mp4",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids2" / "subbids" / "data.json",
-            path="bids2/subbids/data.json",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
-        GenericBIDSAsset(
-            filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
-            path="bids2/subbids/dataset_description.json",
-            dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
-        ),
+        bids2_movie,
+        bids2_data,
+        bids2_subdd,
     ]
     for asset in bidsdd.dataset_files:
         assert asset.bids_dataset_description is bidsdd
