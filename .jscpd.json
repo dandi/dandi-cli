@@ -1,0 +1,24 @@
+{
+  "threshold": 5,
+  "reporters": ["console"],
+  "ignore": [
+    "**/.git/**",
+    "**/.tox/**",
+    "**/.venv*/**",
+    "**/venv*/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.hypothesis/**",
+    "**/*.egg-info/**",
+    "**/.eggs/**",
+    "**/.npm/**",
+    "**/.tmp/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/tests/data/**",
+    "**/versioneer.py",
+    "**/dandi/_version.py"
+  ],
+  "minTokens": 50,
+  "minLines": 5
+}
