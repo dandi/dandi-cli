@@ -286,17 +286,9 @@ def flatten_v(v):
 
 
 def flatten_meta_to_pyout_v1(meta):
-    """Given a meta record, possibly flatten record since no nested records
-    supported yet
-
-    lists become joined using ', ', dicts get individual key: values.
-    lists of dict - doing nothing magical.
-
-    Empty values are not considered.
-
-    Parameters
-    ----------
-    meta: dict
+    """Like `flatten_meta_to_pyout`, but nested dicts get flattened
+    recursively into individual "key: value" entries instead of being
+    joined into a single string.
     """
     out = {}
 
