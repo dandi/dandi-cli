@@ -1,6 +1,5 @@
 from enum import Enum
 from functools import wraps
-from gettext import gettext as _
 import os
 from typing import Any
 
@@ -104,9 +103,7 @@ class LinkAwarePath(click.Path):
         is_dash = self.file_okay and self.allow_dash and value in ("-", b"-")
         if self.lexists and not is_dash and not os.path.lexists(value):
             self.fail(
-                _("{name} {filename!r} does not exist.").format(
-                    name=self.name.title(), filename=format_filename(value)
-                ),
+                f"{self.name.title()} {format_filename(value)!r} does not exist.",
                 param,
                 ctx,
             )
