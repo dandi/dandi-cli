@@ -75,13 +75,12 @@ class ChoiceList(click.ParamType):
 
 class Path(click.Path):
     """
-    ``click.Path`` with an additional ``lexists`` flag
+    A ``click.Path`` that can also accept broken symlinks
 
-    With ``lexists=True``, the path must satisfy `os.path.lexists`: it must
-    exist or be a symbolic link, possibly a broken one.  ``exists=True`` keeps
-    its ``click.Path`` meaning, requiring the target of a link to exist too.
-    ``lexists=True`` cannot be combined with ``resolve_path=True``, which would
-    replace a link with its target.
+    With ``exists=True``, a symlink whose target is missing is rejected as if
+    it did not exist.  Use ``lexists=True`` instead to accept it, so that, for
+    example, ``dandi validate`` can report on it.  This cannot be combined with
+    ``resolve_path=True``, which would follow the link.
     """
 
     def __init__(self, *, lexists: bool = False, **kwargs: Any) -> None:
