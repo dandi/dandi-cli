@@ -68,6 +68,8 @@ from .utils import (
 if TYPE_CHECKING:
     from typing_extensions import Self
 
+    from .files import LocalAsset
+
 
 lgr = get_logger()
 
@@ -1407,6 +1409,17 @@ class RemoteDandiset:
             f"No published versions found for Dandiset {self.identifier}"
         )
 
+    def _iter_version_assets(self, params: dict) -> Iterator[RemoteAsset]:
+        try:
+            for a in self.client.paginate(
+                f"{self.version_api_path}assets/", params=params
+            ):
+                yield RemoteAsset.from_data(self, a)
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
+
     def get_assets(self, order: str | None = None) -> Iterator[RemoteAsset]:
         """
         Returns an iterator of all assets in this version of the Dandiset.
@@ -1416,15 +1429,7 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        try:
-            for a in self.client.paginate(
-                f"{self.version_api_path}assets/", params={"order": order}
-            ):
-                yield RemoteAsset.from_data(self, a)
-        except HTTP404Error:
-            raise NotFoundError(
-                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-            )
+        return self._iter_version_assets({"order": order})
 
     def get_asset(self, asset_id: str) -> RemoteAsset:
         """
@@ -1453,16 +1458,9 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        try:
-            for a in self.client.paginate(
-                f"{self.version_api_path}assets/",
-                params={"path": self._normalize_path(path), "order": order},
-            ):
-                yield RemoteAsset.from_data(self, a)
-        except HTTP404Error:
-            raise NotFoundError(
-                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-            )
+        return self._iter_version_assets(
+            {"path": self._normalize_path(path), "order": order}
+        )
 
     def get_assets_by_glob(
         self, pattern: str, order: str | None = None
@@ -1478,16 +1476,7 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        try:
-            for a in self.client.paginate(
-                f"{self.version_api_path}assets/",
-                params={"glob": pattern, "order": order},
-            ):
-                yield RemoteAsset.from_data(self, a)
-        except HTTP404Error:
-            raise NotFoundError(
-                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-            )
+        return self._iter_version_assets({"glob": pattern, "order": order})
 
     def get_asset_by_path(self, path: str) -> RemoteAsset:
         """
@@ -1564,15 +1553,19 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
+        df = self._local_asset_file(filepath)
+        return df.upload(
+            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
+        )
+
+    def _local_asset_file(self, filepath: str | Path) -> "LocalAsset":
         # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
         if not isinstance(df, LocalAsset):
             raise ValueError(f"{filepath}: not an asset file")
-        return df.upload(
-            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
-        )
+        return df
 
     def iter_upload_raw_asset(
         self,
@@ -1606,12 +1599,7 @@ class RemoteDandiset:
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # Avoid circular import by importing within function:
-        from .files import LocalAsset, dandi_file
-
-        df = dandi_file(filepath)
-        if not isinstance(df, LocalAsset):
-            raise ValueError(f"{filepath}: not an asset file")
+        df = self._local_asset_file(filepath)
         return df.iter_upload(
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
