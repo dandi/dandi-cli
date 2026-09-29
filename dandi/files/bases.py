@@ -292,19 +292,10 @@ class LocalAsset(DandiFile):
         replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
-        Upload the asset with the given metadata to the given Dandiset,
-        returning a generator of status `dict`\\s.
+        Like `upload()`, but returns a generator of status `dict`\\s instead
+        of blocking until the upload is complete. See `upload()` for a
+        description of the parameters.
 
-        :param RemoteDandiset dandiset:
-            the Dandiset to which the asset will be uploaded
-        :param dict metadata:
-            Metadata for the uploaded asset.  The "path" field will be set to
-            the value of the instance's ``path`` attribute if no such field is
-            already present.
-        :param int jobs: Number of threads to use for uploading; defaults to 5
-        :param RemoteAsset replacing:
-            If set, replace the given asset, which must have the same path as
-            the new asset
         :returns:
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
@@ -344,26 +335,7 @@ class LocalFileAsset(LocalAsset):
         jobs: int | None = None,
         replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
-        """
-        Upload the file as an asset with the given metadata to the given
-        Dandiset, returning a generator of status `dict`\\s.
-
-        :param RemoteDandiset dandiset:
-            the Dandiset to which the file will be uploaded
-        :param dict metadata:
-            Metadata for the uploaded asset.  The "path" field will be set to
-            the value of the instance's ``path`` attribute if no such field is
-            already present.
-        :param int jobs: Number of threads to use for uploading; defaults to 5
-        :param RemoteAsset replacing:
-            If set, replace the given asset, which must have the same path as
-            the new asset
-        :returns:
-            A generator of `dict`\\s containing at least a ``"status"`` key.
-            Upon successful upload, the last `dict` will have a status of
-            ``"done"`` and an ``"asset"`` key containing the resulting
-            `RemoteAsset`.
-        """
+        """See `LocalAsset.iter_upload`."""
         # Avoid heavy import by importing within function:
         from dandi.support.digests import get_dandietag
 

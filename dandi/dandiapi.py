@@ -1594,10 +1594,8 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         :returns:
-            A generator of `dict`\\s containing at least a ``"status"`` key.
-            Upon successful upload, the last `dict` will have a status of
-            ``"done"`` and an ``"asset"`` key containing the resulting
-            `RemoteAsset`.
+            A generator of `dict`\\s; see `~dandi.files.LocalAsset.iter_upload`
+            for the shape of the status dicts
         """
         df = self._local_asset_file(filepath)
         return df.iter_upload(

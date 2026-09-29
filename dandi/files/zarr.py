@@ -565,28 +565,18 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         zarr_mode: ZarrMode = "full",  # type: ignore[assignment]
     ) -> Iterator[dict]:
         """
-        Upload the Zarr directory as an asset with the given metadata to the
-        given Dandiset, returning a generator of status `dict`\\s.
+        Like `LocalAsset.iter_upload`, with two differences: ``replacing``,
+        if set and the old asset is a Zarr, has that Zarr updated & reused
+        for the new asset; and the resulting status generator can terminate
+        as ``"skipped"`` (see below).
 
         :param RemoteDandiset dandiset:
             the Dandiset to which the Zarr will be uploaded
-        :param dict metadata:
-            Metadata for the uploaded asset.  The "path" field will be set to
-            the value of the instance's ``path`` attribute if no such field is
-            already present.
-        :param int jobs: Number of threads to use for uploading; defaults to 5
-        :param RemoteAsset replacing:
-            If set, replace the given asset, which must have the same path as
-            the new asset; if the old asset is a Zarr, the Zarr will be updated
-            & reused for the new asset
         :returns:
-            A generator of `dict`\\s containing at least a ``"status"`` key.
-            Upon successful upload, the last `dict` will have a status of
-            ``"done"`` and an ``"asset"`` key containing the resulting
-            `RemoteAsset`.  If the local Zarr is bit-identical to the remote
-            (nothing to upload or delete), the terminal status is instead
-            ``"skipped"`` with a ``"message"`` of ``"identical"`` and the same
-            ``"asset"`` key.
+            See `LocalAsset.iter_upload`.  Additionally, if the local Zarr is
+            bit-identical to the remote (nothing to upload or delete), the
+            terminal status is instead ``"skipped"`` with a ``"message"`` of
+            ``"identical"`` and the same ``"asset"`` key.
         """
         asset_path = metadata.setdefault("path", self.path)
         set_asset_schema_key(metadata)
