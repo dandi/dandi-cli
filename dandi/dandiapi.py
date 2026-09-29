@@ -18,7 +18,6 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from fnmatch import fnmatchcase
 from functools import cached_property
 import json
 import os.path
@@ -52,7 +51,14 @@ from .consts import (
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring_utils import keyring_lookup, keyring_save
-from .misctypes import Digest, RemoteReadableAsset
+from .misctypes import (
+    Digest,
+    RemoteReadableAsset,
+    _match_parts,
+    _path_stem,
+    _path_suffix,
+    _path_suffixes,
+)
 from .utils import (
     USER_AGENT,
     check_dandi_version,
@@ -2251,42 +2257,21 @@ class RemoteZarrEntry:
     @property
     def suffix(self) -> str:
         """The final file extension of the basename, if any"""
-        i = self.name.rfind(".")
-        if 0 < i < len(self.name) - 1:
-            return self.name[i:]
-        else:
-            return ""
+        return _path_suffix(self.name)
 
     @property
     def suffixes(self) -> list[str]:
         """A list of the basename's file extensions"""
-        if self.name.endswith("."):
-            return []
-        name = self.name.lstrip(".")
-        return ["." + suffix for suffix in name.split(".")[1:]]
+        return _path_suffixes(self.name)
 
     @property
     def stem(self) -> str:
         """The basename without its final file extension, if any"""
-        i = self.name.rfind(".")
-        if 0 < i < len(self.name) - 1:
-            return self.name[:i]
-        else:
-            return self.name
+        return _path_stem(self.name)
 
     def match(self, pattern: str) -> bool:
         """Tests whether the path matches the given glob pattern"""
-        if pattern.startswith("/"):
-            raise ValueError(f"Absolute paths not allowed: {pattern!r}")
-        patparts = tuple(q for q in pattern.split("/") if q)
-        if not patparts:
-            raise ValueError("Empty pattern")
-        if len(patparts) > len(self.parts):
-            return False
-        for part, pat in zip(reversed(self.parts), reversed(patparts)):
-            if not fnmatchcase(part, pat):
-                return False
-        return True
+        return _match_parts(self.parts, pattern)
 
     @property
     def download_url(self) -> str:
