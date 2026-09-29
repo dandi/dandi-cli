@@ -1605,6 +1605,24 @@ class RemoteDandiset:
         )
 
 
+def _get_download_response(
+    session: requests.Session, url: str, start_at: int = 0
+) -> requests.Response:
+    """
+    Issue the (optionally range-restricted) GET request for streaming a
+    download from ``url``, raising for any HTTP error status.
+    """
+    lgr.debug("Starting download from %s", url)
+    headers = None
+    if start_at > 0:
+        headers = {"Range": f"bytes={start_at}-"}
+    result = session.get(url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT)
+    # TODO: apparently we might need retries here as well etc
+    # if result.status_code not in (200, 201):
+    result.raise_for_status()
+    return result
+
+
 class BaseRemoteAsset(ABC, APIBase):
     """
     Representation of an asset retrieved from the API without associated
@@ -1850,16 +1868,7 @@ class BaseRemoteAsset(ABC, APIBase):
         url = self.base_download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
-            lgr.debug("Starting download from %s", url)
-            headers = None
-            if start_at > 0:
-                headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(
-                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
-            )
-            # TODO: apparently we might need retries here as well etc
-            # if result.status_code not in (200, 201):
-            result.raise_for_status()
+            result = _get_download_response(self.client.session, url, start_at)
             nbytes, nchunks = 0, 0
             for chunk in result.iter_content(chunk_size=chunk_size):
                 nchunks += 1
@@ -2131,6 +2140,20 @@ class RemoteAsset(BaseRemoteAsset):
         """
         ...
 
+    def _put_raw_metadata(
+        self, metadata: dict[str, Any], id_field: str, id_value: str
+    ) -> None:
+        set_asset_schema_key(metadata)
+        data = self.client.put(
+            self.api_path, json={"metadata": metadata, id_field: id_value}
+        )
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.created = ensure_datetime(data["created"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]
+
     def rename(self, dest: str) -> None:
         """
         .. versionadded:: 0.41.0
@@ -2160,16 +2183,7 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteBlobAsset` in place.
         """
-        set_asset_schema_key(metadata)
-        data = self.client.put(
-            self.api_path, json={"metadata": metadata, "blob_id": self.blob}
-        )
-        self.identifier = data["asset_id"]
-        self.path = data["path"]
-        self.size = int(data["size"])
-        self.created = ensure_datetime(data["created"])
-        self.modified = ensure_datetime(data["modified"])
-        self._metadata = data["metadata"]
+        self._put_raw_metadata(metadata, "blob_id", self.blob)
 
 
 class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
@@ -2184,16 +2198,7 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteZarrAsset` in place.
         """
-        set_asset_schema_key(metadata)
-        data = self.client.put(
-            self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
-        )
-        self.identifier = data["asset_id"]
-        self.path = data["path"]
-        self.size = int(data["size"])
-        self.created = ensure_datetime(data["created"])
-        self.modified = ensure_datetime(data["modified"])
-        self._metadata = data["metadata"]
+        self._put_raw_metadata(metadata, "zarr_id", self.zarr)
 
 
 @dataclass
@@ -2308,16 +2313,7 @@ class RemoteZarrEntry:
         url = self.download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
-            lgr.debug("Starting download from %s", url)
-            headers = None
-            if start_at > 0:
-                headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(
-                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
-            )
-            # TODO: apparently we might need retries here as well etc
-            # if result.status_code not in (200, 201):
-            result.raise_for_status()
+            result = _get_download_response(self.client.session, url, start_at)
             for chunk in result.iter_content(chunk_size=chunk_size):
                 if chunk:  # could be some "keep alive"?
                     yield chunk
