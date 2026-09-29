@@ -194,10 +194,27 @@ def test_move(
 @pytest.mark.parametrize(
     "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
 )
-def test_move_skip(
+@pytest.mark.parametrize(
+    "existing,remapping",
+    [
+        (MoveExisting.SKIP, {"file.txt": "subdir5/file.txt"}),
+        (
+            MoveExisting.OVERWRITE,
+            {
+                "file.txt": "subdir5/file.txt",
+                "subdir4/foo.json": "subdir5/foo.json",
+                "subdir5/foo.json": None,
+            },
+        ),
+    ],
+    ids=["skip", "overwrite"],
+)
+def test_move_existing(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
     work_on: MoveWorkOn,
+    existing: MoveExisting,
+    remapping: dict[str, str | None],
 ) -> None:
     starting_assets = _setup_move(monkeypatch, moving_dandiset, moving_dandiset.dspath)
     move(
@@ -205,13 +222,11 @@ def test_move_skip(
         "subdir4/foo.json",
         dest="subdir5",
         work_on=work_on,
-        existing=MoveExisting.SKIP,
+        existing=existing,
         dandi_instance=moving_dandiset.api.instance_id,
         devel_debug=True,
     )
-    check_assets(
-        moving_dandiset, starting_assets, work_on, {"file.txt": "subdir5/file.txt"}
-    )
+    check_assets(moving_dandiset, starting_assets, work_on, remapping)
 
 
 @pytest.mark.parametrize(
@@ -239,36 +254,6 @@ def test_move_error(
         f" {'remote' if work_on is MoveWorkOn.REMOTE else 'local'} destination already exists"
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
-
-
-@pytest.mark.parametrize(
-    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
-)
-def test_move_overwrite(
-    monkeypatch: pytest.MonkeyPatch,
-    moving_dandiset: SampleDandiset,
-    work_on: MoveWorkOn,
-) -> None:
-    starting_assets = _setup_move(monkeypatch, moving_dandiset, moving_dandiset.dspath)
-    move(
-        "file.txt",
-        "subdir4/foo.json",
-        dest="subdir5",
-        work_on=work_on,
-        existing=MoveExisting.OVERWRITE,
-        devel_debug=True,
-        dandi_instance=moving_dandiset.api.instance_id,
-    )
-    check_assets(
-        moving_dandiset,
-        starting_assets,
-        work_on,
-        {
-            "file.txt": "subdir5/file.txt",
-            "subdir4/foo.json": "subdir5/foo.json",
-            "subdir5/foo.json": None,
-        },
-    )
 
 
 def test_move_no_srcs(
@@ -381,41 +366,26 @@ def test_move_nonexistent_src(
 @pytest.mark.parametrize(
     "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
 )
-def test_move_file_slash_src(
-    monkeypatch: pytest.MonkeyPatch,
-    moving_dandiset: SampleDandiset,
-    work_on: MoveWorkOn,
-) -> None:
-    starting_assets = _setup_move(monkeypatch, moving_dandiset, moving_dandiset.dspath)
-    with pytest.raises(ValueError) as excinfo:
-        move(
-            "file.txt",
-            "subdir1/apple.txt/",
-            dest="subdir2/",
-            work_on=work_on,
-            dandi_instance=moving_dandiset.api.instance_id,
-        )
-    path_type = "Remote" if work_on == MoveWorkOn.REMOTE else "Local"
-    assert str(excinfo.value) == (
-        f"{path_type} path 'subdir1/apple.txt/' is a file but a directory "
-        "was expected. Use a path ending with '/' for directories."
-    )
-    check_assets(moving_dandiset, starting_assets, work_on, {})
-
-
 @pytest.mark.parametrize(
-    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+    "srcs,dest",
+    [
+        (["file.txt", "subdir1/apple.txt/"], "subdir2/"),
+        (["file.txt"], "subdir1/apple.txt/"),
+    ],
+    ids=["src", "dest"],
 )
-def test_move_file_slash_dest(
+def test_move_file_slash(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
     work_on: MoveWorkOn,
+    srcs: list[str],
+    dest: str,
 ) -> None:
     starting_assets = _setup_move(monkeypatch, moving_dandiset, moving_dandiset.dspath)
     with pytest.raises(ValueError) as excinfo:
         move(
-            "file.txt",
-            dest="subdir1/apple.txt/",
+            *srcs,
+            dest=dest,
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
@@ -921,10 +891,27 @@ def test_move_both_dest_mismatch(
 @pytest.mark.parametrize(
     "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
 )
+@pytest.mark.parametrize(
+    "dry_run,remapping",
+    [
+        (
+            False,
+            {
+                "file.txt": "subdir5/file.txt",
+                "subdir4/foo.json": "subdir5/foo.json",
+                "subdir5/foo.json": None,
+            },
+        ),
+        (True, {}),
+    ],
+    ids=["moved", "dry_run"],
+)
 def test_move_pyout(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
     work_on: MoveWorkOn,
+    dry_run: bool,
+    remapping: dict[str, str | None],
 ) -> None:
     starting_assets = _setup_move(monkeypatch, moving_dandiset, moving_dandiset.dspath)
     move(
@@ -934,40 +921,10 @@ def test_move_pyout(
         work_on=work_on,
         existing=MoveExisting.OVERWRITE,
         devel_debug=False,
+        dry_run=dry_run,
         dandi_instance=moving_dandiset.api.instance_id,
     )
-    check_assets(
-        moving_dandiset,
-        starting_assets,
-        work_on,
-        {
-            "file.txt": "subdir5/file.txt",
-            "subdir4/foo.json": "subdir5/foo.json",
-            "subdir5/foo.json": None,
-        },
-    )
-
-
-@pytest.mark.parametrize(
-    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
-)
-def test_move_pyout_dry_run(
-    monkeypatch: pytest.MonkeyPatch,
-    moving_dandiset: SampleDandiset,
-    work_on: MoveWorkOn,
-) -> None:
-    starting_assets = _setup_move(monkeypatch, moving_dandiset, moving_dandiset.dspath)
-    move(
-        "file.txt",
-        "subdir4/foo.json",
-        dest="subdir5",
-        work_on=work_on,
-        existing=MoveExisting.OVERWRITE,
-        devel_debug=False,
-        dry_run=True,
-        dandi_instance=moving_dandiset.api.instance_id,
-    )
-    check_assets(moving_dandiset, starting_assets, work_on, {})
+    check_assets(moving_dandiset, starting_assets, work_on, remapping)
 
 
 @pytest.mark.parametrize(
