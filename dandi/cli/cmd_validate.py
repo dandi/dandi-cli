@@ -11,7 +11,12 @@ from typing import IO, Union, cast
 
 import click
 
-from .base import Path, devel_debug_option, devel_option, map_to_click_exceptions
+from .base import (
+    LinkAwarePath,
+    devel_debug_option,
+    devel_option,
+    map_to_click_exceptions,
+)
 from .formatter import JSONFormatter, JSONLinesFormatter, TextFormatter, YAMLFormatter
 from ..utils import pluralize
 from ..validate._core import validate as validate_
@@ -176,7 +181,7 @@ def _filter_results(
     multiple=True,
     default=(),
 )
-@click.argument("paths", nargs=-1, type=Path(lexists=True, dir_okay=True))
+@click.argument("paths", nargs=-1, type=LinkAwarePath(lexists=True, dir_okay=True))
 @click.pass_context
 @devel_debug_option()
 @map_to_click_exceptions

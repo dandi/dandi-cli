@@ -6,8 +6,7 @@ import click
 from click.testing import CliRunner
 import pytest
 
-from ..base import EnumChoice
-from ..base import Path as CliPath
+from ..base import EnumChoice, LinkAwarePath
 
 
 class _Existing(StrEnum):
@@ -77,7 +76,7 @@ def test_enum_choice_string_default_converted_to_member():
 @pytest.mark.ai_generated
 def test_path_lexists_rejects_resolve_path():
     with pytest.raises(ValueError, match="resolve_path"):
-        CliPath(lexists=True, resolve_path=True)
+        LinkAwarePath(lexists=True, resolve_path=True)
 
 
 @pytest.mark.ai_generated
@@ -91,7 +90,7 @@ def test_path_lexists_rejects_resolve_path():
 )
 def test_path_lexists(tmp_path: Path, kwargs: dict, broken_ok: bool) -> None:
     @click.command()
-    @click.argument("path", type=CliPath(allow_dash=True, **kwargs))
+    @click.argument("path", type=LinkAwarePath(allow_dash=True, **kwargs))
     def cmd(path):
         click.echo(f"got:{path}")
 

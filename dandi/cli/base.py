@@ -73,14 +73,19 @@ class ChoiceList(click.ParamType):
         return "[" + ",".join(self.values) + ",all]"
 
 
-class Path(click.Path):
+class LinkAwarePath(click.Path):
     """
-    A ``click.Path`` that can also accept broken symlinks
+    A ``click.Path`` that knows a symlink can be there even if its target is not
 
-    With ``exists=True``, a symlink whose target is missing is rejected as if
-    it did not exist.  Use ``lexists=True`` instead to accept it, so that, for
-    example, ``dandi validate`` can report on it.  This cannot be combined with
-    ``resolve_path=True``, which would follow the link.
+    ``click.Path(exists=True)`` follows symlinks, so it turns away a broken one
+    as "does not exist" before the command ever sees it.  In a git-annex or
+    DataLad dataset, that is common: a file whose content has not been fetched
+    is exactly such a link.  Commands like ``dandi validate`` should still take
+    these paths, to report on them (or skip them) rather than refuse them.
+
+    With ``lexists=True``, the link itself only has to be there, whether or not
+    its target is.  It cannot be combined with ``resolve_path=True``, which
+    would swap the link for its missing target.
     """
 
     def __init__(self, *, lexists: bool = False, **kwargs: Any) -> None:
