@@ -489,6 +489,31 @@ def test_time_extract_gest() -> None:
     )
 
 
+def _assert_session_duration(metadata: dict[str, Any], expected_seconds: float) -> None:
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - expected_seconds) < 1.0  # Allow small floating point errors
+
+
+def _assert_session_activity_dates(nwb_path: Path, metadata: dict[str, Any]) -> None:
+    # Check that Session activity includes endDate
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasGeneratedBy is not None
+
+    # Find Session activities
+    sessions = [act for act in asset.wasGeneratedBy if act.schemaKey == "Session"]
+    assert len(sessions) > 0
+
+    session = sessions[0]
+    assert session.startDate is not None
+    assert session.endDate is not None
+    assert session.startDate == metadata["session_start_time"]
+    assert session.endDate == metadata["session_end_time"]
+
+
 @pytest.mark.ai_generated
 def test_session_duration_extraction(tmp_path: Path) -> None:
     """Test that session duration is extracted and included in Session activity"""
@@ -522,29 +547,9 @@ def test_session_duration_extraction(tmp_path: Path) -> None:
 
     metadata = get_metadata(nwb_path)
 
-    # Check that session_end_time was calculated
-    assert "session_start_time" in metadata
-    assert "session_end_time" in metadata
-
     # Calculate duration - should be 150 seconds (max) - 0 seconds (min)
-    duration = (
-        metadata["session_end_time"] - metadata["session_start_time"]
-    ).total_seconds()
-    assert abs(duration - 150.0) < 1.0  # Allow small floating point errors
-
-    # Check that Session activity includes endDate
-    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
-    assert asset.wasGeneratedBy is not None
-
-    # Find Session activities
-    sessions = [act for act in asset.wasGeneratedBy if act.schemaKey == "Session"]
-    assert len(sessions) > 0
-
-    session = sessions[0]
-    assert session.startDate is not None
-    assert session.endDate is not None
-    assert session.startDate == metadata["session_start_time"]
-    assert session.endDate == metadata["session_end_time"]
+    _assert_session_duration(metadata, 150.0)
+    _assert_session_activity_dates(nwb_path, metadata)
 
 
 @pytest.mark.ai_generated
@@ -580,29 +585,9 @@ def test_session_duration_with_trials(tmp_path: Path) -> None:
 
     metadata = get_metadata(nwb_path)
 
-    # Check that session_end_time was calculated
-    assert "session_start_time" in metadata
-    assert "session_end_time" in metadata
-
     # Calculate duration - should be 200 (max from trials) - 5 (min from trials) = 195 seconds
-    duration = (
-        metadata["session_end_time"] - metadata["session_start_time"]
-    ).total_seconds()
-    assert abs(duration - 195.0) < 1.0  # Allow small floating point errors
-
-    # Check that Session activity includes endDate
-    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
-    assert asset.wasGeneratedBy is not None
-
-    # Find Session activities
-    sessions = [act for act in asset.wasGeneratedBy if act.schemaKey == "Session"]
-    assert len(sessions) > 0
-
-    session = sessions[0]
-    assert session.startDate is not None
-    assert session.endDate is not None
-    assert session.startDate == metadata["session_start_time"]
-    assert session.endDate == metadata["session_end_time"]
+    _assert_session_duration(metadata, 195.0)
+    _assert_session_activity_dates(nwb_path, metadata)
 
 
 @pytest.mark.ai_generated
@@ -636,15 +621,8 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
 
     metadata = get_metadata(nwb_path)
 
-    # Check that session_end_time was calculated
-    assert "session_start_time" in metadata
-    assert "session_end_time" in metadata
-
     # Duration should be 250 (max spike) - 5 (min spike) = 245 seconds
-    duration = (
-        metadata["session_end_time"] - metadata["session_start_time"]
-    ).total_seconds()
-    assert abs(duration - 245.0) < 1.0  # Allow small floating point errors
+    _assert_session_duration(metadata, 245.0)
 
 
 @pytest.mark.ai_generated
@@ -670,16 +648,12 @@ def test_session_duration_with_scattered_non_spiking_units(tmp_path: Path) -> No
         io.write(nwbfile)
 
     metadata = get_metadata(nwb_path)
-    assert "session_start_time" in metadata
-    assert "session_end_time" in metadata
 
     end_offset = (metadata["session_end_time"] - session_start).total_seconds()
     assert abs(end_offset - 245.0) < 1.0
 
-    duration = (
-        metadata["session_end_time"] - metadata["session_start_time"]
-    ).total_seconds()
-    assert abs(duration - 245.0) < 1.0  # max 250s and min 5s spike times
+    # max 250s and min 5s spike times
+    _assert_session_duration(metadata, 245.0)
 
 
 @pytest.mark.ai_generated
@@ -734,15 +708,8 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
 
     metadata = get_metadata(nwb_path)
 
-    # Check that session_end_time was calculated
-    assert "session_start_time" in metadata
-    assert "session_end_time" in metadata
-
     # Duration should be 180 (100 + 80, max end) - 3 (min timestamp) = 177 seconds
-    duration = (
-        metadata["session_end_time"] - metadata["session_start_time"]
-    ).total_seconds()
-    assert abs(duration - 157.0) < 1.0  # Allow small floating point errors
+    _assert_session_duration(metadata, 157.0)
 
 
 @mark_xfail_ontobee
@@ -1259,11 +1226,20 @@ def test_ndtypes(ndtypes, asset_dict):
     assert metadata.variableMeasured[0].value == asset_dict.get(key)[0]
 
 
-@mark.skipif_no_network
-def test_nwb2asset(simple2_nwb: Path) -> None:
+def _expected_simple2_asset(
+    *,
+    content_size: Any,
+    digest_value: str,
+    path: str,
+    blob_date_modified: Any,
+    strain: StrainType | None = None,
+) -> BareAsset:
+    participant_kwargs: dict[str, Any] = {}
+    if strain is not None:
+        participant_kwargs["strain"] = strain
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
-    assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.model_construct(
+    return BareAsset.model_construct(
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[
@@ -1299,12 +1275,12 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                 ],
             ),
         ],
-        contentSize=ANY_INT,
+        contentSize=content_size,
         encodingFormat="application/x-nwb",
-        digest={DigestType.dandi_etag: "dddddddddddddddddddddddddddddddd-1"},
-        path=str(simple2_nwb),
+        digest={DigestType.dandi_etag: digest_value},
+        path=path,
         dateModified=ANY_AWARE_DATETIME,
-        blobDateModified=ANY_AWARE_DATETIME,
+        blobDateModified=blob_date_modified,
         wasAttributedTo=[
             Participant(
                 identifier="mouse001",
@@ -1324,13 +1300,24 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                     identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
                     name="Mus musculus - House mouse",
                 ),
-                strain=StrainType(schemaKey="StrainType", name="C57BL/6J"),
+                **participant_kwargs,
             ),
         ],
         variableMeasured=[],
         measurementTechnique=[],
         approach=[],
         relatedResource=[],
+    )
+
+
+@mark.skipif_no_network
+def test_nwb2asset(simple2_nwb: Path) -> None:
+    assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == _expected_simple2_asset(
+        content_size=ANY_INT,
+        digest_value="dddddddddddddddddddddddddddddddd-1",
+        path=str(simple2_nwb),
+        blob_date_modified=ANY_AWARE_DATETIME,
+        strain=StrainType(schemaKey="StrainType", name="C57BL/6J"),
     )
 
 
@@ -1343,73 +1330,9 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     mtime = ensure_datetime(asset.get_raw_metadata()["blobDateModified"])
     assert isinstance(asset, RemoteBlobAsset)
     r = asset.as_readable()
-    # Classes with ANY_AWARE_DATETIME fields need to be constructed with
-    # model_construct()
-    assert nwb2asset(r, digest=digest) == BareAsset.model_construct(
-        schemaVersion=DANDI_SCHEMA_VERSION,
-        keywords=["keyword1", "keyword 2"],
-        access=[
-            AccessRequirements(
-                schemaKey="AccessRequirements", status=AccessType.OpenAccess
-            )
-        ],
-        wasGeneratedBy=[
-            Session.model_construct(
-                schemaKey="Session",
-                identifier="session_id1",
-                name="session_id1",
-                description="session_description1",
-                startDate=ANY_AWARE_DATETIME,
-            ),
-            Activity.model_construct(
-                id=AnyFullmatch(
-                    r"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-                ),
-                schemaKey="Activity",
-                name="Metadata generation",
-                description="Metadata generated by DANDI cli",
-                startDate=ANY_AWARE_DATETIME,
-                endDate=ANY_AWARE_DATETIME,
-                wasAssociatedWith=[
-                    Software(
-                        schemaKey="Software",
-                        identifier="RRID:SCR_019009",
-                        name="DANDI Command Line Interface",
-                        version=__version__,
-                        url="https://github.com/dandi/dandi-cli",
-                    )
-                ],
-            ),
-        ],
-        contentSize=ByteSize(asset.size),
-        encodingFormat="application/x-nwb",
-        digest={DigestType.dandi_etag: digest.value},
+    assert nwb2asset(r, digest=digest) == _expected_simple2_asset(
+        content_size=ByteSize(asset.size),
+        digest_value=digest.value,
         path="sub-mouse001.nwb",
-        dateModified=ANY_AWARE_DATETIME,
-        blobDateModified=mtime,
-        wasAttributedTo=[
-            Participant(
-                identifier="mouse001",
-                schemaKey="Participant",
-                age=PropertyValue(
-                    schemaKey="PropertyValue",
-                    unitText="ISO-8601 duration",
-                    value="P135DT43200S",
-                    valueReference=PropertyValue(
-                        schemaKey="PropertyValue",
-                        value=AgeReferenceType.BirthReference,
-                    ),
-                ),
-                sex=SexType(schemaKey="SexType", name="Unknown"),
-                species=SpeciesType(
-                    schemaKey="SpeciesType",
-                    identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
-                    name="Mus musculus - House mouse",
-                ),
-            ),
-        ],
-        variableMeasured=[],
-        measurementTechnique=[],
-        approach=[],
-        relatedResource=[],
+        blob_date_modified=mtime,
     )
