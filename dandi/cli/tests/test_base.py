@@ -1,10 +1,12 @@
 from enum import StrEnum
+import os
+from pathlib import Path
 
 import click
 from click.testing import CliRunner
 import pytest
 
-from ..base import EnumChoice
+from ..base import EnumChoice, LinkAwarePath
 
 
 class _Existing(StrEnum):
@@ -69,3 +71,40 @@ def test_enum_choice_string_default_converted_to_member():
     r = CliRunner().invoke(cmd, [])
     assert r.exit_code == 0, r.output
     assert captured["existing"] is _Existing.SKIP
+
+
+@pytest.mark.ai_generated
+def test_path_lexists_rejects_resolve_path():
+    with pytest.raises(ValueError, match="resolve_path"):
+        LinkAwarePath(lexists=True, resolve_path=True)
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "kwargs,broken_ok",
+    [
+        ({"lexists": True}, True),
+        ({"lexists": True, "exists": True}, False),
+        ({"exists": True}, False),
+    ],
+)
+def test_path_lexists(tmp_path: Path, kwargs: dict, broken_ok: bool) -> None:
+    @click.command()
+    @click.argument("path", type=LinkAwarePath(allow_dash=True, **kwargs))
+    def cmd(path):
+        click.echo(f"got:{path}")
+
+    (tmp_path / "file.txt").write_text("content")
+    broken = tmp_path / "broken"
+    try:
+        os.symlink(tmp_path / "missing", broken)
+    except OSError:
+        pytest.skip("symlinks are not supported here")
+    for ok in [str(tmp_path / "file.txt"), "-"] + ([str(broken)] if broken_ok else []):
+        r = CliRunner().invoke(cmd, [ok])
+        assert r.exit_code == 0, r.output
+        assert r.output == f"got:{ok}\n"
+    for bad in [str(tmp_path / "missing")] + ([] if broken_ok else [str(broken)]):
+        r = CliRunner().invoke(cmd, [bad])
+        assert r.exit_code == 2
+        assert f"Path {bad!r} does not exist." in r.output
