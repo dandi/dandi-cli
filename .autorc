@@ -9,7 +9,7 @@
         [
             "exec",
             {
-                  "afterRelease": "python -m build && twine upload dist/*"
+                  "afterPublish": "python -m build && twine upload dist/*"
             }
         ],
         "released"
