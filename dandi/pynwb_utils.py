@@ -73,6 +73,23 @@ validate_cache = PersistentCache(
 )
 
 
+def readable_fingerprint(source: Any) -> tuple[str, str] | None:
+    """
+    Content fingerprint of ``source`` for ``PersistentCache.memoize_path``
+
+    Pass it as ``custom_fingerprint`` to cache the results of a function of a
+    local path or a `Readable`.  Paths keep being cached under their location
+    and ``stat()``; a `Readable` cannot be fingerprinted that way, so one whose
+    `~Readable.get_fingerprint` returns a value is cached under its file name
+    and that fingerprint instead.  A `Readable` without a fingerprint is handled
+    as without this: cached by its path if it is path-like (as
+    `LocalReadableFile` is), not cached at all otherwise.
+    """
+    if isinstance(source, Readable) and (fp := source.get_fingerprint()) is not None:
+        return (source.get_filename(), fp)
+    return None
+
+
 def _sanitize_nwb_version(
     v: Any,
     filename: str | Path | None = None,
@@ -194,7 +211,7 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     return ndtypes
 
 
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=readable_fingerprint)
 def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
     with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
@@ -808,7 +825,7 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     return str(dest)
 
 
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=readable_fingerprint)
 def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
     with open_readable(filepath) as f, h5py.File(f, "r") as fp:
         visited = set()
