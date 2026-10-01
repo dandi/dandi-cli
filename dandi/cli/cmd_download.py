@@ -132,6 +132,17 @@ Download files or entire folders from DANDI.
     "With 'ask' (the default when --sync is passed without a value), prompt before "
     "deleting. With 'do', delete without prompting.",
 )
+@click.option(
+    "--zarr",
+    "zarr_filters",
+    multiple=True,
+    metavar="FILTER",
+    help=(
+        "Filter entries within Zarr assets. Format: TYPE:PATTERN where TYPE "
+        "is 'glob', 'path', or 'regex'. Predefined: 'metadata'. "
+        "Can be specified multiple times (OR logic)."
+    ),
+)
 @instance_option(
     default=None,
     help=(
@@ -165,6 +176,7 @@ def download(
     format: DownloadFormat,
     download_types: set[str],
     sync: str | None,
+    zarr_filters: tuple[str, ...],
     dandi_instance: str,
     path_type: PathType,
     preserve_tree: bool,
@@ -205,6 +217,7 @@ def download(
         get_assets="assets" in download_types or preserve_tree,
         preserve_tree=preserve_tree,
         sync=SyncMode(sync) if sync is not None else None,
+        zarr_filters=zarr_filters,
         path_type=path_type,
         # develop_debug=develop_debug
     )

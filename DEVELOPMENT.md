@@ -200,6 +200,9 @@ Most of these are enforced automatically by `pre-commit` hooks (see below).
   `NotFoundError`)
 - **Docstrings**: NumPy style for public APIs
 - **Imports**: stdlib → third-party → local (alphabetical within groups)
+- **Import placement**: Always top-level; never inside functions or methods
+- **Walrus operator**: Use `:=` where it simplifies code (e.g. `if (x := expr()):`
+  instead of a separate assign-then-check)
 - **CLI**: Click library with `DYMGroup` (did-you-mean suggestions)
 - **Excluded from formatting**: `_version.py`, `due.py`, `versioneer.py`
 

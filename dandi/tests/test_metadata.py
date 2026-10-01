@@ -34,6 +34,7 @@ from hdmf.common import DynamicTable
 import numpy as np
 from pydantic import ByteSize
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+from pynwb.file import Subject
 import pytest
 import requests
 from semantic_version import Version
@@ -61,6 +62,12 @@ from ..misctypes import DUMMY_DANDI_ETAG
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
+
+AGE_REFERENCE_TYPES = {
+    "birth": AgeReferenceType.BirthReference,
+    "gestational": AgeReferenceType.GestationalReference,
+    None: AgeReferenceType.BirthReference,
+}
 
 mark_xfail_ontobee = pytest.mark.xfail(
     condition="not config.getoption('--scheduled')",
@@ -473,6 +480,54 @@ def test_time_extract() -> None:
     assert age.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:BirthReference")
     )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "reference", [ref for ref in AGE_REFERENCE_TYPES.keys() if ref is not None]
+)
+def test_age_reference_roundtrip(tmp_path: Path, reference: str) -> None:
+    path = tmp_path / "age.nwb"
+    nwb = NWBFile("age reference", "age", datetime(2020, 1, 1, tzinfo=tzutc()))
+    nwb.subject = Subject(age="P3W", age__reference=reference)
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    metadata = get_metadata(path)
+    assert metadata["age__reference"] == reference
+    age = extract_age(metadata)
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES[reference])
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+@pytest.mark.parametrize("legacy", [False, True])
+def test_age_reference_legacy(reference: str | None, legacy: bool) -> None:
+    age = extract_age(
+        {"age": "Gestational week 3" if legacy else "P3W", "age__reference": reference}
+    )
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(
+        value=AGE_REFERENCE_TYPES["gestational" if legacy else reference]
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+def test_age_reference_preserves_birth_dates(reference: str | None) -> None:
+    age = extract_age(
+        {
+            "age": "P3W",
+            "age__reference": reference,
+            "date_of_birth": "2020-01-01T00:00:00Z",
+            "session_start_time": "2020-01-03T00:00:00Z",
+        }
+    )
+    assert age is not None
+    assert age.value == "P2D"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES["birth"])
 
 
 def test_time_extract_gest() -> None:

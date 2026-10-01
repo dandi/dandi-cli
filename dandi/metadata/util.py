@@ -247,6 +247,8 @@ def extract_age(metadata: dict) -> models.PropertyValue | None:
     except (KeyError, TypeError, ValueError):
         if metadata.get("age") is not None:
             duration, ref = parse_age(metadata["age"])
+            if metadata.get("age__reference") == "gestational":
+                ref = "Gestational"
         else:
             return None
     else:

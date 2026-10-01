@@ -1,3 +1,100 @@
+# 0.81.0 (Wed Sep 30 2026)
+
+#### 🚀 Enhancement
+
+- Remove deprecated validate-bids command [#1943](https://github.com/dandi/dandi-cli/pull/1943) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🐛 Bug Fix
+
+- Accept broken symlinks as path arguments of `dandi validate` [#1937](https://github.com/dandi/dandi-cli/pull/1937) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- Run build & twine upload in afterPublish instead of afterRelease [#1945](https://github.com/dandi/dandi-cli/pull/1945) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 📝 Documentation
+
+- Update docs: bring the command-line reference in sync with the CLI [#1934](https://github.com/dandi/dandi-cli/pull/1934) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 3
+
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+---
+
+# 0.80.1 (Sat Sep 26 2026)
+
+#### 🐛 Bug Fix
+
+- Warn when uploads omit unrecognized paths [#1915](https://github.com/dandi/dandi-cli/pull/1915) ([@AtomicGlance](https://github.com/AtomicGlance))
+- Show the released version in the docs instead of "0+untagged" [#1926](https://github.com/dandi/dandi-cli/pull/1926) ([@kabilar](https://github.com/kabilar))
+- Give a descriptive error when a DOI cannot be resolved to citation metadata [#1900](https://github.com/dandi/dandi-cli/pull/1900) ([@adityasingh2400](https://github.com/adityasingh2400) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- BF: run dev-deps testing under 3.12 instead of 3.11 [#1928](https://github.com/dandi/dandi-cli/pull/1928) ([@yarikoptic](https://github.com/yarikoptic))
+- test: run MinIO from `bitnamilegacy/minio`; Quay now requires a login [#1927](https://github.com/dandi/dandi-cli/pull/1927) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 6
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.80.0 (Thu Sep 17 2026)
+
+#### 🚀 Enhancement
+
+- Add support for partial Zarr download and upload [#1816](https://github.com/dandi/dandi-cli/pull/1816) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@claude](https://github.com/claude))
+
+#### 🏠 Internal
+
+- Document import placement and walrus operator conventions [#1923](https://github.com/dandi/dandi-cli/pull/1923) (bdichter@Benjamins-Mac-mini.local [@bendichter](https://github.com/bendichter))
+
+#### Authors: 5
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Benjamin Dichter (bdichter@Benjamins-Mac-mini.local)
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.79.0 (Mon Sep 14 2026)
+
+#### 🚀 Enhancement
+
+- Preserve legacy ndx-pose video references during organize [#1916](https://github.com/dandi/dandi-cli/pull/1916) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### 🐛 Bug Fix
+
+- Say why metadata failed to load and how to see the tracebacks [#1901](https://github.com/dandi/dandi-cli/pull/1901) ([@adityasingh2400](https://github.com/adityasingh2400) [@yarikoptic](https://github.com/yarikoptic))
+- Match media file extensions case-insensitively [#1911](https://github.com/dandi/dandi-cli/pull/1911) ([@h-mayorquin](https://github.com/h-mayorquin) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Pull MinIO from Quay: `minio/minio` was deleted from Docker Hub [#1921](https://github.com/dandi/dandi-cli/pull/1921) ([@AtomicGlance](https://github.com/AtomicGlance) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Fix two recurring CI failures in daily scheduled runs [#1914](https://github.com/dandi/dandi-cli/pull/1914) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 6
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.78.0 (Fri Aug 28 2026)
 
 #### 🚀 Enhancement
