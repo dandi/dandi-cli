@@ -230,6 +230,13 @@ def test_authenticate_bad_key_keyring_good_key_input(
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")
 
 
+def _fetch_content(client: DandiAPIClient, url: str, tmp_path: Path) -> None:
+    r = client.get(url, stream=True, json_resp=False)
+    with open(tmp_path / "asset.nwb", "wb") as fp:
+        for chunk in r.iter_content(chunk_size=8192):
+            fp.write(chunk)
+
+
 @mark.skipif_no_network
 def test_get_content_url(tmp_path: Path) -> None:
     with DandiAPIClient.for_dandi_instance("dandi") as client:
@@ -243,10 +250,7 @@ def test_get_content_url(tmp_path: Path) -> None:
             + UUID_PATTERN.rstrip("$") + "/download/?$",
             url,
         )
-        r = client.get(url, stream=True, json_resp=False)
-        with open(tmp_path / "asset.nwb", "wb") as fp:
-            for chunk in r.iter_content(chunk_size=8192):
-                fp.write(chunk)
+        _fetch_content(client, url, tmp_path)
 
 
 @mark.skipif_no_network
@@ -256,10 +260,7 @@ def test_get_content_url_regex(tmp_path: Path) -> None:
             "sub-RAT123/sub-RAT123.nwb"
         )
         url = asset.get_content_url(r"amazonaws.com/.*blobs/")
-        r = client.get(url, stream=True, json_resp=False)
-        with open(tmp_path / "asset.nwb", "wb") as fp:
-            for chunk in r.iter_content(chunk_size=8192):
-                fp.write(chunk)
+        _fetch_content(client, url, tmp_path)
 
 
 @mark.skipif_no_network
@@ -645,6 +646,25 @@ def test_search_get_dandisets(
     assert ds.dandiset_id not in [d.identifier for d in dandisets]
 
 
+def _assert_dandiset_fields(
+    dandiset: RemoteDandiset, version_id: str, most_recent_published: str | None
+) -> None:
+    assert dandiset.version_id == version_id
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == version_id
+    if most_recent_published is None:
+        assert dandiset.most_recent_published_version is None
+    else:
+        assert isinstance(dandiset.most_recent_published_version, Version)
+        assert (
+            dandiset.most_recent_published_version.identifier == most_recent_published
+        )
+    assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
+
+
 def test_get_dandiset_lazy(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
@@ -657,13 +677,7 @@ def test_get_dandiset_lazy(
     assert isinstance(dandiset.created, datetime)
     get_spy.assert_called_once()
     get_spy.reset_mock()
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert dandiset.most_recent_published_version is None
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, None)
     get_spy.assert_not_called()
 
 
@@ -677,30 +691,14 @@ def test_get_dandiset_non_lazy(
     get_spy.reset_mock()
     assert dandiset.version_id == DRAFT
     get_spy.assert_not_called()
-    assert isinstance(dandiset.created, datetime)
-    get_spy.assert_not_called()
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert dandiset.most_recent_published_version is None
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, None)
     get_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("lazy", [True, False])
 def test_get_dandiset_no_version_id(lazy: bool, text_dandiset: SampleDandiset) -> None:
     dandiset = text_dandiset.client.get_dandiset(text_dandiset.dandiset_id, lazy=lazy)
-    assert dandiset.version_id == DRAFT
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert dandiset.most_recent_published_version is None
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, None)
     versions = list(dandiset.get_versions())
     assert len(versions) == 1
     assert versions[0].identifier == DRAFT
@@ -712,16 +710,7 @@ def test_get_dandiset_published(lazy: bool, text_dandiset: SampleDandiset) -> No
     d.wait_until_valid()
     v = d.publish().version.identifier
     dandiset = text_dandiset.client.get_dandiset(d.identifier, v, lazy=lazy)
-    assert dandiset.version_id == v
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == v
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, v, v)
     versions = list(dandiset.get_versions())
     assert len(versions) == 2
     assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
@@ -735,16 +724,7 @@ def test_get_dandiset_published_no_version_id(
     d.wait_until_valid()
     v = d.publish().version.identifier
     dandiset = text_dandiset.client.get_dandiset(d.identifier, lazy=lazy)
-    assert dandiset.version_id == v
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == v
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, v, v)
     versions = list(dandiset.get_versions())
     assert len(versions) == 2
     assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
@@ -758,16 +738,7 @@ def test_get_dandiset_published_draft(
     d.wait_until_valid()
     v = d.publish().version.identifier
     dandiset = text_dandiset.client.get_dandiset(d.identifier, DRAFT, lazy=lazy)
-    assert dandiset.version_id == DRAFT
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, v)
     versions = list(dandiset.get_versions())
     assert len(versions) == 2
     assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
@@ -788,16 +759,7 @@ def test_get_dandiset_published_other_version(
     assert v1 != v2
 
     dandiset = text_dandiset.client.get_dandiset(d.identifier, v1, lazy=lazy)
-    assert dandiset.version_id == v1
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == v1
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v2
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, v1, v2)
 
     versions = list(dandiset.get_versions())
     assert len(versions) == 3

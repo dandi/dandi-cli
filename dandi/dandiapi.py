@@ -18,7 +18,6 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from fnmatch import fnmatchcase
 from functools import cached_property
 import json
 import os.path
@@ -52,7 +51,14 @@ from .consts import (
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring_utils import keyring_lookup, keyring_save
-from .misctypes import Digest, RemoteReadableAsset
+from .misctypes import (
+    Digest,
+    RemoteReadableAsset,
+    _match_parts,
+    _path_stem,
+    _path_suffix,
+    _path_suffixes,
+)
 from .utils import (
     USER_AGENT,
     check_dandi_version,
@@ -67,6 +73,8 @@ from .utils import (
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+
+    from .files import LocalAsset
 
 
 lgr = get_logger()
@@ -1407,6 +1415,17 @@ class RemoteDandiset:
             f"No published versions found for Dandiset {self.identifier}"
         )
 
+    def _iter_version_assets(self, params: dict) -> Iterator[RemoteAsset]:
+        try:
+            for a in self.client.paginate(
+                f"{self.version_api_path}assets/", params=params
+            ):
+                yield RemoteAsset.from_data(self, a)
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
+
     def get_assets(self, order: str | None = None) -> Iterator[RemoteAsset]:
         """
         Returns an iterator of all assets in this version of the Dandiset.
@@ -1416,15 +1435,7 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        try:
-            for a in self.client.paginate(
-                f"{self.version_api_path}assets/", params={"order": order}
-            ):
-                yield RemoteAsset.from_data(self, a)
-        except HTTP404Error:
-            raise NotFoundError(
-                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-            )
+        return self._iter_version_assets({"order": order})
 
     def get_asset(self, asset_id: str) -> RemoteAsset:
         """
@@ -1453,16 +1464,9 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        try:
-            for a in self.client.paginate(
-                f"{self.version_api_path}assets/",
-                params={"path": self._normalize_path(path), "order": order},
-            ):
-                yield RemoteAsset.from_data(self, a)
-        except HTTP404Error:
-            raise NotFoundError(
-                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-            )
+        return self._iter_version_assets(
+            {"path": self._normalize_path(path), "order": order}
+        )
 
     def get_assets_by_glob(
         self, pattern: str, order: str | None = None
@@ -1478,16 +1482,7 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        try:
-            for a in self.client.paginate(
-                f"{self.version_api_path}assets/",
-                params={"glob": pattern, "order": order},
-            ):
-                yield RemoteAsset.from_data(self, a)
-        except HTTP404Error:
-            raise NotFoundError(
-                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-            )
+        return self._iter_version_assets({"glob": pattern, "order": order})
 
     def get_asset_by_path(self, path: str) -> RemoteAsset:
         """
@@ -1564,15 +1559,19 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
+        df = self._local_asset_file(filepath)
+        return df.upload(
+            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
+        )
+
+    def _local_asset_file(self, filepath: str | Path) -> "LocalAsset":
         # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
         if not isinstance(df, LocalAsset):
             raise ValueError(f"{filepath}: not an asset file")
-        return df.upload(
-            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
-        )
+        return df
 
     def iter_upload_raw_asset(
         self,
@@ -1601,20 +1600,31 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         :returns:
-            A generator of `dict`\\s containing at least a ``"status"`` key.
-            Upon successful upload, the last `dict` will have a status of
-            ``"done"`` and an ``"asset"`` key containing the resulting
-            `RemoteAsset`.
+            A generator of `dict`\\s; see `~dandi.files.LocalAsset.iter_upload`
+            for the shape of the status dicts
         """
-        # Avoid circular import by importing within function:
-        from .files import LocalAsset, dandi_file
-
-        df = dandi_file(filepath)
-        if not isinstance(df, LocalAsset):
-            raise ValueError(f"{filepath}: not an asset file")
+        df = self._local_asset_file(filepath)
         return df.iter_upload(
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
+
+
+def _get_download_response(
+    session: requests.Session, url: str, start_at: int = 0
+) -> requests.Response:
+    """
+    Issue the (optionally range-restricted) GET request for streaming a
+    download from ``url``, raising for any HTTP error status.
+    """
+    lgr.debug("Starting download from %s", url)
+    headers = None
+    if start_at > 0:
+        headers = {"Range": f"bytes={start_at}-"}
+    result = session.get(url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT)
+    # TODO: apparently we might need retries here as well etc
+    # if result.status_code not in (200, 201):
+    result.raise_for_status()
+    return result
 
 
 class BaseRemoteAsset(ABC, APIBase):
@@ -1862,16 +1872,7 @@ class BaseRemoteAsset(ABC, APIBase):
         url = self.base_download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
-            lgr.debug("Starting download from %s", url)
-            headers = None
-            if start_at > 0:
-                headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(
-                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
-            )
-            # TODO: apparently we might need retries here as well etc
-            # if result.status_code not in (200, 201):
-            result.raise_for_status()
+            result = _get_download_response(self.client.session, url, start_at)
             nbytes, nchunks = 0, 0
             for chunk in result.iter_content(chunk_size=chunk_size):
                 nchunks += 1
@@ -2143,6 +2144,20 @@ class RemoteAsset(BaseRemoteAsset):
         """
         ...
 
+    def _put_raw_metadata(
+        self, metadata: dict[str, Any], id_field: str, id_value: str
+    ) -> None:
+        set_asset_schema_key(metadata)
+        data = self.client.put(
+            self.api_path, json={"metadata": metadata, id_field: id_value}
+        )
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.created = ensure_datetime(data["created"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]
+
     def rename(self, dest: str) -> None:
         """
         .. versionadded:: 0.41.0
@@ -2172,16 +2187,7 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteBlobAsset` in place.
         """
-        set_asset_schema_key(metadata)
-        data = self.client.put(
-            self.api_path, json={"metadata": metadata, "blob_id": self.blob}
-        )
-        self.identifier = data["asset_id"]
-        self.path = data["path"]
-        self.size = int(data["size"])
-        self.created = ensure_datetime(data["created"])
-        self.modified = ensure_datetime(data["modified"])
-        self._metadata = data["metadata"]
+        self._put_raw_metadata(metadata, "blob_id", self.blob)
 
 
 class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
@@ -2196,16 +2202,7 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteZarrAsset` in place.
         """
-        set_asset_schema_key(metadata)
-        data = self.client.put(
-            self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
-        )
-        self.identifier = data["asset_id"]
-        self.path = data["path"]
-        self.size = int(data["size"])
-        self.created = ensure_datetime(data["created"])
-        self.modified = ensure_datetime(data["modified"])
-        self._metadata = data["metadata"]
+        self._put_raw_metadata(metadata, "zarr_id", self.zarr)
 
 
 @dataclass
@@ -2260,42 +2257,21 @@ class RemoteZarrEntry:
     @property
     def suffix(self) -> str:
         """The final file extension of the basename, if any"""
-        i = self.name.rfind(".")
-        if 0 < i < len(self.name) - 1:
-            return self.name[i:]
-        else:
-            return ""
+        return _path_suffix(self.name)
 
     @property
     def suffixes(self) -> list[str]:
         """A list of the basename's file extensions"""
-        if self.name.endswith("."):
-            return []
-        name = self.name.lstrip(".")
-        return ["." + suffix for suffix in name.split(".")[1:]]
+        return _path_suffixes(self.name)
 
     @property
     def stem(self) -> str:
         """The basename without its final file extension, if any"""
-        i = self.name.rfind(".")
-        if 0 < i < len(self.name) - 1:
-            return self.name[:i]
-        else:
-            return self.name
+        return _path_stem(self.name)
 
     def match(self, pattern: str) -> bool:
         """Tests whether the path matches the given glob pattern"""
-        if pattern.startswith("/"):
-            raise ValueError(f"Absolute paths not allowed: {pattern!r}")
-        patparts = tuple(q for q in pattern.split("/") if q)
-        if not patparts:
-            raise ValueError("Empty pattern")
-        if len(patparts) > len(self.parts):
-            return False
-        for part, pat in zip(reversed(self.parts), reversed(patparts)):
-            if not fnmatchcase(part, pat):
-                return False
-        return True
+        return _match_parts(self.parts, pattern)
 
     @property
     def download_url(self) -> str:
@@ -2320,16 +2296,7 @@ class RemoteZarrEntry:
         url = self.download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
-            lgr.debug("Starting download from %s", url)
-            headers = None
-            if start_at > 0:
-                headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(
-                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
-            )
-            # TODO: apparently we might need retries here as well etc
-            # if result.status_code not in (200, 201):
-            result.raise_for_status()
+            result = _get_download_response(self.client.session, url, start_at)
             for chunk in result.iter_content(chunk_size=chunk_size):
                 if chunk:  # could be some "keep alive"?
                     yield chunk

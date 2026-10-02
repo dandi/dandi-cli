@@ -11,7 +11,7 @@ from dandischema.models import BareAsset
 
 from dandi.bids_validator_deno import bids_validate
 
-from .bases import GenericAsset, LocalFileAsset, NWBAsset
+from .bases import DandiFile, GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
@@ -197,6 +197,21 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     # get_metadata(): inherit use of default metadata from LocalFileAsset
 
 
+def _bids_combined_validation_errors(
+    self: "BIDSAsset",
+    format_cls: type[DandiFile],
+    schema_version: str | None,
+    devel_debug: bool,
+    missing_file_content: MissingFileContent | None,
+) -> list[ValidationResult]:
+    return format_cls.get_validation_errors(
+        self,
+        schema_version,
+        devel_debug,
+        missing_file_content=missing_file_content,
+    ) + BIDSAsset.get_validation_errors(self)
+
+
 @dataclass
 class BIDSAsset(LocalFileAsset):
     """
@@ -271,12 +286,9 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
-        return NWBAsset.get_validation_errors(
-            self,
-            schema_version,
-            devel_debug,
-            missing_file_content=missing_file_content,
-        ) + BIDSAsset.get_validation_errors(self)
+        return _bids_combined_validation_errors(
+            self, NWBAsset, schema_version, devel_debug, missing_file_content
+        )
 
     def get_metadata(
         self,
@@ -306,22 +318,16 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
-        return ZarrAsset.get_validation_errors(
-            self,
-            schema_version,
-            devel_debug,
-            missing_file_content=missing_file_content,
-        ) + BIDSAsset.get_validation_errors(self)
+        return _bids_combined_validation_errors(
+            self, ZarrAsset, schema_version, devel_debug, missing_file_content
+        )
 
     def get_metadata(
         self,
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        metadata = self.bids_dataset_description.get_asset_metadata(self)
-        start_time = end_time = datetime.now().astimezone()
-        add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
-        metadata.path = self.path
+        metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
         metadata.encodingFormat = ZARR_MIME_TYPE
         return metadata
 

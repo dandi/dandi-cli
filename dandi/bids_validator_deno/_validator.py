@@ -206,22 +206,8 @@ def _bids_validate(
     recursive: bool = False,
 ) -> BidsValidationResult:
     """
-    Validate a file directory as a BIDS dataset with the deno-compiled BIDS validator
-
-    Parameters
-    ----------
-    dir_ : DirectoryPath
-        The path to the directory to validate
-    config : Optional[dict]
-        The configuration to use in the validation. This specifies a JSON configuration
-        file to be provided through the `--config` option when invoking the underlying
-        deno-compiled BIDS validator. If `None`, the deno-compiled BIDS validator will
-        be invoked without the `--config` option.
-    ignore_nifti_headers : bool
-        If `True`, disregard NIfTI header content during validation
-    recursive : bool
-        If `True`, validate datasets found in derivatives directories in addition to
-        root dataset
+    Implementation of `bids_validate()`. See that function for a description of the
+    parameters.
 
     Returns
     -------
