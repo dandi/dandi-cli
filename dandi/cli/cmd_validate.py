@@ -8,11 +8,15 @@ import os
 import re
 import sys
 from typing import IO, Union, cast
-import warnings
 
 import click
 
-from .base import devel_debug_option, devel_option, map_to_click_exceptions
+from .base import (
+    LinkAwarePath,
+    devel_debug_option,
+    devel_option,
+    map_to_click_exceptions,
+)
 from .formatter import JSONFormatter, JSONLinesFormatter, TextFormatter, YAMLFormatter
 from ..utils import pluralize
 from ..validate._core import validate as validate_
@@ -105,57 +109,6 @@ def _filter_results(
 
 
 @click.command()
-@click.option(
-    "--schema", help="Validate against new BIDS schema version.", metavar="VERSION"
-)
-@click.option(
-    "--report-path",
-    help="Write report under path, this option implies `--report/-r`.",
-)
-@click.option(
-    "--report",
-    "-r",
-    is_flag=True,
-    help="Whether to write a report under a unique path in the DANDI log directory.",
-)
-@click.option(
-    "--grouping",
-    "-g",
-    help="How to group error/warning reporting.",
-    type=click.Choice(["none", "path"], case_sensitive=False),
-    default="none",
-)
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
-@click.pass_context
-@map_to_click_exceptions
-def validate_bids(
-    ctx,
-    paths,
-    schema,
-    report,
-    report_path,
-    grouping="none",
-):
-    """Validate BIDS paths.
-    Notes
-    -----
-    * Used from bash, eg:
-    dandi validate-bids /my/path
-    * DEPRECATED: use  dandi validate /my/path
-    """
-
-    warnings.filterwarnings("default")
-    warnings.warn(
-        "The `dandi validate-bids` command line interface is deprecated, you can use "
-        "`dandi validate` instead. Proceeding to parse the call to `dandi validate` now.",
-        DeprecationWarning,
-    )
-    ctx.invoke(
-        validate, paths=paths, grouping=(grouping,) if grouping != "none" else ()
-    )
-
-
-@click.command()
 @devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
 @devel_option(
     "--allow-any-path",
@@ -228,7 +181,7 @@ def validate_bids(
     multiple=True,
     default=(),
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@click.argument("paths", nargs=-1, type=LinkAwarePath(lexists=True, dir_okay=True))
 @click.pass_context
 @devel_debug_option()
 @map_to_click_exceptions

@@ -70,32 +70,26 @@ Options
     asset: a partial download of a Zarr leaves out entries that are on the
     server, which ``--sync`` would then delete locally.
 
-.. option:: --zarr <filter>
+.. option:: --zarr FILTER
 
-    Download only the entries within Zarr assets that match ``filter``, given
-    as :samp:`{type}:{pattern}` where ``type`` is one of:
+    Only download the entries of Zarr assets that match the given filter.  The
+    filter is either the predefined name ``metadata``, which selects the Zarr
+    metadata files — any entry named ``zarr.json`` or whose name begins with
+    ``.z`` (``.zarray``, ``.zattrs``, ``.zgroup``, ``.zmetadata``), at any
+    depth — or ``TYPE:PATTERN``, where ``TYPE`` is one of:
 
-    ``glob``
-        Match the entry path against a glob pattern.  ``*`` matches within a
-        single path component and ``**`` matches across components, e.g.
-        ``glob:**/.zarray``.
+    - ``glob`` — ``PATTERN`` is a glob matched against the entry's path within
+      the Zarr, with ``**`` matching across directories (e.g.,
+      ``glob:0/**/*``)
 
-    ``path``
-        Match the entry at ``pattern`` and everything under it, e.g.
-        ``path:0/0``.
+    - ``path`` — ``PATTERN`` is a path within the Zarr; the entry at that path
+      and all entries under it are downloaded
 
-    ``regex``
-        Search the entry path for a Python regular expression.  The match is
-        unanchored, so anchor it yourself to match from the start, e.g.
-        ``regex:^0/[0-9]+/``.
+    - ``regex`` — ``PATTERN`` is a regular expression searched for in the
+      entry's path within the Zarr
 
-    In place of :samp:`{type}:{pattern}`, the predefined filter ``metadata``
-    may be given; it selects the Zarr metadata files, i.e. any entry named
-    ``zarr.json`` or whose name begins with ``.z`` (``.zarray``, ``.zgroup``,
-    ``.zattrs``, ``.zmetadata``), at any depth.
-
-    The option may be given more than once, in which case an entry is
-    downloaded if it matches **any** of the filters.
+    Can be specified multiple times, in which case an entry is downloaded if it
+    matches any of the filters.
 
     A URL that points inside a Zarr asset (see :ref:`resource_ids`) selects
     entries in the same way, as though ``path:`` had been given for the
