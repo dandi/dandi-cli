@@ -146,8 +146,9 @@ class Deleter:
                 # The URL points inside a Zarr asset, but `get_assets()` yields
                 # the whole asset, so deleting it would take the entire Zarr.
                 raise NotImplementedError(
-                    "Cannot delete individual entries within a Zarr asset;"
-                    f" {url} points inside one"
+                    f"Cannot delete individual entries within a Zarr asset;"
+                    f" {url} points inside one.  To delete the whole asset,"
+                    f" drop the path below the Zarr."
                 )
             if parsed_url.version_id is None:
                 parsed_url.version_id = DRAFT

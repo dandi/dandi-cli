@@ -115,7 +115,7 @@ Paths Within Zarr Assets
 
 A Zarr asset is a directory, and the paths inside it are entries of that asset
 rather than assets of their own.  A URL whose path continues past a Zarr asset
-therefore refers to entries within it.  The boundary is recognised by the
+therefore refers to entries within it.  The boundary is recognized by the
 extensions in ``dandi.consts.ZARR_EXTENSIONS`` (:file:`.zarr` and
 :file:`.ngff`), so in::
 
@@ -126,11 +126,20 @@ under :file:`0/0` within it.  `parse_dandi_url()` converts this to an
 `AssetZarrEntryURL`.
 
 :program:`dandi download` recreates the Zarr's leading directories locally and
-fetches only the matching entries; see the ``--zarr`` option of
-:doc:`dandi download </cmdline/download>`.  :program:`dandi ls`
-lists the matching entries.  Because such a URL names entries the Dandiset is
-expected to have, a download whose path matches no entry fails rather than
-quietly downloading nothing.
+fetches only the entries at or under the given path; see the ``--zarr`` option
+of :doc:`dandi download </cmdline/download>`.  Because such a URL names entries
+the Dandiset is expected to have, a download whose path matches no entry fails
+rather than quietly downloading nothing.
+
+:program:`dandi ls` lists the entries under the given path, but matches it as a
+plain string prefix rather than at a path-component boundary, so for ``0/0`` it
+also lists entries such as :file:`0/00/...` that a download of the same URL
+would skip.
+
+:program:`dandi delete` refuses such a URL: only whole assets can be deleted,
+and deleting the Zarr that contains the named entries is unlikely to be what
+was meant.  To delete the whole asset, drop the path below the Zarr --
+:samp:`{...}/file.ome.zarr` and :samp:`{...}/file.ome.zarr/` both name it.
 
 A trailing slash is not meaningful at or below a Zarr boundary, since entries
 within a Zarr are not assets: :samp:`{...}/file.ome.zarr/0/0/` is equivalent to

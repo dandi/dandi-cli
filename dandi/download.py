@@ -270,7 +270,7 @@ class Downloader:
     on_error: Literal["raise", "yield"]
     #: Filters from the ``--zarr`` option; they apply to every Zarr asset, and
     #: matching no entries in a given asset is not an error
-    zarr_filters: list[ZarrFilter] = field(default_factory=list)
+    zarr_filters: Sequence[ZarrFilter] = ()
     #: Filters implied by `url` pointing inside a Zarr asset.  Unlike
     #: `zarr_filters`, these name entries the user explicitly asked for, so
     #: matching none of them is an error

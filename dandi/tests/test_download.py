@@ -1716,9 +1716,9 @@ def test_downloader_zarr_filters(
         assert not any(dl.zarr_entry_filter(p) for p in excluded)
 
 
-def _upload_two_zarrs(ds: SampleDandiset) -> None:
-    """Upload ``sample.zarr`` (subdirs a, b) and ``other.zarr`` (subdirs c, d)."""
-    for name, subdirs in [("sample.zarr", "ab"), ("other.zarr", "cd")]:
+def _upload_zarrs(ds: SampleDandiset, *names_subdirs: tuple[str, str]) -> None:
+    """Upload a zarr per ``(name, subdirs)``, each subdir holding a `data.bin`."""
+    for name, subdirs in names_subdirs:
         zf = ds.dspath / name
         zf.mkdir()
         for sub in subdirs:
@@ -1744,7 +1744,7 @@ def test_download_zarr_url_subpath(
     tmp_path: Path, new_dandiset: SampleDandiset, suffix: str, whole_zarr: bool
 ) -> None:
     """A URL inside a zarr fetches that subtree; a trailing slash is ignored."""
-    _upload_two_zarrs(new_dandiset)
+    _upload_zarrs(new_dandiset, ("sample.zarr", "ab"))
     download(
         f"dandi://{new_dandiset.api.instance_id}"
         f"/{new_dandiset.dandiset_id}/sample.zarr{suffix}",
@@ -1782,7 +1782,7 @@ def test_download_zarr_url_subpath_nonexistent(
     tmp_path: Path, new_dandiset: SampleDandiset, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A URL naming a nonexistent path inside a Zarr asset errors out."""
-    _upload_two_zarrs(new_dandiset)
+    _upload_zarrs(new_dandiset, ("sample.zarr", "ab"))
     with pytest.raises(RuntimeError, match="1 error while downloading"):
         download(
             f"dandi://{new_dandiset.api.instance_id}"
@@ -1797,7 +1797,7 @@ def test_download_zarr_url_subpath_does_not_filter_other_urls(
     tmp_path: Path, new_dandiset: SampleDandiset
 ) -> None:
     """A Zarr subpath in one URL must not restrict a second URL's download."""
-    _upload_two_zarrs(new_dandiset)
+    _upload_zarrs(new_dandiset, ("sample.zarr", "ab"), ("other.zarr", "cd"))
     prefix = f"dandi://{new_dandiset.api.instance_id}/{new_dandiset.dandiset_id}"
     download([f"{prefix}/sample.zarr/a", f"{prefix}/other.zarr"], tmp_path)
     # First URL: only the requested subtree

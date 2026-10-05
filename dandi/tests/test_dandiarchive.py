@@ -292,7 +292,8 @@ from .fixtures import DandiAPI, SampleDandiset
                 zarr_subpath="scale0/0/0",
             ),
         ),
-        (  # the GUI's own "browse to this zarr" URL: the parser appends the
+        pytest.param(
+            # the GUI's own "browse to this zarr" URL: the parser appends the
             # trailing slash, which is not meaningful at a zarr boundary
             "https://dandiarchive.org/dandiset/000108/draft/files"
             "?location=sub-1/file.ome.zarr",
@@ -302,8 +303,10 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id="draft",
                 path="sub-1/file.ome.zarr",
             ),
+            marks=mark.skipif_no_network,
         ),
-        (  # ... and one browsing into it names entries
+        pytest.param(
+            # ... and one browsing into it names entries
             "https://dandiarchive.org/dandiset/000108/draft/files"
             "?location=sub-1/file.ome.zarr/0/0",
             AssetZarrEntryURL(
@@ -313,6 +316,7 @@ from .fixtures import DandiAPI, SampleDandiset
                 asset_path="sub-1/file.ome.zarr",
                 zarr_subpath="0/0",
             ),
+            marks=mark.skipif_no_network,
         ),
         (  # a trailing slash below the boundary still names entries
             "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/",
@@ -479,6 +483,23 @@ def test_zarr_location_helpers(
 )
 def test_get_zarr_filter(url: str, expected: list[ZarrFilter]) -> None:
     assert parse_dandi_url(url).get_zarr_filter() == expected
+
+
+@pytest.mark.ai_generated
+def test_get_zarr_filter_empty_subpath() -> None:
+    """A directly-constructed URL with an empty subpath restricts nothing.
+
+    `parse_dandi_url()` cannot produce this, but the class is public and such
+    a filter would otherwise reject every entry.
+    """
+    url = AssetZarrEntryURL(
+        instance=known_instances["dandi"],
+        dandiset_id="000108",
+        version_id=None,
+        asset_path="sub-1/file.ome.zarr",
+        zarr_subpath="",
+    )
+    assert url.get_zarr_filter() == []
 
 
 @pytest.mark.parametrize(
