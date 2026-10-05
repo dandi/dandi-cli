@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+import errno
 import os.path
 from pathlib import Path
 
@@ -116,7 +117,8 @@ def find_dandi_files(
                     f"Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
         # Do not follow symlinks: unfetched DataLad content can be a broken link.
-        p.lstat()
+        if not os.path.lexists(p):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(p))
         path_queue.append((Path(p), None))
     bids_roots = []
     while path_queue:
