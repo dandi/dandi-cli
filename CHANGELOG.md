@@ -1,3 +1,29 @@
+# 0.81.0 (Wed Sep 30 2026)
+
+#### 🚀 Enhancement
+
+- Remove deprecated validate-bids command [#1943](https://github.com/dandi/dandi-cli/pull/1943) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🐛 Bug Fix
+
+- Accept broken symlinks as path arguments of `dandi validate` [#1937](https://github.com/dandi/dandi-cli/pull/1937) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- Run build & twine upload in afterPublish instead of afterRelease [#1945](https://github.com/dandi/dandi-cli/pull/1945) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 📝 Documentation
+
+- Update docs: bring the command-line reference in sync with the CLI [#1934](https://github.com/dandi/dandi-cli/pull/1934) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 3
+
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+---
+
 # 0.80.1 (Sat Sep 26 2026)
 
 #### 🐛 Bug Fix

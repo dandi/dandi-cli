@@ -1,8 +1,10 @@
 from enum import Enum
 from functools import wraps
 import os
+from typing import Any
 
 import click
+from click.utils import format_filename
 
 from .. import get_logger
 
@@ -68,6 +70,44 @@ class ChoiceList(click.ParamType):
 
     def get_metavar(self, param, ctx=None):
         return "[" + ",".join(self.values) + ",all]"
+
+
+class LinkAwarePath(click.Path):
+    """
+    A ``click.Path`` for commands that should accept broken symlinks
+
+    The typical broken symlink is a git-annex (or DataLad) file whose content
+    has not been fetched.  A command like ``dandi validate`` should still take
+    such a path, to report on it or skip it, rather than refuse it as missing.
+    """
+
+    def __init__(self, *, lexists: bool = False, **kwargs: Any) -> None:
+        """
+        Parameters
+        ----------
+        lexists
+            If True, the path must exist, but a symlink to a missing target
+            counts as existing (unlike with ``exists=True``).  Cannot be
+            combined with ``resolve_path=True``.
+        **kwargs
+            Passed to ``click.Path``.
+        """
+        if lexists and kwargs.get("resolve_path"):
+            raise ValueError("lexists=True cannot be combined with resolve_path=True")
+        super().__init__(**kwargs)
+        self.lexists = lexists
+
+    def convert(
+        self, value: Any, param: click.Parameter | None, ctx: click.Context | None
+    ) -> Any:
+        is_dash = self.file_okay and self.allow_dash and value in ("-", b"-")
+        if self.lexists and not is_dash and not os.path.lexists(value):
+            self.fail(
+                f"{self.name.title()} {format_filename(value)!r} does not exist.",
+                param,
+                ctx,
+            )
+        return super().convert(value, param, ctx)
 
 
 # ???: could make them always available but hidden
