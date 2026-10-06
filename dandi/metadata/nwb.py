@@ -21,6 +21,7 @@ from ..pynwb_utils import (
     ignore_benign_pynwb_warnings,
     metadata_cache,
     nwb_has_external_links,
+    readable_fingerprint,
 )
 from ..utils import find_parent_directory_containing
 
@@ -28,7 +29,7 @@ lgr = get_logger()
 
 
 # Disable this for clean hacking
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=readable_fingerprint)
 def get_metadata(
     path: str | Path | Readable, digest: Digest | None = None
 ) -> dict[str, Any]:

@@ -284,6 +284,25 @@ class Readable(ABC):
         """
         ...
 
+    def get_fingerprint(self) -> str | None:
+        """
+        .. versionadded:: 0.81.0
+
+        Returns a fingerprint of the resource's own content, such as a content
+        digest (e.g., a git-annex key), or `None` if none is known
+
+        Two resources with equal fingerprints must have identical bytes.  The
+        fingerprint covers that one file only, not its location nor any other
+        file that may affect how it is interpreted, such as the BIDS sidecar
+        ``.json`` files (possibly inherited from parent directories) describing
+        a ``.nii.gz``.  Results computed from the file alone may thus be
+        shared by resources with equal fingerprints (see
+        `dandi.pynwb_utils.readable_fingerprint`, which also pairs it with the
+        file name); results that depend on other files must not be keyed by
+        it alone.
+        """
+        return None
+
 
 class LocalReadableFile(Readable):
     """

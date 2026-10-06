@@ -2,21 +2,29 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 import re
+import shutil
+import time
 from types import SimpleNamespace
 from typing import Any, NoReturn
 
+from fscacher import PersistentCache
 import h5py
 import numpy as np
-import pytest
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+import pytest
 from pytest_mock import MockerFixture
 
+from .fixtures import FingerprintedReadable
+from ..misctypes import Readable
 from ..pynwb_utils import (
     _rename_pose_estimation_original_videos,
     _sanitize_nwb_version,
     nwb_has_external_links,
+    open_readable,
+    readable_fingerprint,
     rename_nwb_external_files,
 )
 
@@ -66,7 +74,11 @@ def test_sanitize_nwb_version() -> None:
 def test_rename_pose_estimation_original_videos() -> None:
     pose = SimpleNamespace(
         neurodata_type="PoseEstimation",
-        original_videos=[b"camera\\raw.mp4", "https://example.com/remote.mp4", "other.mp4"],
+        original_videos=[
+            b"camera\\raw.mp4",
+            "https://example.com/remote.mp4",
+            "other.mp4",
+        ],
     )
     unrelated = SimpleNamespace(
         neurodata_type="OtherContainer", original_videos=["camera/raw.mp4"]
@@ -116,9 +128,7 @@ def test_rename_pose_estimation_original_videos_persists_hdf5(
     with h5py.File(filepath, "w") as f:
         f.create_dataset(
             "original_videos",
-            data=np.asarray(
-                ["camera/raw.mp4", "camera/other.mp4"], dtype=string_type
-            ),
+            data=np.asarray(["camera/raw.mp4", "camera/other.mp4"], dtype=string_type),
         )
 
     with h5py.File(filepath, "r+") as f:
@@ -228,3 +238,62 @@ def test_nwb_has_external_links(tmp_path):
 
     assert not nwb_has_external_links(filename1)
     assert nwb_has_external_links(filename4)
+
+
+@pytest.mark.ai_generated
+def test_readable_fingerprint(tmp_path: Path, simple1_nwb: Path) -> None:
+    assert readable_fingerprint(simple1_nwb) is None
+    assert readable_fingerprint(str(simple1_nwb)) is None
+    assert readable_fingerprint(FingerprintedReadable(simple1_nwb, None)) is None
+    assert readable_fingerprint(FingerprintedReadable(simple1_nwb, "A")) == (
+        simple1_nwb.name,
+        "A",
+    )
+
+
+@pytest.mark.ai_generated
+def test_memoize_path_readable_fingerprint(tmp_path: Path, simple1_nwb: Path) -> None:
+    cache = PersistentCache(path=tmp_path / "cache", tokens=["t1"])
+    calls: list[Any] = []
+
+    @cache.memoize_path(custom_fingerprint=readable_fingerprint)
+    def size(source: str | Path | Readable, flag: bool = False) -> str:
+        calls.append(source)
+        with open_readable(source) as fp:
+            return f"{len(fp.read())}:{flag}"
+
+    expected = f"{simple1_nwb.stat().st_size}:False"
+
+    # A path is still cached by its stat() (which skips a file modified "just
+    # now", as the session-wide fixture may well have been: age a copy)
+    nwb = tmp_path / simple1_nwb.name
+    shutil.copyfile(simple1_nwb, nwb)
+    hour_ago = time.time() - 3600
+    os.utime(nwb, (hour_ago, hour_ago))
+    assert size(nwb) == expected
+    assert size(nwb) == expected, (
+        "a repeated call on the unchanged file must return the same result,"
+        " served from the cache"
+    )
+    assert len(calls) == 1
+
+    # A Readable without a fingerprint is handled as before: a local one is
+    # path-like, so it is cached by the stat() of its path, sharing the entry
+    local = FingerprintedReadable(nwb, None)
+    assert size(local) == expected
+    assert local.opened == 0
+    assert len(calls) == 1
+
+    # A Readable with a fingerprint is cached by it: its twin is served from
+    # the cache without being read (it could not be)
+    first = FingerprintedReadable(simple1_nwb, "A")
+    assert size(first) == expected
+    assert first.opened == 1
+    twin = FingerprintedReadable(tmp_path / "gone" / simple1_nwb.name, "A")
+    assert size(twin) == expected
+    assert twin.opened == 0
+    assert len(calls) == 2
+
+    # ... but the file name is part of the key
+    with pytest.raises(FileNotFoundError):
+        size(FingerprintedReadable(tmp_path / "gone" / "other.nwb", "A"))
