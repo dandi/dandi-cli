@@ -458,6 +458,47 @@ def make_annexed_dandiset(
     create_git_annex_branch(dandiset, logs)
 
 
+def make_git_annex_dandiset(dandiset: Path, files: dict[str, tuple[Path, str]]) -> None:
+    """
+    Make the directory ``dandiset`` (created if needed, with a minimal
+    :file:`dandiset.yaml`) a git-annex repository looking like a clone of a
+    DataLad Dandiset whose annexed content has not been fetched: for each
+    ``relpath: (source, url)`` item of ``files``, a copy of ``source`` is
+    annexed at ``relpath`` with ``url`` registered for it, and then dropped.
+    Unlike `make_annexed_dandiset()`, this needs git-annex.
+    """
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "DANDI tests",
+        "GIT_AUTHOR_EMAIL": "tests@dandiarchive.org",
+        "GIT_COMMITTER_NAME": "DANDI tests",
+        "GIT_COMMITTER_EMAIL": "tests@dandiarchive.org",
+    }
+
+    def git(*args: str) -> str:
+        return check_output(
+            ["git", "-C", str(dandiset), *args], env=env, text=True
+        ).strip()
+
+    dandiset.mkdir(parents=True, exist_ok=True)
+    (dandiset / dandiset_metadata_file).write_text(
+        "identifier: '000027'\nname: Test\ndescription: Test dandiset\n"
+    )
+    git("init", "-q")
+    git("annex", "init", "-q")
+    git("config", "annex.backend", "SHA256E")
+    git("add", dandiset_metadata_file)
+    for relpath, (source, _) in files.items():
+        (dandiset / relpath).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(source, dandiset / relpath)
+    git("annex", "add", "-q", *files)
+    for relpath, (_, url) in files.items():
+        key = git("annex", "lookupkey", relpath)
+        git("annex", "registerurl", key, url)
+    git("commit", "-q", "-m", "Add files")
+    git("annex", "drop", "-q", "--force", *files)
+
+
 def _make_subdirs_dandisets(path: Path) -> None:
     for bids_dataset_path in path.iterdir():
         if bids_dataset_path.is_dir():

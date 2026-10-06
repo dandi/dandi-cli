@@ -28,6 +28,7 @@ from ._types import (
 from ..consts import dandiset_metadata_file
 from ..files import DandiFile, LocalFileAsset, find_dandi_files
 from ..support.annex import AnnexReadableFile, get_annex_readable
+from ..support.datalad_fuse import DataladFuseReadableFile, get_datalad_fuse_readable
 from ..utils import find_parent_directory_containing
 
 BIDS_TO_DANDI = {
@@ -281,18 +282,28 @@ def _check_streaming_requirements() -> None:
             )
 
 
-def _prepare_streaming(df: DandiFile) -> AnnexReadableFile | None:
+def _prepare_streaming(
+    df: DandiFile,
+) -> AnnexReadableFile | DataladFuseReadableFile | None:
     """
-    Set up streaming of the content of the annexed file represented by ``df``
-    from the URLs registered for it in git-annex, and return the `Readable`
-    that will be used for it, or `None` if the content cannot be streamed
-    (``df`` is not a file asset, not an annexed file, or has no URLs registered)
+    Set up streaming of the content of the annexed file represented by ``df``,
+    and return the `Readable` that will be used for it, or `None` if the
+    content cannot be streamed (``df`` is not a file asset, not an annexed
+    file, or no URL is known for it).
+
+    datalad-fuse is used if it is installed and git-annex is initialized in
+    the repository (see `dandi.support.datalad_fuse`); otherwise, the content
+    is streamed from the URLs registered in git-annex, read with ``git`` only
+    (see `dandi.support.annex`).
     """
     if not isinstance(df, LocalFileAsset):
         return None
-    readable = get_annex_readable(df.filepath)
-    if readable is None or not readable.urls:
-        return None
+    readable: AnnexReadableFile | DataladFuseReadableFile | None
+    readable = get_datalad_fuse_readable(df.filepath)
+    if readable is None:
+        readable = get_annex_readable(df.filepath)
+        if readable is None or not readable.urls:
+            return None
     df.content_source = readable
     return readable
 
@@ -300,7 +311,7 @@ def _prepare_streaming(df: DandiFile) -> AnnexReadableFile | None:
 def _handle_missing_content(
     df: DandiFile,
     policy: MissingFileContent,
-    readable: AnnexReadableFile | None = None,
+    readable: AnnexReadableFile | DataladFuseReadableFile | None = None,
 ) -> ValidationResult:
     """Produce a single :class:`ValidationResult` for a file with missing content.
 
@@ -311,6 +322,10 @@ def _handle_missing_content(
 
     if policy == MissingFileContent.stream:
         if readable is not None:
+            if isinstance(readable, DataladFuseReadableFile):
+                source = f"with datalad-fuse, e.g., from {readable.url}"
+            else:
+                source = f"from {readable.urls[0]}"
             return ValidationResult(
                 id="DANDI.FILE_CONTENT_STREAMED",
                 origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
@@ -321,7 +336,7 @@ def _handle_missing_content(
                 message=(
                     f"File content is not present locally (git-annex key "
                     f"{readable.key}); content-dependent validation streams "
-                    f"it from {readable.urls[0]}"
+                    f"it {source}"
                 ),
             )
         return ValidationResult(

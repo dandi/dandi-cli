@@ -124,6 +124,12 @@ Notes:
   remote-tracking counterpart, e.g., ``origin/git-annex``), so the clone must
   include that branch: do not clone with ``--single-branch`` or a
   ``--depth`` that excludes it.
+- If datalad-fuse_ is installed (with git-annex and DataLad) and git-annex is
+  initialized in the clone (``git annex init``, which ``datalad clone`` does),
+  the content is streamed with datalad-fuse's adapter instead (no FUSE mount
+  is involved).  It asks git-annex where the content is, so it also finds
+  content available from remotes with no URL registered.  This currently
+  requires the development version from datalad/datalad-fuse#131.
 - Some nwbinspector checks read data arrays (e.g., timestamps), so the amount
   of data streamed for a file depends on its content; it is nevertheless
   usually a small fraction of the file.
@@ -145,6 +151,7 @@ Notes:
   the file and folder names of the annexed files themselves.
 
 .. _fsspec: https://github.com/fsspec/filesystem_spec
+.. _datalad-fuse: https://github.com/datalad/datalad-fuse
 
 
 Development Options
