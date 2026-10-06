@@ -29,10 +29,12 @@ from datetime import datetime
 import hashlib
 import logging
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import subprocess
 from typing import IO, ClassVar, cast
+
+from fscacher import annex_key_fingerprint
 
 from ..misctypes import Readable
 
@@ -101,21 +103,14 @@ class AnnexKey:
 
 def get_annex_key(path: str | Path) -> AnnexKey | None:
     """
-    Return the git-annex key of the annexed file at ``path``, or `None` if
-    ``path`` is not a symbolic link into a git-annex object store
+    Return the git-annex key of the locked annexed file at ``path``, or `None`
+    if ``path`` is not a symbolic link into a git-annex object store or the
+    key's backend does not hash the content (e.g., ``WORM`` or ``URL`` keys),
+    in which case the key cannot fingerprint the content (see
+    `fscacher.annex_key_fingerprint`, which this uses)
     """
-    try:
-        target = os.readlink(path)
-    except OSError:
-        # Not a symlink (or does not exist at all)
-        return None
-    parts = PurePosixPath(target.replace(os.sep, "/")).parts
-    if not any(a == "annex" and b == "objects" for a, b in zip(parts, parts[1:])):
-        return None
-    try:
-        return AnnexKey.parse(parts[-1])
-    except ValueError:
-        return None
+    key = annex_key_fingerprint(path, pair_with_path=False)
+    return None if key is None else AnnexKey.parse(key)
 
 
 def parse_url_log(text: str) -> list[str]:
@@ -350,7 +345,8 @@ def get_annex_readable(path: str | Path) -> AnnexReadableFile | None:
     """
     Return an `AnnexReadableFile` for streaming the content of the annexed file
     at ``path``, or `None` if ``path`` is not a symbolic link into a git-annex
-    object store or its key does not record the size of the content.  The
+    object store, or its key does not pin the content (see `get_annex_key()`)
+    or does not record its size.  The
     returned object's ``urls`` list is empty if no URLs are registered for the
     file (or the repository's git-annex metadata cannot be read).
     """

@@ -97,6 +97,14 @@ def test_get_annex_key(tmp_path: Path) -> None:
     assert key is not None
     assert key.key == REAL_KEY
     assert key.size == 61510864725
+    # Keys that do not pin the content cannot be used to fingerprint it
+    for i, other_key in enumerate(
+        ["WORM-s4-m1700000000--file.nwb", "URL-s4--https&c%%example.com%file.nwb"]
+    ):
+        (tmp_path / f"unpinned{i}.nwb").symlink_to(
+            f"../.git/annex/objects/Xx/Yy/{other_key}/{other_key}"
+        )
+        assert get_annex_key(tmp_path / f"unpinned{i}.nwb") is None
 
 
 @pytest.mark.ai_generated
