@@ -23,7 +23,7 @@ from typing import IO, Any, TypeVar, cast
 import warnings
 
 import dandischema
-from fscacher import PersistentCache
+from fscacher import PersistentCache, annex_key_fingerprint
 import h5py
 import hdmf
 import numpy as np
@@ -71,6 +71,25 @@ validate_cache = PersistentCache(
     tokens=dandi_cache_tokens + [get_module_version(dandischema)],
     envvar="DANDI_CACHE",
 )
+
+
+def annex_fingerprint(source: Any) -> tuple[str, str] | None:
+    """
+    Fingerprint of ``source`` for ``PersistentCache.memoize_path``
+
+    Pass it as ``custom_fingerprint`` to cache the results of a function of a
+    local path or a `Readable` under the git-annex key of a locked annexed
+    file, paired with its path (see `fscacher.annex_key_fingerprint`), rather
+    than under ``stat()``: the content of an `AnnexedReadableFile`, which is
+    not present locally, cannot be ``stat()``-ed.  Anything else is handled as
+    without this.
+    """
+    # Avoid circular import:
+    from .support.datalad_fuse import AnnexedReadableFile
+
+    if isinstance(source, AnnexedReadableFile):
+        source = source.filepath
+    return cast("tuple[str, str] | None", annex_key_fingerprint(source))
 
 
 def _sanitize_nwb_version(
@@ -194,7 +213,7 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     return ndtypes
 
 
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=annex_fingerprint)
 def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
     with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
@@ -808,7 +827,7 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     return str(dest)
 
 
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=annex_fingerprint)
 def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
     with open_readable(filepath) as f, h5py.File(f, "r") as fp:
         visited = set()

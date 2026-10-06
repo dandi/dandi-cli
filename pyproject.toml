@@ -53,7 +53,7 @@ dependencies = [
     "dandischema >= 0.12.0, != 0.13.0, < 0.15.0",
     "etelemetry >= 0.2.2",
     "fasteners >= 0.19",
-    "fscacher >= 0.3.0",
+    "fscacher >= 0.5.0",
     # Floor raised to what `py3-lowest` actually resolves: modern pynwb pins
     # hdmf >= 4, so declared floor is now the tested floor.
     "hdmf >= 4.1.0",
@@ -118,6 +118,11 @@ test = [
     "responses >= 0.23.0, != 0.24.0, != 0.25.5",
     # 5.0 switched to urllib3.connection.VerifiedHTTPSConnection (urllib3 2.x compat)
     "vcrpy >= 5.0.0",
+]
+# For reading the content of annexed files of DataLad datasets without
+# fetching it (requires git-annex)
+datalad = [
+    "datalad-fuse >= 0.5.1",
 ]
 tools = [
     "boto3",
@@ -214,6 +219,7 @@ follow_imports = "skip"
 module = [
     "bidsschematools.*",
     "click_didyoumean.*",
+    "datalad_fuse.*",
     "etelemetry.*",
     "fasteners.*",
     "fscacher.*",
