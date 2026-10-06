@@ -84,6 +84,10 @@ def readable_fingerprint(source: Any) -> tuple[str, str] | None:
     and that fingerprint instead.  A `Readable` without a fingerprint is handled
     as without this: cached by its path if it is path-like (as
     `LocalReadableFile` is), not cached at all otherwise.
+
+    Only for functions whose result depends on the file's own content and name
+    (see `~Readable.get_fingerprint`): those it is applied to here each read a
+    single NWB file.
     """
     if isinstance(source, Readable) and (fp := source.get_fingerprint()) is not None:
         return (source.get_filename(), fp)
