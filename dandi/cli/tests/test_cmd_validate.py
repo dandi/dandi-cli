@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
-from typing import cast
+import shutil
+from typing import Any, cast
 
 from click.testing import CliRunner
 import pytest
@@ -996,6 +997,46 @@ def test_validate_missing_file_content_no_broken_symlinks(tmp_path: Path) -> Non
     assert r_default.exit_code == r_skip.exit_code == 0
     assert "FILE_CONTENT_MISSING" not in r_default.output
     assert "FILE_CONTENT_MISSING" not in r_skip.output
+
+
+@pytest.mark.ai_generated
+def test_validate_missing_file_content_stream(
+    tmp_path: Path, simple3_nwb: Path, range_http_server: tuple[Any, str]
+) -> None:
+    """--missing-file-content=stream validates annexed content with datalad-fuse."""
+    from ...tests.fixtures import make_git_annex_dandiset
+    from ...tests.skip import skipif
+
+    skipif.no_git_annex()
+    pytest.importorskip("datalad_fuse.fsspec")
+    _, base_url = range_http_server
+    shutil.copy(simple3_nwb, tmp_path / "served" / "content.nwb")
+    ds = tmp_path / "ds"
+    make_git_annex_dandiset(
+        ds, {"sub-001/sub-001.nwb": (simple3_nwb, f"{base_url}/content.nwb")}
+    )
+    out = tmp_path / "out.jsonl"
+    r = CliRunner().invoke(
+        validate,
+        [
+            "--missing-file-content",
+            "stream",
+            "--min-severity",
+            "INFO",
+            "-f",
+            "json_lines",
+            "-o",
+            str(out),
+            str(ds),
+        ],
+    )
+    assert "Traceback" not in r.output
+    ids = [rec.id for rec in load_validation_jsonl([str(out)])]
+    assert "DANDI.FILE_CONTENT_STREAMED" in ids
+    assert "DANDI.FILE_CONTENT_MISSING" not in ids
+    # simple3_nwb lacks a subject_id, which only content-based checks notice
+    assert "NWBI.check_subject_id_exists" in ids
+    assert r.exit_code == 1
 
 
 @pytest.mark.ai_generated
