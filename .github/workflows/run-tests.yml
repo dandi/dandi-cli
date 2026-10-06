@@ -73,6 +73,9 @@ jobs:
           - os: ubuntu-latest
             python: '3.11'
             mode: lowest-deps
+          - os: ubuntu-latest
+            python: '3.12'
+            mode: datalad
 
     steps:
     - name: Set up environment
@@ -122,6 +125,10 @@ jobs:
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb \
             git+https://github.com/hdmf-dev/hdmf \
             git+https://github.com/hdmf-dev/hdmf-zarr
+
+    - name: Install git-annex and datalad-fuse (for streaming annexed content)
+      if: matrix.mode == 'datalad'
+      run: pip install git-annex ".[datalad]"
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'
