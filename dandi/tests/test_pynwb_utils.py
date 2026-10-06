@@ -22,9 +22,9 @@ from ..misctypes import Readable
 from ..pynwb_utils import (
     _rename_pose_estimation_original_videos,
     _sanitize_nwb_version,
-    memoize_source,
     nwb_has_external_links,
     open_readable,
+    readable_fingerprint,
     rename_nwb_external_files,
 )
 
@@ -241,93 +241,56 @@ def test_nwb_has_external_links(tmp_path):
 
 
 @pytest.mark.ai_generated
-def test_memoize_source(tmp_path: Path, simple1_nwb: Path) -> None:
+def test_readable_fingerprint(tmp_path: Path, simple1_nwb: Path) -> None:
+    assert readable_fingerprint(simple1_nwb) is None
+    assert readable_fingerprint(str(simple1_nwb)) is None
+    assert readable_fingerprint(FingerprintedReadable(simple1_nwb, None)) is None
+    assert readable_fingerprint(FingerprintedReadable(simple1_nwb, "A")) == (
+        simple1_nwb.name,
+        "A",
+    )
+
+
+@pytest.mark.ai_generated
+def test_memoize_path_readable_fingerprint(tmp_path: Path, simple1_nwb: Path) -> None:
     cache = PersistentCache(path=tmp_path / "cache", tokens=["t1"])
     calls: list[Any] = []
 
+    @cache.memoize_path(custom_fingerprint=readable_fingerprint)
     def size(source: str | Path | Readable, flag: bool = False) -> str:
         calls.append(source)
         with open_readable(source) as fp:
             return f"{len(fp.read())}:{flag}"
 
-    cached = memoize_source(cache, ["t1"])(size)
-    nbytes = simple1_nwb.stat().st_size
-    expected = f"{nbytes}:False"
+    expected = f"{simple1_nwb.stat().st_size}:False"
 
-    # A path is cached the memoize_path way (which skips a file modified "just
+    # A path is still cached by its stat() (which skips a file modified "just
     # now", as the session-wide fixture may well have been: age a copy)
     nwb = tmp_path / simple1_nwb.name
     shutil.copyfile(simple1_nwb, nwb)
     hour_ago = time.time() - 3600
     os.utime(nwb, (hour_ago, hour_ago))
-    assert cached(nwb) == expected
-    assert cached(nwb) == expected
+    assert size(nwb) == expected
+    assert size(nwb) == expected
     assert len(calls) == 1
 
-    # A Readable without a fingerprint is never cached
-    assert cached(FingerprintedReadable(simple1_nwb, None)) == expected
-    assert cached(FingerprintedReadable(simple1_nwb, None)) == expected
-    assert len(calls) == 3
+    # A Readable without a fingerprint is handled as before: a local one is
+    # path-like, so it is cached by the stat() of its path, sharing the entry
+    local = FingerprintedReadable(nwb, None)
+    assert size(local) == expected
+    assert local.opened == 0
+    assert len(calls) == 1
 
     # A Readable with a fingerprint is cached by it: its twin is served from
     # the cache without being read (it could not be)
     first = FingerprintedReadable(simple1_nwb, "A")
-    assert cached(first) == expected
+    assert size(first) == expected
     assert first.opened == 1
     twin = FingerprintedReadable(tmp_path / "gone" / simple1_nwb.name, "A")
-    assert cached(twin) == expected
+    assert size(twin) == expected
     assert twin.opened == 0
-    assert len(calls) == 4
+    assert len(calls) == 2
 
-    # The file name, the other arguments, and the tokens are part of the key
+    # ... but the file name is part of the key
     with pytest.raises(FileNotFoundError):
-        cached(FingerprintedReadable(tmp_path / "gone" / "other.nwb", "A"))
-    assert cached(FingerprintedReadable(simple1_nwb, "B")) == expected
-    assert (
-        cached(FingerprintedReadable(simple1_nwb, "A"), flag=True) == f"{nbytes}:True"
-    )
-    assert len(calls) == 7
-    # ... however those other arguments are passed
-    assert cached(FingerprintedReadable(simple1_nwb, "A"), True) == f"{nbytes}:True"
-    assert len(calls) == 7
-    other_tokens = memoize_source(cache, ["t2"])(size)
-    assert other_tokens(FingerprintedReadable(simple1_nwb, "A")) == expected
-    assert len(calls) == 8
-
-    # Different functions of the same cache do not share entries
-    def name(source: str | Path | Readable, flag: bool = False) -> str:
-        return source.get_filename() if isinstance(source, Readable) else str(source)
-
-    cached_name = memoize_source(cache, ["t1"])(name)
-    assert cached_name(FingerprintedReadable(simple1_nwb, "A")) == simple1_nwb.name
-    assert cached(FingerprintedReadable(simple1_nwb, "A")) == expected
-    assert len(calls) == 8
-
-    # The other arguments are keyed by name, so `f` must not take *args
-    def varargs(source: str | Path | Readable, *args: Any) -> None:
-        pass
-
-    with pytest.raises(TypeError, match="must not take"):
-        memoize_source(cache, ["t1"])(varargs)
-
-
-@pytest.mark.ai_generated
-def test_memoize_source_ignored_cache(
-    tmp_path: Path, simple1_nwb: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("DANDI_TEST_CACHE", "ignore")
-    cache = PersistentCache(
-        path=tmp_path / "cache", tokens=["t1"], envvar="DANDI_TEST_CACHE"
-    )
-    calls = 0
-
-    def count(source: str | Path | Readable) -> int:
-        nonlocal calls
-        calls += 1
-        return calls
-
-    cached = memoize_source(cache, ["t1"])(count)
-    assert cached(FingerprintedReadable(simple1_nwb, "A")) == 1
-    assert cached(FingerprintedReadable(simple1_nwb, "A")) == 2
-    assert cached(simple1_nwb) == 3
-    assert cached(simple1_nwb) == 4
+        size(FingerprintedReadable(tmp_path / "gone" / "other.nwb", "A"))

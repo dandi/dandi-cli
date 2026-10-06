@@ -7,12 +7,16 @@ import logging
 import os
 import re
 import sys
-from typing import IO, Any, Union, cast
-import warnings
+from typing import IO, Union, cast
 
 import click
 
-from .base import devel_debug_option, devel_option, map_to_click_exceptions
+from .base import (
+    LinkAwarePath,
+    devel_debug_option,
+    devel_option,
+    map_to_click_exceptions,
+)
 from .formatter import JSONFormatter, JSONLinesFormatter, TextFormatter, YAMLFormatter
 from ..utils import pluralize
 from ..validate._core import validate as validate_
@@ -33,28 +37,6 @@ class TruncationNotice:
     #: Number of validation results omitted from this group
     omitted_count: int
     """Number of validation results omitted from this group."""
-
-
-class ExistingPath(click.Path):
-    """
-    Like ``click.Path(exists=True)``, but also accepting broken symbolic links,
-    such as the annexed files of a DataLad dataset whose content has not been
-    fetched.  ``click.Path(exists=True)`` follows the link and rejects those as
-    nonexistent, which prevented the ``--missing-file-content`` policies
-    (``error``, ``skip``, ``only-non-data``) from ever being applied to a file
-    given directly on the command line rather than via its directory.
-    """
-
-    def convert(
-        self, value: Any, param: click.Parameter | None, ctx: click.Context | None
-    ) -> Any:
-        if not os.path.lexists(value):
-            self.fail(
-                f"{self.name.title()} {os.fsdecode(value)!r} does not exist.",
-                param,
-                ctx,
-            )
-        return super().convert(value, param, ctx)
 
 
 STRUCTURED_FORMATS = ("json", "json_pp", "json_lines", "yaml")
@@ -124,57 +106,6 @@ def _filter_results(
     if ignore is not None:
         filtered = [r for r in filtered if not re.search(ignore, r.id)]
     return filtered
-
-
-@click.command()
-@click.option(
-    "--schema", help="Validate against new BIDS schema version.", metavar="VERSION"
-)
-@click.option(
-    "--report-path",
-    help="Write report under path, this option implies `--report/-r`.",
-)
-@click.option(
-    "--report",
-    "-r",
-    is_flag=True,
-    help="Whether to write a report under a unique path in the DANDI log directory.",
-)
-@click.option(
-    "--grouping",
-    "-g",
-    help="How to group error/warning reporting.",
-    type=click.Choice(["none", "path"], case_sensitive=False),
-    default="none",
-)
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
-@click.pass_context
-@map_to_click_exceptions
-def validate_bids(
-    ctx,
-    paths,
-    schema,
-    report,
-    report_path,
-    grouping="none",
-):
-    """Validate BIDS paths.
-    Notes
-    -----
-    * Used from bash, eg:
-    dandi validate-bids /my/path
-    * DEPRECATED: use  dandi validate /my/path
-    """
-
-    warnings.filterwarnings("default")
-    warnings.warn(
-        "The `dandi validate-bids` command line interface is deprecated, you can use "
-        "`dandi validate` instead. Proceeding to parse the call to `dandi validate` now.",
-        DeprecationWarning,
-    )
-    ctx.invoke(
-        validate, paths=paths, grouping=(grouping,) if grouping != "none" else ()
-    )
 
 
 @click.command()
@@ -255,7 +186,7 @@ def validate_bids(
     multiple=True,
     default=(),
 )
-@click.argument("paths", nargs=-1, type=ExistingPath(dir_okay=True))
+@click.argument("paths", nargs=-1, type=LinkAwarePath(lexists=True, dir_okay=True))
 @click.pass_context
 @devel_debug_option()
 @map_to_click_exceptions
