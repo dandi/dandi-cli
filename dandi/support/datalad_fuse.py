@@ -12,6 +12,10 @@ is used here, so that the files of a DataLad Dandiset can be read (e.g., for
 their metadata, or to be validated) without downloading the (possibly
 terabytes of) data.
 
+The URLs are tried in the order git-annex lists them; for a DataLad Dandiset,
+that is the DANDI Archive's API download URL (which redirects to S3) before the
+direct S3 URL.  datalad-fuse does not use HTTP proxy environment variables.
+
 This requires datalad-fuse (``pip install "dandi[datalad]"``), which requires
 DataLad and git-annex.
 
@@ -49,7 +53,8 @@ def get_adapter() -> Any:
     # Optional dependency:
     from datalad_fuse.fsspec import FsspecAdapter
 
-    # caching=False: do not keep the streamed blocks on disk, in the dataset
+    # caching=False: do not keep the streamed blocks on disk, in the dataset.
+    # The root and all paths passed to the adapter must be absolute.
     adapter = FsspecAdapter(Path(os.path.abspath(os.sep)), caching=False)
     atexit.register(adapter.__exit__, None, None, None)
     return adapter
