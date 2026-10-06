@@ -37,8 +37,6 @@ from pathlib import Path
 import subprocess
 from typing import IO, Any, cast
 
-from fscacher import annex_key_fingerprint
-
 from ..misctypes import Readable
 
 lgr = logging.getLogger("dandi.support.datalad_fuse")
@@ -123,6 +121,10 @@ def annex_fingerprint(source: Any) -> tuple[str, str] | None:
     not present locally, cannot be ``stat()``-ed.  Anything else is handled as
     without this.
     """
+    # Avoid heavy import (fscacher imports joblib, which imports numpy) when
+    # this module is imported, e.g., by the CLI:
+    from fscacher import annex_key_fingerprint
+
     if isinstance(source, AnnexedReadableFile):
         source = source.filepath
     return cast("tuple[str, str] | None", annex_key_fingerprint(source))
