@@ -271,7 +271,10 @@ def test_memoize_path_readable_fingerprint(tmp_path: Path, simple1_nwb: Path) ->
     hour_ago = time.time() - 3600
     os.utime(nwb, (hour_ago, hour_ago))
     assert size(nwb) == expected
-    assert size(nwb) == expected
+    assert size(nwb) == expected, (
+        "a repeated call on the unchanged file must return the same result,"
+        " served from the cache"
+    )
     assert len(calls) == 1
 
     # A Readable without a fingerprint is handled as before: a local one is
