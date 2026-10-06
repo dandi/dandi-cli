@@ -12,6 +12,7 @@ from subprocess import run
 import threading
 from typing import Any
 
+from fscacher import PersistentCache
 import h5py
 import pytest
 
@@ -23,6 +24,7 @@ from ..annex import (
     get_annex_readable,
     parse_url_log,
 )
+from ...pynwb_utils import get_neurodata_types, readable_fingerprint
 from ...tests.fixtures import (
     annex_key_for_file,
     create_git_annex_branch,
@@ -319,6 +321,31 @@ def range_http_server(tmp_path: Path) -> Iterator[tuple[RangeHTTPServer, str]]:
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+@pytest.mark.ai_generated
+def test_annex_readable_file_cached_by_key(tmp_path: Path, simple2_nwb: Path) -> None:
+    pytest.importorskip("fsspec")
+    cache = PersistentCache(path=tmp_path / "cache")
+    neurodata_types = cache.memoize_path(custom_fingerprint=readable_fingerprint)(
+        get_neurodata_types.__wrapped__
+    )
+    content = tmp_path / "content.nwb"
+    shutil.copy(simple2_nwb, content)
+    key = AnnexKey.parse(annex_key_for_file(content))
+    expected = get_neurodata_types.__wrapped__(content)
+    streamed = AnnexReadableFile(
+        filepath=tmp_path / "ds" / "sub-01.nwb", key=key, urls=[content.as_uri()]
+    )
+    assert neurodata_types(streamed) == expected
+    # A file with the same key and name elsewhere (e.g., in another clone) is
+    # served from the cache, without its content being read (it could not be)
+    twin = AnnexReadableFile(
+        filepath=tmp_path / "clone" / "sub-01.nwb", key=key, urls=[]
+    )
+    with pytest.raises(RuntimeError):
+        twin.open()
+    assert neurodata_types(twin) == expected
 
 
 @pytest.mark.ai_generated

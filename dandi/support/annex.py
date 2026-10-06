@@ -12,8 +12,10 @@ repository (the "URL log" of the key).
 
 This module reads that information using only ``git`` (git-annex itself is not
 required) and exposes the content of such files as a `Readable` that streams it
-over HTTP(S) with fsspec_, so that, e.g., ``dandi validate`` can validate a
-DataLad Dandiset without downloading the (possibly terabytes of) data.
+over HTTP(S) with fsspec_, so that the files of a DataLad Dandiset can be read
+(e.g., for their metadata) without downloading the (possibly terabytes of)
+data.  Its fingerprint is the key, so that results computed from the content
+are cached under it.
 
 .. _git-annex: https://git-annex.branchable.com
 .. _DataLad: https://www.datalad.org
