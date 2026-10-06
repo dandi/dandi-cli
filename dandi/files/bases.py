@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
+import traceback
 from typing import IO, Any, Generic
 from xml.etree.ElementTree import fromstring
 
@@ -32,7 +33,7 @@ from dandi.dandiapi import (
     set_asset_schema_key,
 )
 from dandi.metadata.core import get_default_metadata
-from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
+from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P, Readable
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate._types import (
     ORIGIN_INTERNAL_DANDI,
@@ -320,12 +321,22 @@ class LocalFileAsset(LocalAsset):
     an asset of a Dandiset
     """
 
+    #: An alternative source for the asset's content, used instead of the file
+    #: at `filepath` when set.  This is used to stream the content of an
+    #: annexed file (e.g., in a DataLad dataset) that is not present locally;
+    #: see `dandi.support.datalad_fuse`.
+    content_source: Readable | None = None
+
+    def _content(self) -> Path | Readable:
+        """The source to read the asset's content from"""
+        return self.content_source if self.content_source is not None else self.filepath
+
     def get_metadata(
         self,
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        metadata = get_default_metadata(self.filepath, digest=digest)
+        metadata = get_default_metadata(self._content(), digest=digest)
         metadata.path = self.path
         return metadata
 
@@ -515,7 +526,7 @@ class NWBAsset(LocalFileAsset):
         from dandi.metadata.nwb import nwb2asset
 
         try:
-            metadata = nwb2asset(self.filepath, digest=digest)
+            metadata = nwb2asset(self._content(), digest=digest)
         except Exception as e:
             lgr.warning(
                 "Failed to extract NWB metadata from %s: %s: %s",
@@ -524,7 +535,7 @@ class NWBAsset(LocalFileAsset):
                 str(e),
             )
             if ignore_errors:
-                metadata = get_default_metadata(self.filepath, digest=digest)
+                metadata = get_default_metadata(self._content(), digest=digest)
             else:
                 raise
         metadata.path = self.path
@@ -555,12 +566,16 @@ class NWBAsset(LocalFileAsset):
             pass
         else:
             # Avoid heavy import by importing within function:
-            from nwbinspector import Importance, inspect_nwbfile, load_config
+            from nwbinspector import Importance, load_config
 
             # Avoid heavy import by importing within function:
             from dandi.pynwb_utils import validate as pynwb_validate
 
-            errors.extend(pynwb_validate(self.filepath, devel_debug=devel_debug))
+            errors.extend(
+                pynwb_validate(
+                    self.filepath, devel_debug=devel_debug, readable=self.content_source
+                )
+            )
             if schema_version is not None:
                 errors.extend(
                     super().get_validation_errors(
@@ -576,9 +591,7 @@ class NWBAsset(LocalFileAsset):
                         validator_version=str(_get_nwb_inspector_version()),
                     )
 
-                    for error in inspect_nwbfile(
-                        nwbfile_path=self.filepath,
-                        skip_validate=True,
+                    for error in self._inspect_nwbfile(
                         config=load_config(filepath_or_keyword="dandi"),
                         importance_threshold=Importance.BEST_PRACTICE_VIOLATION,
                     ):
@@ -622,6 +635,57 @@ class NWBAsset(LocalFileAsset):
                 validate_organized_path(self.path, self.filepath, self.dandiset_path)
             )
         return errors
+
+    def _inspect_nwbfile(self, **kwargs: Any) -> Iterator[Any]:
+        """
+        Yield the messages from inspecting the file with nwbinspector, reading
+        the content from `content_source` if it is set (in which case what
+        `nwbinspector.inspect_nwbfile()` does for a local file is replicated
+        here for the streamed content)
+        """
+        # Avoid heavy import by importing within function:
+        from nwbinspector import (
+            Importance,
+            InspectorMessage,
+            inspect_nwbfile,
+            inspect_nwbfile_object,
+        )
+
+        if self.content_source is None:
+            yield from inspect_nwbfile(
+                nwbfile_path=self.filepath, skip_validate=True, **kwargs
+            )
+            return
+
+        # Avoid heavy import by importing within function:
+        import h5py
+        from pynwb import NWBHDF5IO
+
+        from dandi.pynwb_utils import open_readable
+
+        try:
+            with open_readable(self.content_source) as fp, h5py.File(
+                fp, "r"
+            ) as h5, NWBHDF5IO(file=h5, mode="r", load_namespaces=True) as io:
+                nwbfile = io.read()
+                for message in inspect_nwbfile_object(nwbfile_object=nwbfile, **kwargs):
+                    if message is not None:
+                        message.file_path = str(self.filepath)
+                        yield message
+        except Exception as e:
+            # Report the failure the same way inspect_nwbfile() does for a
+            # local file that PyNWB cannot read
+            yield InspectorMessage(
+                message=traceback.format_exc(),
+                importance=Importance.ERROR,
+                check_function_name=(
+                    f"During io.read(), an error occurred: "
+                    f"{type(e).__module__}.{type(e).__name__}. "
+                    "This indicates that PyNWB was unable to read the file. "
+                    "See the traceback message for more details."
+                ),
+                file_path=str(self.filepath),
+            )
 
 
 class VideoAsset(LocalFileAsset):
