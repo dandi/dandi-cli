@@ -7,8 +7,8 @@ from fscacher import PersistentCache
 import h5py
 import pytest
 
-from ..datalad_fuse import AnnexedReadableFile, get_annexed_readable
-from ...pynwb_utils import annex_fingerprint, get_neurodata_types
+from ..datalad_fuse import AnnexedReadableFile, annex_fingerprint, get_annexed_readable
+from ...pynwb_utils import get_neurodata_types
 from ...tests.fixtures import RangeHTTPServer, make_git_annex_dandiset
 from ...tests.skip import mark
 

@@ -33,6 +33,8 @@ from pathlib import Path
 import subprocess
 from typing import IO, Any, cast
 
+from fscacher import annex_key_fingerprint
+
 from ..misctypes import Readable
 
 lgr = logging.getLogger("dandi.support.datalad_fuse")
@@ -74,25 +76,19 @@ def annex_initialized(directory: Path) -> bool:
 @dataclass
 class AnnexedReadableFile(Readable):
     """
-    A `Readable` for a (locked) annexed file whose content is not present
-    locally, which is streamed with datalad-fuse (see the module docstring).
+    A `Readable` for a (locked) annexed file at ``filepath`` (a broken symbolic
+    link) whose content is not present locally, which is streamed with
+    datalad-fuse (see the module docstring).  ``url`` is only the first URL
+    known for the content, for reporting: if it cannot be read, the adapter
+    tries the others.
 
     Instances are obtained by calling `get_annexed_readable()`.
     """
 
-    #: The absolute path of the (broken) symbolic link to the file's content
     filepath: Path
-
-    #: The git-annex key of the file
     key: str
-
-    #: The size of the content, as recorded in the key
     size: int
-
-    #: The first URL that the content may be streamed from (for reporting;
-    #: the adapter tries the others if it cannot be read from that one)
     url: str
-
     adapter: Any = field(repr=False, compare=False)
 
     def open(self) -> IO[bytes]:
@@ -109,6 +105,22 @@ class AnnexedReadableFile(Readable):
 
     def __str__(self) -> str:
         return str(self.filepath)
+
+
+def annex_fingerprint(source: Any) -> tuple[str, str] | None:
+    """
+    Fingerprint of ``source`` for ``PersistentCache.memoize_path``
+
+    Pass it as ``custom_fingerprint`` to cache the results of a function of a
+    local path or a `Readable` under the git-annex key of a locked annexed
+    file, paired with its path (see `fscacher.annex_key_fingerprint`), rather
+    than under ``stat()``: the content of an `AnnexedReadableFile`, which is
+    not present locally, cannot be ``stat()``-ed.  Anything else is handled as
+    without this.
+    """
+    if isinstance(source, AnnexedReadableFile):
+        source = source.filepath
+    return cast("tuple[str, str] | None", annex_key_fingerprint(source))
 
 
 def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
