@@ -21,12 +21,14 @@ from ... import __version__
 from ...consts import dandiset_metadata_file
 from ...pynwb_utils import validate as pynwb_validate
 from ...support.annex import AnnexKey, AnnexReadableFile, get_annex_readable
+from ...support.tests.test_annex import RangeHTTPServer, range_http_server  # noqa: F401
 from ...tests.fixtures import (
     BIDS_TESTDATA_SELECTION,
     annex_key_for_file,
     make_annexed_dandiset,
+    make_git_annex_dandiset,
 )
-from ...tests.skip import skipif
+from ...tests.skip import mark, skipif
 
 
 def test_validate_nwb_error(simple3_nwb: Path) -> None:
@@ -466,6 +468,48 @@ def test_validate_stream_unreadable_url(tmp_path: Path, simple3_nwb: Path) -> No
         Validator.pynwb,
         Validator.nwbinspector,
     }
+
+
+@pytest.mark.ai_generated
+@mark.skipif_no_git_annex
+def test_validate_stream_datalad_fuse(
+    range_http_server: tuple[RangeHTTPServer, str],  # noqa: F811
+    simple3_nwb: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """In a git-annex repository, stream policy streams content with datalad-fuse."""
+    pytest.importorskip("datalad_fuse.adapter")
+    # The test HTTP server is local
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    monkeypatch.setenv("no_proxy", "127.0.0.1")
+    server, base_url = range_http_server
+    shutil.copy(simple3_nwb, tmp_path / "content.nwb")
+    ds = tmp_path / "ds"
+    make_git_annex_dandiset(
+        ds, {"sub-001/sub-001.nwb": (simple3_nwb, f"{base_url}/content.nwb")}
+    )
+    results = list(validate(ds, missing_file_content=MissingFileContent.stream))
+
+    streamed = [r for r in results if r.id == "DANDI.FILE_CONTENT_STREAMED"]
+    assert len(streamed) == 1
+    assert streamed[0].message is not None
+    assert f"with datalad-fuse, e.g., from {base_url}/content.nwb" in (
+        streamed[0].message
+    )
+    assert server.ranged_requests > 0
+
+    # Content-dependent validation gives the same results as for a regular
+    # dandiset containing the file itself
+    local = tmp_path / "local"
+    (local / "sub-001").mkdir(parents=True)
+    shutil.copy(ds / dandiset_metadata_file, local / dandiset_metadata_file)
+    shutil.copy(simple3_nwb, local / "sub-001" / "sub-001.nwb")
+    expected = list(validate(local))
+    assert any(r.origin.validator == Validator.nwbinspector for r in expected)
+    assert _content_results(results, "sub-001.nwb") == _content_results(
+        expected, "sub-001.nwb"
+    )
 
 
 @pytest.mark.ai_generated

@@ -214,6 +214,7 @@ follow_imports = "skip"
 module = [
     "bidsschematools.*",
     "click_didyoumean.*",
+    "datalad_fuse.*",
     "etelemetry.*",
     "fasteners.*",
     "fscacher.*",
