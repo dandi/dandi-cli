@@ -125,6 +125,10 @@ def no_git():
     return "Git not installed", shutil.which("git") is None
 
 
+def no_git_annex():
+    return "git-annex not installed", shutil.which("git-annex") is None
+
+
 # ### END MODIFIED CODE
 
 
@@ -162,6 +166,7 @@ CONDITION_FNS = [
     no_docker_commands,
     no_docker_engine,
     no_git,
+    no_git_annex,
     no_network,
     # no_singularity,
     no_ssh,
