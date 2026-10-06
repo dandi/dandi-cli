@@ -10,9 +10,9 @@ This module provides validation functionality for dandisets, including:
 from __future__ import annotations
 
 from collections.abc import Iterator
+from importlib.util import find_spec
 import os
 from pathlib import Path
-from typing import Any
 
 from ._types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
@@ -26,7 +26,8 @@ from ._types import (
     Validator,
 )
 from ..consts import dandiset_metadata_file
-from ..files import find_dandi_files
+from ..files import DandiFile, LocalFileAsset, find_dandi_files
+from ..support.annex import AnnexReadableFile, get_annex_readable
 from ..utils import find_parent_directory_containing
 
 BIDS_TO_DANDI = {
@@ -155,7 +156,8 @@ def _is_broken_symlink(filepath: Path) -> bool:
 
 
 # BIDS error codes that require reading file content (headers, pixel data).
-# When ``only-non-data`` is active these are suppressed for broken-symlink files.
+# When ``only-non-data`` or ``stream`` is active these are suppressed for
+# broken-symlink files (the BIDS validator cannot stream content).
 _BIDS_CONTENT_DEPENDENT_CODES = frozenset(
     {
         "BIDS.NIFTI_HEADER_UNREADABLE",
@@ -181,13 +183,20 @@ def validate(
       Policy for files whose content is unavailable (e.g. broken symlinks in a
       datalad dataset without fetched data).  ``error`` emits a concise error,
       ``skip`` skips the file with a warning, ``only-non-data`` skips
-      content-dependent validators but still validates path layout.
+      content-dependent validators but still validates path layout, and
+      ``stream`` streams the content of annexed files from the URLs registered
+      for them in git-annex (see `dandi.support.annex`) so that
+      content-dependent validators run without the content being present
+      locally.
 
     Yields
     ------
     path, errors
       errors for a path
     """
+    if missing_file_content == MissingFileContent.stream:
+        _check_streaming_requirements()
+
     # Archive of unique `ValidationResult` objects obtained through
     # `DandiFile.get_validation_errors()`
     # Note: This is needed to hold on to the unique `ValidationResult` objects
@@ -214,34 +223,43 @@ def validate(
             p, dandiset_path=dandiset_path, allow_all=allow_any_path
         ):
             # Handle broken symlinks (missing file content)
-            if _is_broken_symlink(df.filepath):
-                r = _handle_missing_content(df, missing_file_content)
-                if r is not None:
-                    r_id = id(r)
-                    if r_id not in df_result_ids:
-                        df_results.append(r)
-                        df_result_ids.add(r_id)
-                        yield r
-                if missing_file_content in (
-                    MissingFileContent.skip,
-                    MissingFileContent.error,
-                ):
-                    continue
-                # only-non-data: fall through but pass the flag to validators
-
             is_broken = _is_broken_symlink(df.filepath)
+            if is_broken:
+                if missing_file_content == MissingFileContent.stream:
+                    readable = _prepare_streaming(df)
+                    # A file whose content cannot be streamed gets an error
+                    # and is otherwise skipped
+                    skip_file = readable is None
+                else:
+                    readable = None
+                    skip_file = missing_file_content in (
+                        MissingFileContent.skip,
+                        MissingFileContent.error,
+                    )
+                r = _handle_missing_content(df, missing_file_content, readable)
+                r_id = id(r)
+                if r_id not in df_result_ids:
+                    df_results.append(r)
+                    df_result_ids.add(r_id)
+                    yield r
+                if skip_file:
+                    continue
+                # only-non-data & stream: fall through but pass the policy to
+                # the validators
+
             for r in df.get_validation_errors(
                 schema_version=schema_version,
                 devel_debug=devel_debug,
                 missing_file_content=(missing_file_content if is_broken else None),
             ):
-                # For broken-symlink files under only-non-data, suppress
-                # BIDS errors that require reading file content (e.g.
+                # For broken-symlink files under only-non-data and stream,
+                # suppress BIDS errors that require reading file content (e.g.
                 # NIFTI_HEADER_UNREADABLE).  The validator ran in full so
                 # real files still get those checks.
                 if (
                     is_broken
-                    and missing_file_content == MissingFileContent.only_non_data
+                    and missing_file_content
+                    in (MissingFileContent.only_non_data, MissingFileContent.stream)
                     and r.id in _BIDS_CONTENT_DEPENDENT_CODES
                 ):
                     continue
@@ -252,21 +270,75 @@ def validate(
                     yield r
 
 
+def _check_streaming_requirements() -> None:
+    """Raise an informative error if the optional dependencies needed for
+    streaming file content are not installed"""
+    for module in ("fsspec", "aiohttp"):
+        if find_spec(module) is None:
+            raise RuntimeError(
+                f"Streaming file content requires the {module} package; "
+                "install it with `pip install 'dandi[extras]'`"
+            )
+
+
+def _prepare_streaming(df: DandiFile) -> AnnexReadableFile | None:
+    """
+    Set up streaming of the content of the annexed file represented by ``df``
+    from the URLs registered for it in git-annex, and return the `Readable`
+    that will be used for it, or `None` if the content cannot be streamed
+    (``df`` is not a file asset, not an annexed file, or has no URLs registered)
+    """
+    if not isinstance(df, LocalFileAsset):
+        return None
+    readable = get_annex_readable(df.filepath)
+    if readable is None or not readable.urls:
+        return None
+    df.content_source = readable
+    return readable
+
+
 def _handle_missing_content(
-    df: Any,
+    df: DandiFile,
     policy: MissingFileContent,
-) -> ValidationResult | None:
+    readable: AnnexReadableFile | None = None,
+) -> ValidationResult:
     """Produce a single :class:`ValidationResult` for a file with missing content.
 
-    Returns ``None`` when *policy* is ``only-non-data`` (a warning is not
-    needed because validation still proceeds on the non-data aspects).
+    For the ``stream`` policy, ``readable`` is the `Readable` streaming the
+    file's content, or `None` if the content cannot be streamed.
     """
-    from ..files import DandiFile
-
-    assert isinstance(df, DandiFile)
     filepath = df.filepath
 
-    if policy == MissingFileContent.error:
+    if policy == MissingFileContent.stream:
+        if readable is not None:
+            return ValidationResult(
+                id="DANDI.FILE_CONTENT_STREAMED",
+                origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
+                severity=Severity.INFO,
+                scope=Scope.FILE,
+                path=filepath,
+                dandiset_path=df.dandiset_path,
+                message=(
+                    f"File content is not present locally (git-annex key "
+                    f"{readable.key}); content-dependent validation streams "
+                    f"it from {readable.urls[0]}"
+                ),
+            )
+        return ValidationResult(
+            id="DANDI.FILE_CONTENT_MISSING",
+            origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
+            severity=Severity.ERROR,
+            scope=Scope.FILE,
+            path=filepath,
+            dandiset_path=df.dandiset_path,
+            message=(
+                f"File content is not available (broken symlink: "
+                f"{filepath} -> {os.readlink(filepath)}) and cannot be "
+                f"streamed: not an annexed file with a URL registered in "
+                f"git-annex."
+            ),
+        )
+    elif policy == MissingFileContent.error:
         return ValidationResult(
             id="DANDI.FILE_CONTENT_MISSING",
             origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
@@ -277,8 +349,9 @@ def _handle_missing_content(
             message=(
                 f"File content is not available (broken symlink: "
                 f"{filepath} -> {os.readlink(filepath)}). "
-                f"Use --missing-file-content=skip or "
-                f"--missing-file-content=only-non-data to handle gracefully."
+                f"Use --missing-file-content=skip, "
+                f"--missing-file-content=only-non-data, or "
+                f"--missing-file-content=stream to handle gracefully."
             ),
         )
     elif policy == MissingFileContent.skip:

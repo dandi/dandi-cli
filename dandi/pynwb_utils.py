@@ -631,8 +631,9 @@ def _rename_external_images(nwbfile_path: str, external_images: list[dict]) -> N
         f.visititems(rename_if_matched)
 
 
-@validate_cache.memoize_path
-def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResult]:
+def validate(
+    path: str | Path, devel_debug: bool = False, *, readable: Readable | None = None
+) -> list[ValidationResult]:
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -641,8 +642,38 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
     Parameters
     ----------
     path: str or Path
+      Path of the file, as reported in the returned results
+    devel_debug: bool, optional
+      Whether to re-raise exceptions instead of reporting them as errors
+    readable: Readable, optional
+      If given, the file's content is read from this `Readable` instead of from
+      ``path`` (e.g., to stream the content of an annexed file which is not
+      present locally); the results are then cached only if it has a
+      `~Readable.get_fingerprint`.
     """
-    path = str(path)  # Might come in as pathlib's PATH
+    source: str | Readable = readable if readable is not None else str(path)
+    # fscacher is untyped, so the memoized _validate returns Any for mypy
+    return cast(
+        "list[ValidationResult]",
+        _validate(source, str(path), devel_debug=devel_debug),
+    )
+
+
+@validate_cache.memoize_path(custom_fingerprint=readable_fingerprint)
+def _validate(
+    source: str | Readable, path: str, devel_debug: bool = False
+) -> list[ValidationResult]:
+    """`validate` proper, with the content source as first argument for caching
+
+    Parameters
+    ----------
+    source: str or Readable
+      What to read the file's content from: its path or a `Readable`
+    path: str
+      Path of the file, as reported in the returned results
+    devel_debug: bool
+      Whether to re-raise exceptions instead of reporting them as errors
+    """
     errors: list[ValidationResult] = []
 
     # To overcome
@@ -654,7 +685,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
     )
     version = None
     try:
-        version = get_nwb_version(path, sanitize=False)
+        version = get_nwb_version(source, sanitize=False)
     except Exception:
         # we just will not remove any errors, it is required so should be some
         pass
@@ -700,9 +731,15 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     )
 
     try:
-        # Validates against the namespaces cached in the file; pynwb falls back
-        # to its own namespaces if the file has none cached
-        error_outputs = pynwb.validate(path=path)
+        # Either way, validates against the namespaces cached in the file; pynwb
+        # falls back to its own namespaces if the file has none cached
+        if isinstance(source, Readable):
+            with open_readable(source) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
+                file=h5, mode="r", load_namespaces=True
+            ) as reader:
+                error_outputs = pynwb.validate(io=reader)
+        else:
+            error_outputs = pynwb.validate(path=source)
     except Exception as exc:
         if devel_debug:
             raise

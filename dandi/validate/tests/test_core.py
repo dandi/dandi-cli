@@ -1,5 +1,7 @@
 import json
+import os
 from pathlib import Path
+import shutil
 from typing import Any
 
 import pytest
@@ -17,7 +19,14 @@ from .._types import (
 )
 from ... import __version__
 from ...consts import dandiset_metadata_file
-from ...tests.fixtures import BIDS_TESTDATA_SELECTION
+from ...pynwb_utils import validate as pynwb_validate
+from ...support.annex import AnnexKey, AnnexReadableFile, get_annex_readable
+from ...tests.fixtures import (
+    BIDS_TESTDATA_SELECTION,
+    annex_key_for_file,
+    make_annexed_dandiset,
+)
+from ...tests.skip import skipif
 
 
 def test_validate_nwb_error(simple3_nwb: Path) -> None:
@@ -310,3 +319,159 @@ def test_validate_broken_symlink_real_file_still_validated(tmp_path: Path) -> No
         assert (
             len(broken_pynwb) == 0
         ), f"policy={policy.value}: pynwb should not run on the broken symlink"
+
+
+# ---- Tests for streaming the content of annexed files (missing_file_content=stream) ----
+
+
+def _make_streamable_dandiset(
+    tmp_path: Path, nwb: Path, url: str | None = None
+) -> Path:
+    """Create a dandiset looking like a DataLad clone without fetched content.
+
+    ``sub-001/sub-001.nwb`` is an annexed copy of *nwb* whose content is
+    registered at *url* (a ``file://`` URL for *nwb* by default), and
+    ``sub-001/sub-001_video.mp4`` is an annexed video with a registered URL
+    that is never read (only the size recorded in its key is needed).
+    """
+    ds = tmp_path / "ds"
+    make_annexed_dandiset(
+        ds,
+        {
+            "sub-001/sub-001.nwb": (
+                annex_key_for_file(nwb),
+                [url if url is not None else nwb.as_uri()],
+            ),
+            "sub-001/sub-001_video.mp4": (
+                "MD5E-s4242--0123456789abcdef0123456789abcdef.mp4",
+                ["https://example.com/video.mp4"],
+            ),
+        },
+    )
+    return ds
+
+
+def _content_results(results: list[ValidationResult], name: str) -> list[tuple]:
+    """Path-independent summary of the results for the file called *name*."""
+    return sorted(
+        (r.id, r.severity, r.origin.validator, r.message)
+        for r in results
+        if r.path is not None
+        and r.path.name == name
+        and r.id != "DANDI.FILE_CONTENT_STREAMED"
+    )
+
+
+@pytest.mark.ai_generated
+def test_validate_stream(tmp_path: Path, simple3_nwb: Path) -> None:
+    """stream policy validates the content of annexed files via their URLs."""
+    skipif.no_git()
+    pytest.importorskip("fsspec")
+    ds = _make_streamable_dandiset(tmp_path, simple3_nwb)
+    results = list(validate(ds, missing_file_content=MissingFileContent.stream))
+
+    streamed = [r for r in results if r.id == "DANDI.FILE_CONTENT_STREAMED"]
+    assert sorted(r.path.name for r in streamed if r.path is not None) == [
+        "sub-001.nwb",
+        "sub-001_video.mp4",
+    ]
+    assert all(r.severity == Severity.INFO for r in streamed)
+    assert any(
+        r.message is not None and simple3_nwb.as_uri() in r.message for r in streamed
+    )
+    assert not [r for r in results if r.id.startswith("DANDI.FILE_CONTENT_MISSING")]
+
+    # Validating the video only needs the size recorded in its key
+    assert _content_results(results, "sub-001_video.mp4") == []
+
+    # Content-dependent validation of the NWB file gives the same results as
+    # for a regular dandiset containing the file itself
+    local = tmp_path / "local"
+    (local / "sub-001").mkdir(parents=True)
+    shutil.copy(ds / dandiset_metadata_file, local / dandiset_metadata_file)
+    shutil.copy(simple3_nwb, local / "sub-001" / "sub-001.nwb")
+    expected = list(validate(local))
+    # simple3_nwb lacks a subject_id, which only content-based checks notice
+    assert any(r.origin.validator == Validator.nwbinspector for r in expected)
+    assert _content_results(results, "sub-001.nwb") == _content_results(
+        expected, "sub-001.nwb"
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    os.environ.get("DANDI_CACHE") == "ignore", reason="the validation cache is disabled"
+)
+def test_validate_stream_cached_by_key(tmp_path: Path, simple3_nwb: Path) -> None:
+    """pynwb validation results of a streamed file are cached under its annex key."""
+    skipif.no_git()
+    pytest.importorskip("fsspec")
+    ds = _make_streamable_dandiset(tmp_path, simple3_nwb)
+    nwb = ds / "sub-001" / "sub-001.nwb"
+    readable = get_annex_readable(nwb)
+    assert readable is not None
+    results = pynwb_validate(nwb, readable=readable)
+    assert not [r for r in results if r.id == "pynwb.GENERIC"]
+
+    # The same file under the same key, but with a URL that cannot be opened:
+    # served from the cache (an attempt to read it would have been reported as
+    # a pynwb.GENERIC error instead)
+    twin = AnnexReadableFile(
+        filepath=nwb, key=readable.key, urls=["file:///nonexistent/sub-001.nwb"]
+    )
+    assert pynwb_validate(nwb, readable=twin) == results
+    # ... unlike the same file with a different key
+    other = AnnexReadableFile(
+        filepath=nwb,
+        key=AnnexKey.parse(f"SHA256E-s{readable.key.size}--{'0' * 64}.nwb"),
+        urls=["file:///nonexistent/sub-001.nwb"],
+    )
+    assert [r.id for r in pynwb_validate(nwb, readable=other)] == ["pynwb.GENERIC"]
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_not_streamable(tmp_path: Path) -> None:
+    """stream policy emits an error for a broken symlink with no URL to stream from."""
+    pytest.importorskip("fsspec")
+    ds = _make_dandiset_with_broken_symlink(tmp_path)
+    results = list(validate(ds, missing_file_content=MissingFileContent.stream))
+    errs = [r for r in results if r.id == "DANDI.FILE_CONTENT_MISSING"]
+    assert len(errs) == 1
+    assert errs[0].severity == Severity.ERROR
+    assert errs[0].message is not None
+    assert "cannot be streamed" in errs[0].message
+    assert not [r for r in results if r.id == "DANDI.FILE_CONTENT_STREAMED"]
+    assert not [
+        r
+        for r in results
+        if r.origin.validator in (Validator.pynwb, Validator.nwbinspector)
+    ]
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_unreadable_url(tmp_path: Path, simple3_nwb: Path) -> None:
+    """A registered URL that cannot be read yields errors, not an exception."""
+    skipif.no_git()
+    pytest.importorskip("fsspec")
+    ds = _make_streamable_dandiset(
+        tmp_path, simple3_nwb, url=(tmp_path / "gone.nwb").as_uri()
+    )
+    results = list(validate(ds, missing_file_content=MissingFileContent.stream))
+    nwb = ds / "sub-001" / "sub-001.nwb"
+    assert [
+        r for r in results if r.path == nwb and r.id == "DANDI.FILE_CONTENT_STREAMED"
+    ]
+    errs = [r for r in results if r.path == nwb and r.severity == Severity.ERROR]
+    assert {r.origin.validator for r in errs} == {
+        Validator.pynwb,
+        Validator.nwbinspector,
+    }
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_requires_fsspec(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("dandi.validate._core.find_spec", lambda name: None)
+    with pytest.raises(RuntimeError, match=r"dandi\[extras\]"):
+        list(validate(tmp_path, missing_file_content=MissingFileContent.stream))
