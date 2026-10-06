@@ -23,7 +23,7 @@ from typing import IO, Any, TypeVar, cast
 import warnings
 
 import dandischema
-from fscacher import PersistentCache, annex_key_fingerprint
+from fscacher import PersistentCache
 import h5py
 import hdmf
 import numpy as np
@@ -42,6 +42,7 @@ from .consts import (
     metadata_nwb_subject_fields,
 )
 from .misctypes import Readable
+from .support.datalad_fuse import annex_fingerprint
 from .utils import get_module_version, is_url
 from .validate._types import (
     Origin,
@@ -71,25 +72,6 @@ validate_cache = PersistentCache(
     tokens=dandi_cache_tokens + [get_module_version(dandischema)],
     envvar="DANDI_CACHE",
 )
-
-
-def annex_fingerprint(source: Any) -> tuple[str, str] | None:
-    """
-    Fingerprint of ``source`` for ``PersistentCache.memoize_path``
-
-    Pass it as ``custom_fingerprint`` to cache the results of a function of a
-    local path or a `Readable` under the git-annex key of a locked annexed
-    file, paired with its path (see `fscacher.annex_key_fingerprint`), rather
-    than under ``stat()``: the content of an `AnnexedReadableFile`, which is
-    not present locally, cannot be ``stat()``-ed.  Anything else is handled as
-    without this.
-    """
-    # Avoid circular import:
-    from .support.datalad_fuse import AnnexedReadableFile
-
-    if isinstance(source, AnnexedReadableFile):
-        source = source.filepath
-    return cast("tuple[str, str] | None", annex_key_fingerprint(source))
 
 
 def _sanitize_nwb_version(

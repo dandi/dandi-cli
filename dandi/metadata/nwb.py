@@ -16,13 +16,13 @@ from ..files import bids, dandi_file, find_bids_dataset_description
 from ..misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
 from ..pynwb_utils import (
     _get_pynwb_metadata,
-    annex_fingerprint,
     get_neurodata_types,
     get_nwb_version,
     ignore_benign_pynwb_warnings,
     metadata_cache,
     nwb_has_external_links,
 )
+from ..support.datalad_fuse import annex_fingerprint
 from ..utils import find_parent_directory_containing
 
 lgr = get_logger()
