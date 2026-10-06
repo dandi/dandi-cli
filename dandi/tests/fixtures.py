@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ import re
 import shutil
 from subprocess import DEVNULL, check_output, run
 from time import sleep
-from typing import IO, Any, Literal
+from typing import IO, Any, Literal, cast
 from uuid import uuid4
 
 from click.testing import CliRunner
@@ -40,6 +41,7 @@ from ..consts import (
 from ..dandiapi import DandiAPIClient, RemoteDandiset
 from ..misctypes import LocalReadableFile
 from ..pynwb_utils import make_nwb_file
+from ..support.annex import AnnexKey
 from ..upload import upload
 
 lgr = get_logger()
@@ -372,6 +374,88 @@ def get_filtered_gitrepo_fixture(
         yield path
 
     return fixture
+
+
+def annex_key_for_file(path: Path) -> str:
+    """
+    Return the git-annex key (using the ``SHA256E`` backend, as DANDI Dandisets
+    do) that git-annex would assign to the file at ``path``
+    """
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return f"SHA256E-s{path.stat().st_size}--{digest}{path.suffix}"
+
+
+def create_git_annex_branch(
+    repo: Path, files: dict[str, str], ref: str = "refs/heads/git-annex"
+) -> None:
+    """
+    Create (or replace) the ``git-annex`` branch of the Git repository at
+    ``repo`` so that its tree consists of the given files (a mapping from paths
+    to contents), using only ``git`` plumbing commands, i.e., without needing
+    git-annex.  This is for testing code that reads git-annex metadata.
+    """
+    index = repo / ".git" / "dandi-test-index"
+    env = {
+        **os.environ,
+        "GIT_INDEX_FILE": str(index),
+        "GIT_AUTHOR_NAME": "DANDI tests",
+        "GIT_AUTHOR_EMAIL": "tests@dandiarchive.org",
+        "GIT_COMMITTER_NAME": "DANDI tests",
+        "GIT_COMMITTER_EMAIL": "tests@dandiarchive.org",
+    }
+
+    def git(*args: str, **kwargs: Any) -> str:
+        out = check_output(
+            ["git", "-C", str(repo), *args], env=env, text=True, **kwargs
+        )
+        return cast(str, out).strip()
+
+    for path, content in files.items():
+        blob = git("hash-object", "-w", "--stdin", input=content)
+        git("update-index", "--add", "--cacheinfo", f"100644,{blob},{path}")
+    tree = git("write-tree")
+    commit = git("commit-tree", tree, "-m", "git-annex metadata")
+    git("update-ref", ref, commit)
+    index.unlink(missing_ok=True)
+
+
+def make_annexed_dandiset(
+    dandiset: Path, files: dict[str, tuple[str, list[str]]]
+) -> None:
+    """
+    Make the directory ``dandiset`` (created if needed, with a minimal
+    :file:`dandiset.yaml` if it does not have one) look like a DataLad Dandiset
+    whose annexed content has not been fetched: for each ``relpath: (key,
+    urls)`` item of ``files``, ``relpath`` is created as a broken symbolic link
+    into the git-annex object store for ``key``, and the ``urls`` are
+    registered for ``key`` in the ``git-annex`` branch of the repository.
+    """
+    dandiset.mkdir(parents=True, exist_ok=True)
+    metadata_file = dandiset / dandiset_metadata_file
+    if not metadata_file.exists():
+        metadata_file.write_text(
+            "identifier: '000027'\nname: Test\ndescription: Test dandiset\n"
+        )
+    if not (dandiset / ".git").exists():
+        run(["git", "init", "-q", str(dandiset)], check=True)
+    logs: dict[str, str] = {}
+    for relpath, (key, urls) in files.items():
+        link = dandiset / relpath
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(
+            Path(os.path.relpath(dandiset, link.parent))
+            / ".git"
+            / "annex"
+            / "objects"
+            / "Xx"
+            / "Yy"
+            / key
+            / key
+        )
+        logs[f"{AnnexKey.parse(key).hashdir_lower}/{key}.log.web"] = "".join(
+            f"{1700000000 + i}s 1 {url}\n" for i, url in enumerate(urls)
+        )
+    create_git_annex_branch(dandiset, logs)
 
 
 def _make_subdirs_dandisets(path: Path) -> None:
