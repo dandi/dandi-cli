@@ -56,7 +56,7 @@ Options
     Limit the number of results shown per group (or in total when not
     grouping); the excess is replaced by a count of omitted results
 
-.. option:: --missing-file-content [error|only-non-data|skip]
+.. option:: --missing-file-content [error|only-non-data|skip|stream]
 
     How to handle files whose content is unavailable, such as the broken
     symbolic links of a DataLad_ dataset (a git-annex_ repository) whose
@@ -73,6 +73,12 @@ Options
         Skip content-dependent validators (pynwb, nwbinspector, ...) for each
         such file but still validate its path layout
 
+    ``stream``
+        Stream the content of each such file with datalad-fuse_ so that
+        content-dependent validators run without the file having to be
+        downloaded; see `Validating DataLad Dandisets Remotely`_
+        below.
+
 .. option:: --load <file>
 
     Instead of running validation, load previously saved results from the
@@ -82,6 +88,60 @@ Options
 
 .. _DataLad: https://www.datalad.org
 .. _git-annex: https://git-annex.branchable.com
+
+
+Validating DataLad Dandisets Remotely
+-------------------------------------
+
+Every Dandiset on the DANDI Archive is mirrored as a DataLad dataset at
+https://github.com/dandisets (with https://github.com/dandisets/dandisets as
+the superdataset containing all of them).  In such a dataset, the assets are
+annexed files: symbolic links that remain broken until the content is fetched,
+which for some Dandisets would mean downloading terabytes of data.  The
+``stream`` policy of :option:`--missing-file-content` lets ``dandi validate``
+run the content-dependent validators (pynwb and nwbinspector for NWB files) on
+such files by streaming their content on demand with datalad-fuse_ (without
+mounting anything), which asks git-annex where the content is, reading only
+the parts of each file that the validators need.  This requires git-annex and
+``pip install "dandi[datalad]"``.
+
+For example, to produce a JSON Lines record of *all* validation results for
+a Dandiset::
+
+    datalad clone https://github.com/dandisets/000003
+    dandi validate --missing-file-content=stream --min-severity=INFO \
+        --format=json_lines --output=000003.jsonl 000003
+
+Each streamed file yields an ``INFO``-level ``DANDI.FILE_CONTENT_STREAMED``
+result naming the URL its content was read from; a file that cannot be streamed
+(not an annexed file, or no URL known to git-annex) yields a
+``DANDI.FILE_CONTENT_MISSING`` error instead.
+
+Notes:
+
+- git-annex must be initialized in the clone, which ``datalad clone`` does
+  (after ``git clone``, run ``git annex init``).
+- Some nwbinspector checks read data arrays (e.g., timestamps), so the amount
+  of data streamed for a file depends on its content; it is nevertheless
+  usually a small fraction of the file.
+- The pynwb validation results and the metadata of a streamed file are cached
+  under its git-annex key (a digest of its content), just as those of a local
+  file are cached under its modification time and size, so re-running the
+  command skips that work for files whose key has not changed since.  As for
+  local files, set the :envvar:`DANDI_CACHE` environment variable to ``clear``
+  to start afresh or to ``ignore`` to bypass the cache.
+- Zarr assets are stored as separate subdatasets (https://github.com/dandizarrs)
+  and are not streamed yet: an uninstalled Zarr subdataset is an empty directory
+  that is not validated at all.  Streaming them is a follow-up for when NWB Zarr
+  support has matured across the ecosystem.
+- The BIDS validator cannot stream content, so BIDS errors that require reading
+  a file (e.g., unreadable NIfTI headers) are suppressed for annexed files under
+  the ``stream`` and ``only-non-data`` policies.  For NWB datasets, the primary
+  use case, nothing is lost: everything the BIDS validator needs is either
+  present (the non-annexed sidecar files, which are kept in git) or encoded in
+  the file and folder names of the annexed files themselves.
+
+.. _datalad-fuse: https://github.com/datalad/datalad-fuse
 
 
 Development Options
