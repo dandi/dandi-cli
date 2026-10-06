@@ -648,7 +648,11 @@ def validate(
       `~Readable.get_fingerprint`.
     """
     source: str | Readable = readable if readable is not None else str(path)
-    return _validate(source, str(path), devel_debug=devel_debug)
+    # fscacher is untyped, so the memoized _validate returns Any for mypy
+    return cast(
+        "list[ValidationResult]",
+        _validate(source, str(path), devel_debug=devel_debug),
+    )
 
 
 @validate_cache.memoize_path(custom_fingerprint=readable_fingerprint)
