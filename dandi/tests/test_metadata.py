@@ -51,6 +51,7 @@ from ..metadata.util import (
     SpeciesRecord,
     extract_age,
     extract_cellLine,
+    extract_sex,
     extract_species,
     parse_age,
     parse_purlobourl,
@@ -885,6 +886,54 @@ def test_species_rat(species: str) -> None:
         "schemaKey": "SpeciesType",
         "name": "Rattus norvegicus - Norway rat",
     }
+
+
+@pytest.mark.ai_generated
+def test_species_unknown_iri_lookup_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An NCBITaxon IRI not in species_map whose label cannot be looked up
+    # still gets a name, as dandischema requires one
+    iri = "http://purl.obolibrary.org/obo/NCBITaxon_999999999"
+
+    def fail(*_args: Any, **_kwargs: Any) -> None:
+        raise ConnectionError("no network")
+
+    monkeypatch.setattr("dandi.metadata.util.parse_purlobourl", fail)
+    species_rec = extract_species({"species": iri})
+    assert species_rec is not None
+    assert str(species_rec.identifier) == iri
+    assert species_rec.name == iri
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "sex,identifier,name",
+    [
+        ("M", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+        ("female", "http://purl.obolibrary.org/obo/PATO_0000383", "Female"),
+        ("U", None, "Unknown"),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0000384",
+            "http://purl.obolibrary.org/obo/PATO_0000384",
+            "Male",
+        ),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0000383",
+            "http://purl.obolibrary.org/obo/PATO_0000383",
+            "Female",
+        ),
+        # unknown IRI: kept as is (not lowercased) and used as the name
+        (
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+        ),
+    ],
+)
+def test_extract_sex(sex: str, identifier: str | None, name: str) -> None:
+    rec = extract_sex({"sex": sex})
+    assert rec is not None
+    assert (None if rec.identifier is None else str(rec.identifier)) == identifier
+    assert rec.name == name
 
 
 @pytest.mark.parametrize(
