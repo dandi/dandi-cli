@@ -113,7 +113,8 @@ a Dandiset::
         --format=json_lines --output=000003.jsonl 000003
 
 Each streamed file yields an ``INFO``-level ``DANDI.FILE_CONTENT_STREAMED``
-result naming the URL its content was read from; a file that cannot be streamed
+result naming the first URL known for its content (for a Dandiset, the DANDI
+Archive's API download URL, which redirects to S3); a file that cannot be streamed
 (not an annexed file, or no URL known to git-annex) yields a
 ``DANDI.FILE_CONTENT_MISSING`` error instead.
 
@@ -121,6 +122,8 @@ Notes:
 
 - git-annex must be initialized in the clone, which ``datalad clone`` does
   (after ``git clone``, run ``git annex init``).
+- datalad-fuse does not use the HTTP proxy environment variables
+  (``HTTPS_PROXY`` etc.), so the URLs must be reachable directly.
 - Some nwbinspector checks read data arrays (e.g., timestamps), so the amount
   of data streamed for a file depends on its content; it is nevertheless
   usually a small fraction of the file.
