@@ -152,17 +152,7 @@ jobs:
       # Start coverage before pytest, which loads dandi's pytest plugin (and
       # thus imports most of dandi) before pytest-cov would start it
       run: |
-        set +e
-        python -X faulthandler -m coverage run -m pytest -s -v -m "not obolibrary" dandi 2>&1 | tee "$RUNNER_TEMP/pytest.log"
-        status=${PIPESTATUS[0]}
-        if [ "$status" -ne 0 ]; then
-          # TEMPORARY diagnostics: surface the hang/crash tracebacks as an annotation
-          grep -n -B3 -A80 -E "Timeout|Fatal Python|Current thread|Thread 0x" "$RUNNER_TEMP/pytest.log" | head -400 > "$RUNNER_TEMP/diag.txt"
-          grep -E "^dandi/.*::" "$RUNNER_TEMP/pytest.log" | tail -5 >> "$RUNNER_TEMP/diag.txt"
-          echo "::error title=pytest diagnostics::$(sed -e 's/%/%25/g' -e 's/\r//g' "$RUNNER_TEMP/diag.txt" | sed ':a;N;$!ba;s/\n/%0A/g')"
-          exit "$status"
-        fi
-        set -e
+        python -m coverage run -m pytest -s -v -m "not obolibrary" dandi
         python -m coverage combine
         python -m coverage xml
 
