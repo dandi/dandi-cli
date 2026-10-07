@@ -45,6 +45,45 @@ def mkpaths(root: Path, *paths: str) -> None:
             pp.touch()
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "name", ["missing.nwb", "missing.txt", "missing.zarr", ".missing"]
+)
+@pytest.mark.parametrize("allow_all", [False, True])
+def test_find_dandi_files_missing_path(
+    tmp_path: Path, name: str, allow_all: bool
+) -> None:
+    existing = tmp_path / "existing.nwb"
+    existing.touch()
+    missing = tmp_path / name
+    discovery = find_dandi_files(
+        existing, missing, dandiset_path=tmp_path, allow_all=allow_all
+    )
+    with pytest.raises(FileNotFoundError) as exc:
+        next(discovery)
+    assert exc.value.filename == str(missing)
+
+
+@pytest.mark.ai_generated
+def test_find_dandi_files_broken_symlink(tmp_path: Path) -> None:
+    link = tmp_path / "unfetched.nwb"
+    try:
+        link.symlink_to(tmp_path / "absent.nwb")
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Creating symlinks requires Windows privileges")
+        raise
+    assets = list(find_dandi_files(link))
+    assert len(assets) == 1
+    assert isinstance(assets[0], NWBAsset)
+    assert assets[0].filepath == link
+
+
+@pytest.mark.ai_generated
+def test_find_dandi_files_empty_directory(tmp_path: Path) -> None:
+    assert list(find_dandi_files(tmp_path, dandiset_path=tmp_path)) == []
+
+
 def test_find_dandi_files(tmp_path: Path) -> None:
     mkpaths(
         tmp_path,

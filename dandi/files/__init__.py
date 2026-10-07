@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+import errno
 import os.path
 from pathlib import Path
 
@@ -84,6 +85,10 @@ def find_dandi_files(
     they are of a type represented by a `LocalDirectoryAsset` subclass, in
     which case they are not recursed into.
 
+    All requested paths are checked before any files are yielded.  A missing
+    path raises `FileNotFoundError`; a broken symlink is still discovered so
+    that the caller can apply its missing-content policy.
+
     :param dandiset_path:
         The path to the root of the Dandiset in which the paths are located.
         All paths in ``paths`` must be equal to or subpaths of
@@ -111,6 +116,9 @@ def find_dandi_files(
                 raise ValueError(
                     f"Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
+        # Do not follow symlinks: unfetched DataLad content can be a broken link.
+        if not os.path.lexists(p):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(p))
         path_queue.append((Path(p), None))
     bids_roots = []
     while path_queue:
