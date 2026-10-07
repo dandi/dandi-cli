@@ -22,13 +22,14 @@ from ..pynwb_utils import (
     metadata_cache,
     nwb_has_external_links,
 )
+from ..support.datalad_fuse import annex_fingerprint
 from ..utils import find_parent_directory_containing
 
 lgr = get_logger()
 
 
 # Disable this for clean hacking
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=annex_fingerprint)
 def get_metadata(
     path: str | Path | Readable, digest: Digest | None = None
 ) -> dict[str, Any]:

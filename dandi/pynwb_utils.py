@@ -42,6 +42,7 @@ from .consts import (
     metadata_nwb_subject_fields,
 )
 from .misctypes import Readable
+from .support.datalad_fuse import annex_fingerprint
 from .utils import get_module_version, is_url
 from .validate._types import (
     Origin,
@@ -194,7 +195,7 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     return ndtypes
 
 
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=annex_fingerprint)
 def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
     with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
@@ -808,7 +809,7 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     return str(dest)
 
 
-@metadata_cache.memoize_path
+@metadata_cache.memoize_path(custom_fingerprint=annex_fingerprint)
 def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
     with open_readable(filepath) as f, h5py.File(f, "r") as fp:
         visited = set()
