@@ -28,7 +28,7 @@ using the `navigate_url()` function.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 import posixpath
@@ -387,15 +387,13 @@ class AssetPathPrefixURL(MultiAssetURL):
             `NotFoundError` will now be raised if `strict` is true and there
             are no such assets.
         """
-        any_assets = False
-        with _maybe_strict(strict):
-            d = self.get_dandiset(client, lazy=not strict)
-            assert d is not None
-            for a in d.get_assets_with_path_prefix(self.path, order=order):
-                any_assets = True
-                yield a
-        if strict and not any_assets:
-            raise NotFoundError(f"No assets found with path prefix {self.path!r}")
+        return _iter_multi_assets(
+            self,
+            client,
+            strict,
+            lambda d: d.get_assets_with_path_prefix(self.path, order=order),
+            f"No assets found with path prefix {self.path!r}",
+        )
 
 
 @dataclass
@@ -535,15 +533,13 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        any_assets = False
-        with _maybe_strict(strict):
-            d = self.get_dandiset(client, lazy=not strict)
-            assert d is not None
-            for a in d.get_assets_with_path_prefix(path, order=order):
-                any_assets = True
-                yield a
-        if strict and not any_assets:
-            raise NotFoundError(f"No assets found under folder {path!r}")
+        return _iter_multi_assets(
+            self,
+            client,
+            strict,
+            lambda d: d.get_assets_with_path_prefix(path, order=order),
+            f"No assets found under folder {path!r}",
+        )
 
 
 @dataclass
@@ -566,15 +562,13 @@ class AssetGlobURL(MultiAssetURL):
             `NotFoundError` will now be raised if `strict` is true and there
             are no such assets.
         """
-        any_assets = False
-        with _maybe_strict(strict):
-            d = self.get_dandiset(client, lazy=not strict)
-            assert d is not None
-            for a in d.get_assets_by_glob(self.path, order=order):
-                any_assets = True
-                yield a
-        if strict and not any_assets:
-            raise NotFoundError(f"No assets found matching glob {self.path!r}")
+        return _iter_multi_assets(
+            self,
+            client,
+            strict,
+            lambda d: d.get_assets_by_glob(self.path, order=order),
+            f"No assets found matching glob {self.path!r}",
+        )
 
     def get_asset_download_path(
         self, asset: BaseRemoteAsset, preserve_tree: bool
@@ -595,6 +589,24 @@ def _maybe_strict(strict: bool) -> Iterator[None]:
     except NotFoundError:
         if strict:
             raise
+
+
+def _iter_multi_assets(
+    url: MultiAssetURL,
+    client: DandiAPIClient,
+    strict: bool,
+    get_assets: Callable[[RemoteDandiset], Iterator[BaseRemoteAsset]],
+    not_found_msg: str,
+) -> Iterator[BaseRemoteAsset]:
+    any_assets = False
+    with _maybe_strict(strict):
+        d = url.get_dandiset(client, lazy=not strict)
+        assert d is not None
+        for a in get_assets(d):
+            any_assets = True
+            yield a
+    if strict and not any_assets:
+        raise NotFoundError(not_found_msg)
 
 
 @contextmanager

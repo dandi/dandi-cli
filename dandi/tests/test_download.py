@@ -443,15 +443,27 @@ def test_download_asset_by_equal_prefix(
     assert (tmp_path / "apple.txt").read_text() == "Apple\n"
 
 
-@pytest.mark.parametrize("confirm", [True, False])
-def test_download_sync(
-    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
-) -> None:
+def _prep_sync_download(
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+    tmp_path: Path,
+    return_value: str | None,
+) -> tuple[Path, mock.MagicMock]:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     dspath = tmp_path / text_dandiset.dandiset_id
     os.rename(text_dandiset.dspath, dspath)
     confirm_mock = mocker.patch(
-        "dandi.download.abbrev_prompt", return_value="yes" if confirm else "no"
+        "dandi.download.abbrev_prompt", return_value=return_value
+    )
+    return dspath, confirm_mock
+
+
+@pytest.mark.parametrize("confirm", [True, False])
+def test_download_sync(
+    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    dspath, confirm_mock = _prep_sync_download(
+        mocker, text_dandiset, tmp_path, "yes" if confirm else "no"
     )
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
@@ -470,10 +482,7 @@ def test_download_sync(
 def test_download_sync_do(
     mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
 ) -> None:
-    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
-    dspath = tmp_path / text_dandiset.dandiset_id
-    os.rename(text_dandiset.dspath, dspath)
-    confirm_mock = mocker.patch("dandi.download.abbrev_prompt")
+    dspath, confirm_mock = _prep_sync_download(mocker, text_dandiset, tmp_path, None)
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
@@ -484,12 +493,18 @@ def test_download_sync_do(
     assert not (dspath / "file.txt").exists()
 
 
+def _prep_sync_delete_two_assets(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> mock.MagicMock:
+    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
+    text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
+    return mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+
+
 def test_download_sync_folder(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
-    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
-    text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
-    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    confirm_mock = _prep_sync_delete_two_assets(mocker, text_dandiset)
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}/subdir2/",
         text_dandiset.dspath,
@@ -1182,6 +1197,19 @@ def test_download_multiple_urls(
     ]
 
 
+def _assert_glob_download(tmp_path: Path) -> None:
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / "subdir1",
+        tmp_path / "subdir1" / "apple.txt",
+        tmp_path / "subdir2",
+        tmp_path / "subdir2" / "banana.txt",
+        tmp_path / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / "subdir1" / "apple.txt").read_text() == "Apple\n"
+    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+
+
 def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     dandiset_id = text_dandiset.dandiset_id
     download(
@@ -1189,38 +1217,18 @@ def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> 
         tmp_path,
         path_type=PathType.GLOB,
     )
-    assert list_paths(tmp_path, dirs=True) == [
-        tmp_path / "subdir1",
-        tmp_path / "subdir1" / "apple.txt",
-        tmp_path / "subdir2",
-        tmp_path / "subdir2" / "banana.txt",
-        tmp_path / "subdir2" / "coconut.txt",
-    ]
-    assert (tmp_path / "subdir1" / "apple.txt").read_text() == "Apple\n"
-    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
-    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+    _assert_glob_download(tmp_path)
 
 
 def test_download_glob_url(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     download(f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt", tmp_path)
-    assert list_paths(tmp_path, dirs=True) == [
-        tmp_path / "subdir1",
-        tmp_path / "subdir1" / "apple.txt",
-        tmp_path / "subdir2",
-        tmp_path / "subdir2" / "banana.txt",
-        tmp_path / "subdir2" / "coconut.txt",
-    ]
-    assert (tmp_path / "subdir1" / "apple.txt").read_text() == "Apple\n"
-    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
-    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+    _assert_glob_download(tmp_path)
 
 
 def test_download_sync_glob(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
-    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
-    text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
-    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    confirm_mock = _prep_sync_delete_two_assets(mocker, text_dandiset)
     download(
         f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
         text_dandiset.dspath,
@@ -1502,31 +1510,28 @@ def test__check_attempts_and_sleep_retries(status_code: int) -> None:
         mock_sleep.assert_called_once()
         assert mock_sleep.call_args.args[0] > 0
 
-    # shifted by 1 year! (too long)
-    response.headers["Retry-After"] = "Wed, 21 Oct 2016 07:28:00 GMT"
-    with mock.patch("time.sleep") as mock_sleep, mock.patch(
-        "dandi.utils.datetime"
-    ) as mock_datetime:
-        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
-            "Wed, 21 Oct 2015 07:28:00 GMT"
-        )
-        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
-        mock_sleep.assert_called_once()
-        # and we do sleep some time
-        assert mock_sleep.call_args.args[0] > 0
+    def check_retry_after(retry_after: str, now: str, sleeps: bool) -> None:
+        response.headers["Retry-After"] = retry_after
+        with mock.patch("time.sleep") as mock_sleep, mock.patch(
+            "dandi.utils.datetime"
+        ) as mock_datetime:
+            mock_datetime.datetime.now.return_value = parsedate_to_datetime(now)
+            assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+            mock_sleep.assert_called_once()
+            if sleeps:
+                assert mock_sleep.call_args.args[0] > 0
+            else:
+                assert not mock_sleep.call_args.args[0]
 
-    # in the past second (too quick)
-    response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:27:59 GMT"
-    with mock.patch("time.sleep") as mock_sleep, mock.patch(
-        "dandi.utils.datetime"
-    ) as mock_datetime:
-        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
-            "Wed, 21 Oct 2015 07:28:00 GMT"
-        )
-        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
-        mock_sleep.assert_called_once()
-        # and we do not sleep really
-        assert not mock_sleep.call_args.args[0]
+    # shifted by 1 year! (too long) -- we do sleep some time
+    check_retry_after(
+        "Wed, 21 Oct 2016 07:28:00 GMT", "Wed, 21 Oct 2015 07:28:00 GMT", sleeps=True
+    )
+
+    # in the past second (too quick) -- we do not sleep really
+    check_retry_after(
+        "Wed, 21 Oct 2015 07:27:59 GMT", "Wed, 21 Oct 2015 07:28:00 GMT", sleeps=False
+    )
 
 
 # ---------- Partial Zarr download tests ----------
@@ -1553,9 +1558,9 @@ def test_download_zarr_with_glob_filter(
     all_files = list_paths(zarr_dir)
     assert len(all_files) > 0
     for f in all_files:
-        assert f.name.startswith(".z") or f.name == "zarr.json", (
-            f"Non-metadata file downloaded: {f}"
-        )
+        assert (
+            f.name.startswith(".z") or f.name == "zarr.json"
+        ), f"Non-metadata file downloaded: {f}"
 
 
 @pytest.mark.ai_generated

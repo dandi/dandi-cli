@@ -138,14 +138,13 @@ def simple3_nwb(
     )
 
 
-@pytest.fixture(scope="session")
-def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """With subject, subject_id, species, but including data orientation ambiguity."""
-
+def _make_ambiguous_orientation_nwb(
+    tmp_path_factory: pytest.TempPathFactory, *, unit: str, subject_id: str
+) -> Path:
     start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
     time_series = pynwb.TimeSeries(
         name="test_time_series",
-        unit="test_units",
+        unit=unit,
         data=np.zeros(shape=(2, 100)),
         rate=1.0,
     )
@@ -155,7 +154,7 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
         identifier="NWBE4",
         session_start_time=start_time,
         subject=Subject(
-            subject_id="mouse004",
+            subject_id=subject_id,
             age="P1D/",
             sex="O",
             species="Mus musculus",
@@ -166,6 +165,14 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
     with pynwb.NWBHDF5IO(filename, "w") as io:
         io.write(nwbfile, cache_spec=False)
     return filename
+
+
+@pytest.fixture(scope="session")
+def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """With subject, subject_id, species, but including data orientation ambiguity."""
+    return _make_ambiguous_orientation_nwb(
+        tmp_path_factory, unit="test_units", subject_id="mouse004"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -180,44 +187,26 @@ def simple5_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
         https://github.com/NeurodataWithoutBorders/nwbinspector/issues/345#issuecomment-1459232718
 
     """
-
-    start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
-    time_series = pynwb.TimeSeries(
-        name="test_time_series",
-        unit="",
-        data=np.zeros(shape=(2, 100)),
-        rate=1.0,
+    return _make_ambiguous_orientation_nwb(
+        tmp_path_factory, unit="", subject_id="mouse001"
     )
 
-    nwbfile = NWBFile(
-        session_description="some session",
-        identifier="NWBE4",
-        session_start_time=start_time,
-        subject=Subject(
-            subject_id="mouse001",
-            age="P1D/",
-            sex="O",
-            species="Mus musculus",
-        ),
+
+def _organize_copy(nwb_path: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(nwb_path)]
     )
-    nwbfile.add_acquisition(time_series)
-    filename = tmp_path_factory.mktemp("simple4") / "simple4.nwb"
-    with pynwb.NWBHDF5IO(filename, "w") as io:
-        io.write(nwbfile, cache_spec=False)
-    return filename
+    assert r.exit_code == 0, r.stdout
+    return tmp_path
 
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir(
     simple2_nwb: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
-    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
-    (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = CliRunner().invoke(
-        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
-    )
-    assert r.exit_code == 0, r.stdout
-    return tmp_path
+    return _organize_copy(simple2_nwb, tmp_path_factory)
 
 
 @pytest.fixture(scope="session")
@@ -252,13 +241,7 @@ def organized_nwb_dir2(
 def organized_nwb_dir3(
     simple4_nwb: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
-    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
-    (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = CliRunner().invoke(
-        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple4_nwb)]
-    )
-    assert r.exit_code == 0, r.stdout
-    return tmp_path
+    return _organize_copy(simple4_nwb, tmp_path_factory)
 
 
 @pytest.fixture(scope="session")

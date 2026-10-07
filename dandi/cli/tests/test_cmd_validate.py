@@ -345,13 +345,7 @@ def test_validate_load_mutual_exclusivity(simple2_nwb: Path, tmp_path: Path) -> 
     assert "mutually exclusive" in r.output
 
 
-@pytest.mark.ai_generated
-@pytest.mark.parametrize(
-    "grouping",
-    ["severity", "id", "validator", "standard", "dandiset"],
-)
-def test_render_text_grouping(grouping: str, capsys: pytest.CaptureFixture) -> None:
-    """Test extended grouping renders section headers with counts."""
+def _sample_validation_issues() -> tuple[Origin, list[ValidationResult]]:
     origin = Origin(
         type=OriginType.VALIDATION,
         validator=Validator.nwbinspector,
@@ -377,6 +371,17 @@ def test_render_text_grouping(grouping: str, capsys: pytest.CaptureFixture) -> N
             dandiset_path=Path("/data/ds001"),
         ),
     ]
+    return origin, issues
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "grouping",
+    ["severity", "id", "validator", "standard", "dandiset"],
+)
+def test_render_text_grouping(grouping: str, capsys: pytest.CaptureFixture) -> None:
+    """Test extended grouping renders section headers with counts."""
+    _, issues = _sample_validation_issues()
     _render_text(issues, grouping=(grouping,))
     captured = capsys.readouterr().out
 
@@ -435,30 +440,8 @@ def test_validate_grouping_text_cli(
 @pytest.mark.ai_generated
 def test_render_text_multilevel_grouping(capsys: pytest.CaptureFixture) -> None:
     """Test multi-level grouping renders nested section headers."""
-    origin = Origin(
-        type=OriginType.VALIDATION,
-        validator=Validator.nwbinspector,
-        validator_version="",
-    )
-    issues = [
-        ValidationResult(
-            id="NWBI.check_data_orientation",
-            origin=origin,
-            scope=Scope.FILE,
-            message="Data may be in the wrong orientation.",
-            path=Path("sub-01/sub-01.nwb"),
-            severity=Severity.WARNING,
-            dandiset_path=Path("/data/ds001"),
-        ),
-        ValidationResult(
-            id="NWBI.check_missing_unit",
-            origin=origin,
-            scope=Scope.FILE,
-            message="Missing text for attribute 'unit'.",
-            path=Path("sub-02/sub-02.nwb"),
-            severity=Severity.WARNING,
-            dandiset_path=Path("/data/ds001"),
-        ),
+    origin, issues = _sample_validation_issues()
+    issues.append(
         ValidationResult(
             id="NWBI.check_data_orientation",
             origin=origin,
@@ -467,8 +450,8 @@ def test_render_text_multilevel_grouping(capsys: pytest.CaptureFixture) -> None:
             path=Path("sub-03/sub-03.nwb"),
             severity=Severity.ERROR,
             dandiset_path=Path("/data/ds001"),
-        ),
-    ]
+        )
+    )
     _render_text(issues, grouping=("severity", "id"))
     captured = capsys.readouterr().out
 
