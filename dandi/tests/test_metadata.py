@@ -36,6 +36,7 @@ from pydantic import ByteSize
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 from pynwb.file import Subject
 import pytest
+from pytest_mock import MockerFixture
 import requests
 from semantic_version import Version
 
@@ -44,6 +45,7 @@ from .skip import mark
 from .. import __version__
 from ..consts import metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
+from ..metadata import nwb as metadata_nwb
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
@@ -121,6 +123,29 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
     # This is a key sourced from both NWB and BIDS:
     assert metadata["subject_id"] == "01"
     # This is a key sourced from NWB only:
+    assert metadata["sex"] == "U"
+
+
+@pytest.mark.ai_generated
+def test_bids_nwb_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # Getting the BIDS metadata of an NWB file in a BIDS dataset must not
+    # extract its NWB metadata again (which used to recurse until
+    # RecursionError, running the BIDS validator at every level)
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = get_metadata.__wrapped__(file_path)
+    assert spy.call_count == 0
+    assert metadata["subject_id"] == "01"
     assert metadata["sex"] == "U"
 
 
