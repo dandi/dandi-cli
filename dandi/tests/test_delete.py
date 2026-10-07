@@ -407,6 +407,28 @@ def test_delete_version(
     delete_spy.assert_not_called()
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "suffix", ["/acquisition/data_00000_AD0", "/acquisition/data_00000_AD0/"]
+)
+def test_delete_within_zarr_refused(mocker: MockerFixture, suffix: str) -> None:
+    """A URL inside a Zarr asset must not delete the whole asset.
+
+    `AssetZarrEntryURL.get_assets()` yields the Zarr asset itself, so without
+    a guard the deletion would take every entry, not the named ones.
+    """
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    with pytest.raises(NotImplementedError) as excinfo:
+        delete(
+            [f"dandi://dandi/000108/sub-1/file.ome.zarr{suffix}"],
+            dandi_instance="dandi",
+            devel_debug=True,
+            force=True,
+        )
+    assert "Cannot delete individual entries within a Zarr asset" in str(excinfo.value)
+    delete_spy.assert_not_called()
+
+
 def test_delete_no_dandiset(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -437,6 +459,38 @@ def test_delete_zarr_path(
     instance = zarr_dandiset.api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(["sample.zarr"], dandi_instance=instance, devel_debug=True, force=True)
+    delete_spy.assert_called()
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [
+        tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml"
+    ]
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("suffix", ["", "/"])
+def test_delete_zarr_url_at_boundary(
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    zarr_dandiset: SampleDandiset,
+    tmp_path: Path,
+    suffix: str,
+) -> None:
+    """A URL ending *at* a Zarr deletes the asset, with or without a slash.
+
+    The trailing-slash spelling used to fail with `NotFoundError`, since
+    `AssetFolderURL` could never match the asset's own slash-less path.  It now
+    names the asset, like the slash-less spelling always has -- including for
+    the GUI's "browse to this Zarr" URL, whose trailing slash the parser adds.
+    """
+    zarr_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
+    instance = zarr_dandiset.api.instance_id
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    delete(
+        [f"dandi://{instance}/{zarr_dandiset.dandiset_id}/sample.zarr{suffix}"],
+        dandi_instance=instance,
+        devel_debug=True,
+        force=True,
+    )
     delete_spy.assert_called()
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [

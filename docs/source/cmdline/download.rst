@@ -66,22 +66,61 @@ Options
 
     Delete local assets that do not exist on the server after downloading
 
+    Cannot be combined with ``--zarr`` or with a URL that points inside a Zarr
+    asset: a partial download of a Zarr leaves out entries that are on the
+    server, which ``--sync`` would then delete locally.
+
 .. option:: --zarr FILTER
 
     Only download the entries of Zarr assets that match the given filter.  The
     filter is either the predefined name ``metadata``, which selects the Zarr
-    metadata files (``.zarray``, ``.zattrs``, ``.zgroup``, ``.zmetadata``, and
-    ``zarr.json``), or ``TYPE:PATTERN``, where ``TYPE`` is one of:
+    metadata files — any entry named ``zarr.json`` or whose name begins with
+    ``.z`` (``.zarray``, ``.zattrs``, ``.zgroup``, ``.zmetadata``), at any
+    depth — or ``TYPE:PATTERN``, where ``TYPE`` is one of:
 
     - ``glob`` — ``PATTERN`` is a glob matched against the entry's path within
-      the Zarr, with ``**`` matching across directories (e.g.,
-      ``glob:0/**/*``)
+      the Zarr, with ``*`` matching within a single path component and ``**``
+      matching across directories (e.g., ``glob:0/**/*``, ``glob:**/.zarray``)
 
     - ``path`` — ``PATTERN`` is a path within the Zarr; the entry at that path
-      and all entries under it are downloaded
+      and all entries under it are downloaded (e.g., ``path:0/0``)
 
     - ``regex`` — ``PATTERN`` is a regular expression searched for in the
-      entry's path within the Zarr
+      entry's path within the Zarr.  The search is unanchored, so anchor it
+      yourself to match from the start (e.g., ``regex:^0/[0-9]+/``)
 
     Can be specified multiple times, in which case an entry is downloaded if it
     matches any of the filters.
+
+    A URL that points inside a Zarr asset (see :ref:`resource_ids`) selects
+    entries in the same way, as though ``path:`` had been given for the
+    portion of the URL below the Zarr asset::
+
+        dandi download dandi://dandi/000108/sub-1/file.ome.zarr/0/0
+
+    Unlike ``--zarr``, such a URL names entries that the Dandiset is expected
+    to have: if no entry matches, the download fails rather than quietly
+    downloading nothing.
+
+    .. warning::
+
+        A URL subpath and ``--zarr`` are **unioned**, not intersected, so
+        passing both *widens* the download rather than narrowing it.  In::
+
+            dandi download --zarr metadata \
+                dandi://dandi/000108/sub-1/file.ome.zarr/0/0
+
+        the entries under ``0/0`` are downloaded *and* so is every metadata
+        file anywhere in the Zarr.  To restrict metadata to a subtree, give
+        the subtree in the filters themselves rather than in the URL::
+
+            dandi download --zarr 'glob:0/0/**/.z*' \
+                --zarr 'glob:0/0/**/zarr.json' \
+                dandi://dandi/000108/sub-1/file.ome.zarr
+
+        Both filters are needed, as ``metadata`` covers Zarr v2's dot-files
+        and Zarr v3's :file:`zarr.json` alike.
+
+    Because only part of a Zarr is fetched, extra local files are not deleted
+    and the Zarr checksum of the result is not verified; the checksum of each
+    individual downloaded entry still is.
