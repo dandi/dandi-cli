@@ -31,10 +31,12 @@ import atexit
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import cache
+import gc
 import logging
 import os
 from pathlib import Path
 import subprocess
+import threading
 from typing import IO, Any, cast
 
 from ..misctypes import Readable
@@ -76,6 +78,62 @@ def annex_initialized(directory: Path) -> bool:
     return r.returncode == 0 and bool(r.stdout.strip())
 
 
+_gc_lock = threading.Lock()
+_gc_pauses = 0
+_gc_was_enabled = False
+
+
+class _GCPausedFile:
+    """
+    A file object streamed by datalad-fuse, during whose lifetime automatic
+    garbage collection is disabled
+
+    h5py holds a global lock while it reads from a Python file object, and the
+    read waits for another thread (fsspec's I/O thread, or an HTTP server in
+    the same process) to fetch the data.  If a garbage collection ran in that
+    thread meanwhile, finalizers of h5py objects (e.g., of an unreferenced
+    ``NWBHDF5IO``) would wait for the same lock, deadlocking the process.
+    """
+
+    def __init__(self, fp: Any) -> None:
+        global _gc_pauses, _gc_was_enabled
+        with _gc_lock:
+            if _gc_pauses == 0:
+                # Collect pending garbage now, in this thread, which does not
+                # hold h5py's lock yet
+                gc.collect()
+                _gc_was_enabled = gc.isenabled()
+                gc.disable()
+            _gc_pauses += 1
+        self._fp = fp
+        self._paused = True
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._fp, name)
+
+    def __enter__(self) -> _GCPausedFile:
+        return self
+
+    def __exit__(self, *_exc: Any) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        if self._paused:
+            self.close()
+
+    def close(self) -> None:
+        global _gc_pauses
+        try:
+            self._fp.close()
+        finally:
+            with _gc_lock:
+                if self._paused:
+                    self._paused = False
+                    _gc_pauses -= 1
+                    if _gc_pauses == 0 and _gc_was_enabled:
+                        gc.enable()
+
+
 @dataclass
 class AnnexedReadableFile(Readable):
     """
@@ -95,7 +153,7 @@ class AnnexedReadableFile(Readable):
     adapter: Any = field(repr=False, compare=False)
 
     def open(self) -> IO[bytes]:
-        return cast("IO[bytes]", self.adapter.open(self.filepath, "rb"))
+        return cast("IO[bytes]", _GCPausedFile(self.adapter.open(self.filepath, "rb")))
 
     def get_size(self) -> int:
         return self.size
