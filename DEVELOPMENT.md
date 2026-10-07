@@ -337,6 +337,11 @@ New markers must be registered in `pytest_configure()` in
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled
 
+- `DANDI_TESTS_OVERSIZED_ZARR` -- When set to a non-empty value, enables the
+  tests that upload a Zarr entry larger than `S3_MAX_SINGLE_PART_UPLOAD`
+  (5 GiB).  These write several GiB to disk, take several minutes, and require
+  an archive that supports multipart Zarr upload, so they are opt-in.
+
 - `DANDI_TESTS_INSTANCE_NAME` -- Sets the instance name for the dandi-archive instance used for
   testing. Defaults to `"DANDI"`. Useful for testing dandi-cli against a dandi-archive instance with
   a particular vendor information.
