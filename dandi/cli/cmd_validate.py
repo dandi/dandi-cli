@@ -170,8 +170,13 @@ def _filter_results(
     "in a datalad dataset without fetched data). 'error' (default) emits a "
     "concise error per file, 'skip' skips each such file with a warning, "
     "'only-non-data' skips content-dependent validators but still validates "
-    "path layout.",
-    type=click.Choice(["error", "only-non-data", "skip"], case_sensitive=True),
+    "path layout, 'stream' streams the content of annexed files with "
+    "datalad-fuse so that content-dependent validators run without the files "
+    "having to be downloaded (requires git-annex and `pip install "
+    "'dandi[datalad]'`).",
+    type=click.Choice(
+        ["error", "only-non-data", "skip", "stream"], case_sensitive=True
+    ),
     default="error",
 )
 @click.option(
