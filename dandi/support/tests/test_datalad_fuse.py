@@ -116,3 +116,29 @@ def test_annexed_readable_cached_by_key(
     assert neurodata_types(get_annexed_readable(nwb)) == expected
     assert neurodata_types(nwb) == expected
     assert server.ranged_requests == requests
+
+
+@pytest.mark.ai_generated
+def test_annexed_readable_remfile(
+    streamed_nwb: tuple[Path, RangeHTTPServer], simple2_nwb: Path
+) -> None:
+    """With datalad/datalad-fuse#131 and remfile, NWB files are read with remfile"""
+    pytest.importorskip("datalad_fuse.adapter")
+    pytest.importorskip("remfile")
+    from datalad_fuse.remfile import RemfileWrapper
+
+    nwb, server = streamed_nwb
+    r = get_annexed_readable(nwb)
+    assert r is not None
+    fp = r.open()
+    try:
+        # (wrapped to pause garbage collection while it is open)
+        assert isinstance(fp._fp, RemfileWrapper)  # type: ignore[attr-defined]
+        with h5py.File(fp, "r") as h5:
+            assert h5.attrs["nwb_version"]
+    finally:
+        fp.close()
+    assert server.ranged_requests > 0
+    assert get_neurodata_types.__wrapped__(r) == get_neurodata_types.__wrapped__(
+        simple2_nwb
+    )

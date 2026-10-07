@@ -28,10 +28,12 @@ DataLad and git-annex.
 from __future__ import annotations
 
 import atexit
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import cache
 import gc
+from itertools import chain
 import logging
 import os
 from pathlib import Path
@@ -51,11 +53,17 @@ def get_adapter() -> Any:
     root so that it serves files of any dataset, and closed at exit
     """
     # Optional dependency:
-    from datalad_fuse.fsspec import FsspecAdapter
+    try:
+        # datalad-fuse with pluggable backends (datalad/datalad-fuse#131):
+        # remfile for HDF5-based files (such as NWB) if installed, fsspec
+        # otherwise, as configured with datalad.fusefs.backends
+        from datalad_fuse.adapter import RemoteFilesystemAdapter as Adapter
+    except ImportError:
+        from datalad_fuse.fsspec import FsspecAdapter as Adapter
 
     # caching=False: do not keep the streamed blocks on disk, in the dataset.
     # The root and all paths passed to the adapter must be absolute.
-    adapter = FsspecAdapter(Path(os.path.abspath(os.sep)), caching=False)
+    adapter = Adapter(Path(os.path.abspath(os.sep)), caching=False)
     atexit.register(adapter.__exit__, None, None, None)
     return adapter
 
@@ -201,9 +209,12 @@ def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
         # Not a broken symbolic link
         return None
     try:
-        from datalad_fuse.fsspec import FileState
+        from datalad_fuse.adapter import FileState
     except ImportError:
-        return None
+        try:
+            from datalad_fuse.fsspec import FileState
+        except ImportError:
+            return None
     if not annex_initialized(filepath.parent):
         return None
     try:
@@ -215,7 +226,11 @@ def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
         return None
     if state is not FileState.NO_CONTENT or key is None or key.size is None:
         return None
-    url = next(dsap.get_urls(str(key)), None)
+    urls: Iterator[str] = dsap.get_urls(str(key))
+    if hasattr(dsap, "get_exporttree_urls"):
+        # Fallback to S3 exports of datalad/datalad-fuse#131
+        urls = chain(urls, dsap.get_exporttree_urls(relpath, key))
+    url = next(urls, None)
     if url is None:
         lgr.debug("%s: git-annex knows no URL for key %s", filepath, key)
         return None

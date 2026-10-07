@@ -122,6 +122,11 @@ Notes:
 
 - git-annex must be initialized in the clone, which ``datalad clone`` does
   (after ``git clone``, run ``git annex init``).
+- With the development version of datalad-fuse from
+  https://github.com/datalad/datalad-fuse/pull/131 and remfile_ installed
+  (``pip install remfile``), NWB and other HDF5-based files are read with
+  remfile, which is optimized for HDF5's access pattern, and content exported
+  to S3 without a URL registered in git-annex can be found too.
 - datalad-fuse does not use the HTTP proxy environment variables
   (``HTTPS_PROXY`` etc.), so the URLs must be reachable directly.
 - Some nwbinspector checks read data arrays (e.g., timestamps), so the amount
@@ -145,6 +150,7 @@ Notes:
   the file and folder names of the annexed files themselves.
 
 .. _datalad-fuse: https://github.com/datalad/datalad-fuse
+.. _remfile: https://github.com/flatironinstitute/remfile
 
 
 Development Options

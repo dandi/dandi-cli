@@ -76,6 +76,9 @@ jobs:
           - os: ubuntu-latest
             python: '3.12'
             mode: datalad
+          - os: ubuntu-latest
+            python: '3.12'
+            mode: datalad-dev
 
     steps:
     - name: Set up environment
@@ -129,6 +132,13 @@ jobs:
     - name: Install git-annex and datalad-fuse (for streaming annexed content)
       if: matrix.mode == 'datalad'
       run: pip install git-annex ".[datalad]"
+
+    # TODO: drop once datalad/datalad-fuse#131 is released
+    - name: Install git-annex, remfile and development datalad-fuse
+      if: matrix.mode == 'datalad-dev'
+      run: |
+        pip install git-annex remfile ".[datalad]" \
+            "datalad-fuse @ git+https://github.com/datalad/datalad-fuse@refs/pull/131/head"
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'
