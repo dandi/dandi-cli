@@ -142,8 +142,12 @@ jobs:
 
     - name: Run all tests except those involving obolibrary
       if: matrix.mode != 'dandi-api' && matrix.mode != 'obolibrary-only' && matrix.mode != 'lowest-deps'
+      # Start coverage before pytest, which loads dandi's pytest plugin (and
+      # thus imports most of dandi) before pytest-cov would start it
       run: |
-        python -m pytest -s -v -m "not obolibrary" --cov=dandi --cov-report=xml dandi
+        python -m coverage run -m pytest -s -v -m "not obolibrary" dandi
+        python -m coverage combine
+        python -m coverage xml
 
     - name: Run tests against minimum declared dependency versions
       if: matrix.mode == 'lowest-deps'
@@ -168,7 +172,9 @@ jobs:
       if: matrix.mode == 'dandi-api'
       run: |
         export DANDI_TESTS_AUDIT_CSV=/tmp/audit.csv
-        python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
+        python -m coverage run -m pytest -s -v --dandi-api dandi
+        python -m coverage combine
+        python -m coverage xml
         if [ ! -e /tmp/audit.csv ]
         then echo Audit file not created
              exit 1
