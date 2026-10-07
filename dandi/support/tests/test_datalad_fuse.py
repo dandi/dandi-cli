@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 from pathlib import Path
 import shutil
 
@@ -54,6 +55,26 @@ def test_annexed_readable(
     finally:
         fp.close()
     assert server.ranged_requests > 0
+
+
+@pytest.mark.ai_generated
+def test_annexed_readable_pauses_gc(
+    streamed_nwb: tuple[Path, RangeHTTPServer],
+) -> None:
+    # Automatic garbage collection is disabled while any streamed file is open
+    # (to avoid deadlocks with h5py's lock; see `_GCPausedFile`)
+    nwb, _ = streamed_nwb
+    r = get_annexed_readable(nwb)
+    assert r is not None
+    assert gc.isenabled()
+    with r.open() as fp:
+        assert not gc.isenabled()
+        with r.open() as fp2:
+            assert fp2.read(8) == b"\x89HDF\r\n\x1a\n"
+        assert not gc.isenabled()
+        fp.seek(1)
+        assert fp.read(3) == b"HDF"
+    assert gc.isenabled()
 
 
 @pytest.mark.ai_generated
