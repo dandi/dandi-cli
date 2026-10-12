@@ -2355,8 +2355,18 @@ class RemoteAsset(BaseRemoteAsset):
         self.set_raw_metadata(md)
 
     def delete(self) -> None:
-        """Delete the asset"""
-        self.client.delete(self.api_path)
+        """
+        Delete the asset using the server's bulk asset deletion endpoint.  To
+        delete multiple assets, use `RemoteDandiset.delete_assets()` instead.
+
+        :raises ValueError:
+            if the asset does not belong to the draft version of its Dandiset
+        :raises ~dandi.exceptions.AssetsNotFoundError:
+            if the asset no longer belongs to the version
+        """
+        RemoteDandiset(self.client, self.dandiset_id, self.version_id).delete_assets(
+            [self], skip_missing=False
+        )
 
 
 class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):

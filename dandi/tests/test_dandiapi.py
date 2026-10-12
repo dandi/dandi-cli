@@ -1358,3 +1358,26 @@ def test_delete_assets_already_deleted_integration(
         "subdir1/apple.txt",
         "subdir2/coconut.txt",
     ]
+
+
+@pytest.mark.ai_generated
+def test_remote_asset_delete_uses_bulk_endpoint(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
+    d = text_dandiset.dandiset
+    asset = d.get_asset_by_path("file.txt")
+    post_spy = mocker.spy(dandiapi.RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(dandiapi.RESTFullAPIClient, "delete")
+    asset.delete()
+    post_spy.assert_called_once_with(
+        mocker.ANY,
+        f"{d.version_api_path}assets/bulk-delete/",
+        json={"asset_ids": [asset.identifier]},
+    )
+    delete_spy.assert_not_called()
+    with pytest.raises(NotFoundError):
+        d.get_asset_by_path("file.txt")
+    # Deleting an asset that is already gone is still an error
+    with pytest.raises(AssetsNotFoundError) as excinfo:
+        asset.delete()
+    assert excinfo.value.missing_asset_ids == {asset.identifier}
