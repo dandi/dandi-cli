@@ -601,8 +601,17 @@ def upload(
                     f"Delete {pluralize(len(to_delete), 'asset')} on server?"
                 )
             ):
-                for asset in to_delete:
-                    asset.delete()
+                # Assets that have already disappeared from the server need no
+                # deletion, so skip them rather than failing
+                result = remote_dandiset.delete_assets(to_delete, skip_missing=True)
+                lgr.info(
+                    "Deleted %s on server", pluralize(len(result.deleted), "asset")
+                )
+                if result.absent:
+                    lgr.info(
+                        "Skipped %s already absent from server",
+                        pluralize(len(result.absent), "asset"),
+                    )
 
 
 def check_replace_asset(
