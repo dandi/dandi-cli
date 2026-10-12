@@ -188,6 +188,27 @@ def annex_fingerprint(source: Any) -> tuple[str, str] | None:
     return cast("tuple[str, str] | None", annex_key_fingerprint(source))
 
 
+#: Size of the blocks in which streamed content is read and cached
+STREAM_BLOCK_SIZE = 256 * 1024
+
+
+def _read_in_small_blocks(dsap: Any) -> None:
+    """
+    Make the files of a dataset adapter be read in cached blocks of
+    `STREAM_BLOCK_SIZE` bytes rather than with fsspec's default: h5py reads
+    many small pieces scattered over the file, and with the default (5 MiB of
+    read-ahead, discarded whenever a read jumps elsewhere) reading an NWB file
+    downloads about as much as the whole file each time it is opened
+    """
+    # Avoid heavy import when this module is imported:
+    from fsspec.implementations.http import HTTPFileSystem
+
+    fs = getattr(dsap, "fs", None)
+    if isinstance(fs, HTTPFileSystem):
+        fs.block_size = STREAM_BLOCK_SIZE
+        fs.cache_type = "blockcache"
+
+
 def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
     """
     Return an `AnnexedReadableFile` for streaming the content of the annexed
@@ -208,6 +229,7 @@ def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
         return None
     try:
         dsap, relpath = get_adapter().resolve_dataset(filepath)
+        _read_in_small_blocks(dsap)
         state, key = dsap.get_file_state(relpath)
     except Exception as e:
         # E.g., a repository without any commit
