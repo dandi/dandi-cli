@@ -471,6 +471,30 @@ def test_validate_stream_inspection_failure_not_cached(
 
 
 @pytest.mark.ai_generated
+def test_validate_jobs(
+    streamable_dandiset: tuple[Path, RangeHTTPServer], simple3_nwb: Path
+) -> None:
+    """Validating in parallel processes gives the same results, in order."""
+    ds, server = streamable_dandiset
+    for sub in ("sub-002", "sub-003"):
+        (ds / sub).mkdir()
+        shutil.copy(simple3_nwb, ds / sub / f"{sub}.nwb")
+    # In parallel first, so that the streamed content is read in a worker
+    # process rather than the results taken from the cache
+    parallel = list(
+        validate(ds, missing_file_content=MissingFileContent.stream, jobs=2)
+    )
+    assert server.ranged_requests > 0
+    serial = list(validate(ds, missing_file_content=MissingFileContent.stream))
+    assert any(r.origin.validator == Validator.nwbinspector for r in serial)
+
+    def summary(results: list[ValidationResult]) -> list[tuple]:
+        return [(r.id, r.path, r.origin.validator, r.message) for r in results]
+
+    assert summary(parallel) == summary(serial)
+
+
+@pytest.mark.ai_generated
 def test_validate_stream_not_streamable(tmp_path: Path) -> None:
     """stream policy emits an error for a broken symlink that cannot be streamed."""
     pytest.importorskip("datalad_fuse.fsspec")
