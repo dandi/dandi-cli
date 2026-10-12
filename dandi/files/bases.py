@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
+from functools import cache
 import os
 from pathlib import Path
 import re
 from threading import Lock
 import traceback
-from typing import IO, Any, Generic
+from typing import IO, Any, Generic, cast
 from xml.etree.ElementTree import fromstring
 
 import dandischema
@@ -34,6 +35,7 @@ from dandi.dandiapi import (
 )
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P, Readable
+from dandi.support.datalad_fuse import annex_fingerprint
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate._types import (
     ORIGIN_INTERNAL_DANDI,
@@ -636,56 +638,116 @@ class NWBAsset(LocalFileAsset):
             )
         return errors
 
-    def _inspect_nwbfile(self, **kwargs: Any) -> Iterator[Any]:
+    def _inspect_nwbfile(
+        self, config: dict | None = None, importance_threshold: Any = None
+    ) -> list[Any]:
         """
-        Yield the messages from inspecting the file with nwbinspector, reading
+        Return the messages from inspecting the file with nwbinspector, reading
         the content from `content_source` if it is set (in which case what
         `nwbinspector.inspect_nwbfile()` does for a local file is replicated
         here for the streamed content)
         """
         # Avoid heavy import by importing within function:
-        from nwbinspector import (
-            Importance,
-            InspectorMessage,
-            inspect_nwbfile,
-            inspect_nwbfile_object,
-        )
+        from importlib.metadata import version
 
-        if self.content_source is None:
-            yield from inspect_nwbfile(
-                nwbfile_path=self.filepath, skip_validate=True, **kwargs
-            )
-            return
+        from nwbinspector import Importance, InspectorMessage
 
-        # Avoid heavy import by importing within function:
-        import h5py
-        from pynwb import NWBHDF5IO
-
-        from dandi.pynwb_utils import open_readable
-
+        if importance_threshold is None:
+            importance_threshold = Importance.BEST_PRACTICE_SUGGESTION
+        source = self.content_source
         try:
-            with open_readable(self.content_source) as fp, h5py.File(
-                fp, "r"
-            ) as h5, NWBHDF5IO(file=h5, mode="r", load_namespaces=True) as io:
-                nwbfile = io.read()
-                for message in inspect_nwbfile_object(nwbfile_object=nwbfile, **kwargs):
-                    if message is not None:
-                        message.file_path = str(self.filepath)
-                        yield message
-        except Exception as e:
+            return _cached_inspect_nwbfile()(
+                source if source is not None else str(self.filepath),
+                str(self.filepath),
+                version("nwbinspector"),
+                config,
+                importance_threshold,
+            )
+        except _StreamedReadError as e:
             # Report the failure the same way inspect_nwbfile() does for a
             # local file that PyNWB cannot read
-            yield InspectorMessage(
-                message=traceback.format_exc(),
-                importance=Importance.ERROR,
-                check_function_name=(
-                    f"During io.read(), an error occurred: "
-                    f"{type(e).__module__}.{type(e).__name__}. "
-                    "This indicates that PyNWB was unable to read the file. "
-                    "See the traceback message for more details."
-                ),
-                file_path=str(self.filepath),
-            )
+            exc = e.__cause__
+            assert exc is not None
+            return [
+                InspectorMessage(
+                    message="".join(traceback.format_exception(exc)),
+                    importance=Importance.ERROR,
+                    check_function_name=(
+                        f"During io.read(), an error occurred: "
+                        f"{type(exc).__module__}.{type(exc).__name__}. "
+                        "This indicates that PyNWB was unable to read the file. "
+                        "See the traceback message for more details."
+                    ),
+                    file_path=str(self.filepath),
+                )
+            ]
+
+
+class _StreamedReadError(Exception):
+    """
+    Failure to read or inspect streamed content, which is not cached as a
+    result of `_inspect_nwbfile()`, as it might be transient (e.g., a network
+    error)
+    """
+
+
+def _inspect_nwbfile(
+    source: str | Readable,
+    filepath: str,
+    nwbinspector_version: str,
+    config: dict | None,
+    importance_threshold: Any,
+) -> list[Any]:
+    """
+    Inspect the NWB file with nwbinspector, reading its content from ``source``
+    (its path or a `Readable`), and return the messages, reporting
+    ``filepath`` as their file path
+
+    The results are cached under ``source`` (see `annex_fingerprint`) and the
+    version of nwbinspector (which the caller passes so that it is part of the
+    key).
+    """
+    # Avoid heavy import by importing within function:
+    from nwbinspector import inspect_nwbfile, inspect_nwbfile_object
+
+    del nwbinspector_version
+    kwargs = {"config": config, "importance_threshold": importance_threshold}
+    if isinstance(source, str):
+        return list(inspect_nwbfile(nwbfile_path=source, skip_validate=True, **kwargs))
+
+    # Avoid heavy import by importing within function:
+    import h5py
+    from pynwb import NWBHDF5IO
+
+    from dandi.pynwb_utils import open_readable
+
+    messages = []
+    try:
+        with open_readable(source) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
+            file=h5, mode="r", load_namespaces=True
+        ) as io:
+            nwbfile = io.read()
+            for message in inspect_nwbfile_object(nwbfile_object=nwbfile, **kwargs):
+                if message is not None:
+                    message.file_path = filepath
+                    messages.append(message)
+    except Exception as e:
+        raise _StreamedReadError() from e
+    return messages
+
+
+@cache
+def _cached_inspect_nwbfile() -> Callable[..., list[Any]]:
+    """`_inspect_nwbfile()` memoized in the validation cache"""
+    # Avoid heavy import by importing within function:
+    from dandi.pynwb_utils import validate_cache
+
+    return cast(
+        "Callable[..., list[Any]]",
+        validate_cache.memoize_path(custom_fingerprint=annex_fingerprint)(
+            _inspect_nwbfile
+        ),
+    )
 
 
 class VideoAsset(LocalFileAsset):
