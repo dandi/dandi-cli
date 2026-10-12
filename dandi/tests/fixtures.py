@@ -398,9 +398,10 @@ def make_git_annex_dandiset(dandiset: Path, files: dict[str, tuple[Path, str]]) 
 
 
 class RangeHTTPServer(ThreadingHTTPServer):
-    """An HTTP server counting the range requests it served"""
+    """An HTTP server counting the range requests and the bytes it served"""
 
     ranged_requests: int = 0
+    bytes_served: int = 0
 
 
 class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -449,6 +450,8 @@ class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
             )
         else:
             self._send_headers(HTTPStatus.OK, size)
+        assert isinstance(self.server, RangeHTTPServer)
+        self.server.bytes_served += end - start + 1
         with open(path, "rb") as fp:
             fp.seek(start)
             self.wfile.write(fp.read(end - start + 1))
