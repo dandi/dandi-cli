@@ -191,6 +191,79 @@ def annex_fingerprint(source: Any) -> tuple[str, str] | None:
 #: Size of the blocks in which streamed content is read and cached
 STREAM_BLOCK_SIZE = 256 * 1024
 
+#: Maximum number of blocks cached for each open streamed file
+STREAM_MAX_BLOCKS = 512
+
+#: Name of the fsspec cache defined by `_coalescing_block_cache()`
+COALESCING_BLOCK_CACHE = "dandi-coalescing-blockcache"
+
+
+@cache
+def _coalescing_block_cache() -> type:
+    """
+    Define (once, so as not to import fsspec when this module is imported) and
+    register with fsspec a cache that, like fsspec's ``"blockcache"``, keeps
+    the least recently used blocks of a file, but fetches the consecutive
+    blocks missing for a read with a single request rather than with one
+    request per block, which would make reading a large dataset take one
+    round trip per `STREAM_BLOCK_SIZE` bytes
+    """
+    from collections import OrderedDict
+
+    from fsspec.caching import BaseCache, register_cache
+
+    class CoalescingBlockCache(BaseCache):  # type: ignore[misc]
+        name = COALESCING_BLOCK_CACHE
+
+        def __init__(
+            self,
+            blocksize: int,
+            fetcher: Any,
+            size: int,
+            maxblocks: int = STREAM_MAX_BLOCKS,
+        ) -> None:
+            super().__init__(blocksize, fetcher, size)
+            self.maxblocks = maxblocks
+            self.blocks: OrderedDict[int, bytes] = OrderedDict()
+
+        def _fetch(self, start: int | None, end: int | None) -> bytes:
+            if start is None:
+                start = 0
+            if end is None or end > self.size:
+                end = self.size
+            if start >= end:
+                return b""
+            first = start // self.blocksize
+            last = (end - 1) // self.blocksize
+            numbers = range(first, last + 1)
+            missing = [n for n in numbers if n not in self.blocks]
+            # Fetch each run of consecutive missing blocks in one request
+            i = 0
+            while i < len(missing):
+                j = i
+                while j + 1 < len(missing) and missing[j + 1] == missing[j] + 1:
+                    j += 1
+                run_start = missing[i] * self.blocksize
+                run_end = min((missing[j] + 1) * self.blocksize, self.size)
+                data = self.fetcher(run_start, run_end)
+                for n in range(missing[i], missing[j] + 1):
+                    offset = (n - missing[i]) * self.blocksize
+                    self.blocks[n] = data[offset : offset + self.blocksize]
+                i = j + 1
+            out = []
+            for n in numbers:
+                self.blocks.move_to_end(n)
+                out.append(self.blocks[n])
+            # Evict the least recently used blocks, but not those just read
+            while len(self.blocks) > max(self.maxblocks, len(numbers)):
+                self.blocks.popitem(last=False)
+            data = b"".join(out)
+            offset = first * self.blocksize
+            return data[start - offset : end - offset]
+
+    register_cache(CoalescingBlockCache, clobber=True)
+    return CoalescingBlockCache
+
 
 def _read_in_small_blocks(dsap: Any) -> None:
     """
@@ -206,7 +279,8 @@ def _read_in_small_blocks(dsap: Any) -> None:
     fs = getattr(dsap, "fs", None)
     if isinstance(fs, HTTPFileSystem):
         fs.block_size = STREAM_BLOCK_SIZE
-        fs.cache_type = "blockcache"
+        _coalescing_block_cache()
+        fs.cache_type = COALESCING_BLOCK_CACHE
 
 
 def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
