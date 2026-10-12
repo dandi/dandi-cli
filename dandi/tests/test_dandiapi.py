@@ -1214,6 +1214,28 @@ def test_delete_assets_skips_missing(structured: bool) -> None:
 
 @pytest.mark.ai_generated
 @responses.activate
+def test_delete_assets_missing_not_logged_as_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    ids = [str(uuid4()) for _ in range(2)]
+    responses.add(
+        responses.POST,
+        BULK_DELETE_URL,
+        status=404,
+        json=_missing_assets_message([ids[0]]),
+    )
+    responses.add(responses.POST, BULK_DELETE_URL, status=204)
+    with caplog.at_level(logging.DEBUG, logger="dandi"):
+        _bulk_delete_dandiset().delete_assets(ids)
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert any(
+        r.levelno == logging.DEBUG and "Error 404" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+@pytest.mark.ai_generated
+@responses.activate
 def test_delete_assets_all_missing() -> None:
     ids = [str(uuid4()) for _ in range(2)]
     responses.add(
@@ -1373,6 +1395,7 @@ def test_remote_asset_delete_uses_bulk_endpoint(
         mocker.ANY,
         f"{d.version_api_path}assets/bulk-delete/",
         json={"asset_ids": [asset.identifier]},
+        quiet_statuses=[404],
     )
     delete_spy.assert_not_called()
     with pytest.raises(NotFoundError):

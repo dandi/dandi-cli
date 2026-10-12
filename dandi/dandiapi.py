@@ -179,6 +179,7 @@ class RESTFullAPIClient:
         json_resp: bool = True,
         retry_statuses: Sequence[int] = (),
         retry_if: Callable[[requests.Response], Any] | None = None,
+        quiet_statuses: Sequence[int] = (),
         **kwargs: Any,
     ) -> Any:
         """
@@ -224,6 +225,9 @@ class RESTFullAPIClient:
             retry in addition to `dandi.consts.RETRY_STATUSES`
         :param retry_if: an optional predicate applied to a failed HTTP
             response to test whether to retry
+        :param quiet_statuses: a sequence of HTTP error response status codes
+            that the caller expects and handles, which are logged at DEBUG
+            level rather than ERROR level
         """
 
         url = self.get_url(path)
@@ -316,8 +320,8 @@ class RESTFullAPIClient:
         # If success, return the json object. Otherwise throw an exception.
         if not result.ok:
             msg = f"Error {result.status_code} while sending {method} request to {url}"
-            if result.status_code == 409:
-                # Blob exists on server; log at DEBUG level
+            if result.status_code == 409 or result.status_code in quiet_statuses:
+                # 409: Blob exists on server; log at DEBUG level
                 lgr.debug("%s: %s", msg, result.text)
             else:
                 lgr.error("%s: %s", msg, result.text)
@@ -889,6 +893,7 @@ class DandiAPIClient(RESTFullAPIClient):
         json_resp: bool = True,
         retry_statuses: Sequence[int] = (),
         retry_if: Callable[[requests.Response], Any] | None = None,
+        quiet_statuses: Sequence[int] = (),
         **kwargs: Any,
     ) -> Any:
         """
@@ -911,6 +916,7 @@ class DandiAPIClient(RESTFullAPIClient):
             json_resp=json_resp,
             retry_statuses=retry_statuses,
             retry_if=retry_if,
+            quiet_statuses=quiet_statuses,
             **kwargs,
         )
 
@@ -1793,6 +1799,9 @@ class RemoteDandiset:
             self.client.post(
                 f"{self.version_api_path}assets/bulk-delete/",
                 json={"asset_ids": asset_ids},
+                # Missing assets are reported with a 404, which is handled
+                # below
+                quiet_statuses=[404],
             )
         except HTTP404Error as e:
             missing = _get_missing_asset_ids(e.response, asset_ids)
