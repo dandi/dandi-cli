@@ -110,8 +110,15 @@ def test_annexed_readable_reads_little(
     r = get_annexed_readable(tmp_path / "ds" / "sub-01" / "sub-01.nwb")
     assert r is not None
     assert get_neurodata_types.__wrapped__(r) == get_neurodata_types.__wrapped__(local)
-    # With fsspec's default 5 MiB read-ahead, most of the file was downloaded
-    assert 0 < server.bytes_served < size / 10
+    assert server.bytes_served > 0
+    with r.open() as fp:
+        remfile_used = type(fp._fp).__name__ == "RemfileWrapper"  # type: ignore[attr-defined]
+    if not remfile_used:
+        # With fsspec's default 5 MiB read-ahead, most of the file was
+        # downloaded.  (remfile, used for HDF5 files by
+        # datalad/datalad-fuse#131 when installed, reads ahead by itself, in
+        # chunks growing up to 100 MiB that datalad-fuse does not configure.)
+        assert server.bytes_served < size / 10
 
 
 @pytest.mark.ai_generated
