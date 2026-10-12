@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import gc
 from pathlib import Path
 import shutil
 
 from fscacher import PersistentCache
 import h5py
+from hdmf.backends.hdf5 import H5DataIO
+import numpy as np
+from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 import pytest
 
 from ..datalad_fuse import AnnexedReadableFile, annex_fingerprint, get_annexed_readable
@@ -75,6 +79,39 @@ def test_annexed_readable_pauses_gc(
         fp.seek(1)
         assert fp.read(3) == b"HDF"
     assert gc.isenabled()
+
+
+@pytest.mark.ai_generated
+def test_annexed_readable_reads_little(
+    range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
+) -> None:
+    """Reading an NWB file's structure downloads only a small part of it"""
+    pytest.importorskip("datalad_fuse.fsspec")
+    server, base_url = range_http_server
+    nwbfile = NWBFile("streamed", "id", datetime(2026, 1, 1, tzinfo=timezone.utc))
+    for i in range(4):
+        nwbfile.add_acquisition(
+            TimeSeries(
+                name=f"ts{i}",
+                data=H5DataIO(np.arange(1_000_000, dtype="f4"), chunks=(10_000,)),
+                unit="V",
+                rate=1.0,
+            )
+        )
+    local = tmp_path / "local.nwb"
+    with NWBHDF5IO(local, "w") as io:
+        io.write(nwbfile)
+    size = local.stat().st_size
+    assert size > 15_000_000
+    shutil.copy(local, tmp_path / "served" / "content.nwb")
+    make_git_annex_dandiset(
+        tmp_path / "ds", {"sub-01/sub-01.nwb": (local, f"{base_url}/content.nwb")}
+    )
+    r = get_annexed_readable(tmp_path / "ds" / "sub-01" / "sub-01.nwb")
+    assert r is not None
+    assert get_neurodata_types.__wrapped__(r) == get_neurodata_types.__wrapped__(local)
+    # With fsspec's default 5 MiB read-ahead, most of the file was downloaded
+    assert 0 < server.bytes_served < size / 10
 
 
 @pytest.mark.ai_generated
