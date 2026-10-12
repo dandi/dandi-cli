@@ -12,7 +12,12 @@ import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 import pytest
 
-from ..datalad_fuse import AnnexedReadableFile, annex_fingerprint, get_annexed_readable
+from ..datalad_fuse import (
+    AnnexedReadableFile,
+    _coalescing_block_cache,
+    annex_fingerprint,
+    get_annexed_readable,
+)
 from ...pynwb_utils import get_neurodata_types
 from ...tests.fixtures import RangeHTTPServer, make_git_annex_dandiset
 from ...tests.skip import mark
@@ -119,6 +124,62 @@ def test_annexed_readable_reads_little(
         # datalad/datalad-fuse#131 when installed, reads ahead by itself, in
         # chunks growing up to 100 MiB that datalad-fuse does not configure.)
         assert server.bytes_served < size / 10
+
+
+@pytest.mark.ai_generated
+def test_coalescing_block_cache() -> None:
+    pytest.importorskip("fsspec")
+    content = bytes(range(256)) * 40
+    requests: list[tuple[int, int]] = []
+
+    def fetcher(start: int, end: int) -> bytes:
+        requests.append((start, end))
+        return content[start:end]
+
+    c = _coalescing_block_cache()(100, fetcher, len(content), maxblocks=5)
+    # The blocks missing for a read are fetched with one request
+    assert c._fetch(150, 420) == content[150:420]
+    assert requests == [(100, 500)]
+    # Cached blocks are not fetched again, and runs of missing blocks around
+    # them are fetched with one request each
+    assert c._fetch(30, 720) == content[30:720]
+    assert requests[1:] == [(0, 100), (500, 800)]
+    # Reads at the end of the content, and beyond
+    assert c._fetch(10_190, 20_000) == content[10_190:]
+    assert requests[3:] == [(10_100, 10_240)]
+    assert c._fetch(20_000, 20_100) == b""
+    # Only the 5 most recently used blocks are kept (but at least the blocks
+    # of the last read)
+    assert sorted(c.blocks) == [5, 6, 7, 101, 102]
+    requests.clear()
+    assert c._fetch(0, 10_240) == content
+    assert requests == [(0, 500), (800, 10_100)]
+    assert len(c.blocks) == 103
+
+
+@pytest.mark.ai_generated
+def test_annexed_readable_large_read(
+    range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
+) -> None:
+    """A large read of streamed content is fetched with one request"""
+    pytest.importorskip("datalad_fuse.fsspec")
+    server, base_url = range_http_server
+    local = tmp_path / "local.bin"
+    content = np.random.default_rng(0).bytes(10_000_000)
+    local.write_bytes(content)
+    shutil.copy(local, tmp_path / "served" / "content.bin")
+    make_git_annex_dandiset(
+        tmp_path / "ds", {"sub-01/data.bin": (local, f"{base_url}/content.bin")}
+    )
+    r = get_annexed_readable(tmp_path / "ds" / "sub-01" / "data.bin")
+    assert r is not None
+    with r.open() as fp:
+        fp.seek(123)
+        assert fp.read(9_000_000) == content[123:9_000_123]
+        assert server.ranged_requests == 1
+        fp.seek(5_000_000)
+        assert fp.read(100) == content[5_000_000:5_000_100]
+        assert server.ranged_requests == 1
 
 
 @pytest.mark.ai_generated

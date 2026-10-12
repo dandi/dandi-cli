@@ -19,6 +19,7 @@ from .._types import (
 )
 from ... import __version__
 from ...consts import dandiset_metadata_file
+from ...files import NWBAsset, dandi_file
 from ...pynwb_utils import validate as pynwb_validate
 from ...support.datalad_fuse import get_annexed_readable
 from ...tests.fixtures import (
@@ -418,6 +419,79 @@ def test_validate_stream_cached_by_key(
     # Served from the cache, without the content being read again
     assert pynwb_validate(nwb, readable=get_annexed_readable(nwb)) == results
     assert server.ranged_requests == requests
+
+
+def _streamed_nwb_asset(ds: Path) -> NWBAsset:
+    nwb = ds / "sub-001" / "sub-001.nwb"
+    df = dandi_file(nwb, ds)
+    assert isinstance(df, NWBAsset)
+    df.content_source = get_annexed_readable(nwb)
+    assert df.content_source is not None
+    return df
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    os.environ.get("DANDI_CACHE") == "ignore", reason="the validation cache is disabled"
+)
+def test_validate_stream_inspection_cached_by_key(
+    streamable_dandiset: tuple[Path, RangeHTTPServer],
+) -> None:
+    """NWB Inspector results of a streamed file are cached under its annex key."""
+    ds, server = streamable_dandiset
+    results = _streamed_nwb_asset(ds).get_validation_errors()
+    inspector = [r for r in results if r.origin.validator == Validator.nwbinspector]
+    # simple3_nwb lacks a subject_id
+    assert inspector
+    requests = server.ranged_requests
+    # Served from the cache, without the content being read again
+    assert _streamed_nwb_asset(ds).get_validation_errors() == results
+    assert server.ranged_requests == requests
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_inspection_failure_not_cached(
+    streamable_dandiset: tuple[Path, RangeHTTPServer], tmp_path: Path
+) -> None:
+    """A failure to read streamed content for NWB Inspector is not cached."""
+    ds, _ = streamable_dandiset
+    served = tmp_path / "served" / "content.nwb"
+    content = served.read_bytes()
+    served.unlink()
+    df = _streamed_nwb_asset(ds)
+    [msg] = df._inspect_nwbfile()
+    assert msg.importance.name == "ERROR"
+    assert msg.check_function_name.startswith("During io.read()")
+    assert msg.file_path == str(df.filepath)
+    served.write_bytes(content)
+    assert all(
+        m.check_function_name != msg.check_function_name
+        for m in _streamed_nwb_asset(ds)._inspect_nwbfile()
+    )
+
+
+@pytest.mark.ai_generated
+def test_validate_jobs(
+    streamable_dandiset: tuple[Path, RangeHTTPServer], simple3_nwb: Path
+) -> None:
+    """Validating in parallel processes gives the same results, in order."""
+    ds, server = streamable_dandiset
+    for sub in ("sub-002", "sub-003"):
+        (ds / sub).mkdir()
+        shutil.copy(simple3_nwb, ds / sub / f"{sub}.nwb")
+    # In parallel first, so that the streamed content is read in a worker
+    # process rather than the results taken from the cache
+    parallel = list(
+        validate(ds, missing_file_content=MissingFileContent.stream, jobs=2)
+    )
+    assert server.ranged_requests > 0
+    serial = list(validate(ds, missing_file_content=MissingFileContent.stream))
+    assert any(r.origin.validator == Validator.nwbinspector for r in serial)
+
+    def summary(results: list[ValidationResult]) -> list[tuple]:
+        return [(r.id, r.path, r.origin.validator, r.message) for r in results]
+
+    assert summary(parallel) == summary(serial)
 
 
 @pytest.mark.ai_generated
