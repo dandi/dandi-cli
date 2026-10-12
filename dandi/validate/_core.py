@@ -9,11 +9,18 @@ This module provides validation functionality for dandisets, including:
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Iterator
+from concurrent.futures import Future, ProcessPoolExecutor
+from copy import copy
 from importlib.util import find_spec
+import logging
+from logging.handlers import QueueHandler, QueueListener
+from multiprocessing import get_context
 import os
 from pathlib import Path
 import shutil
+from typing import Any
 
 from ._types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
@@ -27,7 +34,7 @@ from ._types import (
     Validator,
 )
 from ..consts import dandiset_metadata_file
-from ..files import DandiFile, LocalFileAsset, find_dandi_files
+from ..files import DandiFile, LocalFileAsset, NWBAsset, find_dandi_files
 from ..support.datalad_fuse import AnnexedReadableFile, get_annexed_readable
 from ..utils import find_parent_directory_containing
 
@@ -173,6 +180,7 @@ def validate(
     devel_debug: bool = False,
     allow_any_path: bool = False,
     missing_file_content: MissingFileContent = MissingFileContent.error,
+    jobs: int = 1,
 ) -> Iterator[ValidationResult]:
     """Validate content
 
@@ -189,6 +197,11 @@ def validate(
       `dandi.support.datalad_fuse`) so that
       content-dependent validators run without the content being present
       locally.
+    jobs : int
+      Number of processes in which to validate NWB files (other than those of
+      BIDS datasets) in parallel; the results are yielded in the same order
+      as with 1 (the default), with which everything is validated in this
+      process.
 
     Yields
     ------
@@ -208,67 +221,192 @@ def validate(
     # The ids of the objects in `df_results` obtain through the `id()` built-in function
     df_result_ids: set[int] = set()
 
-    for p in paths:
-        p = os.path.abspath(p)
-        dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
-        if dandiset_path is None:
-            yield ValidationResult(
-                id="DANDI.NO_DANDISET_FOUND",
-                origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
-                severity=Severity.ERROR,
-                scope=Scope.DANDISET,
-                path=Path(p),
-                message="Path is not inside a Dandiset",
-            )
-        for df in find_dandi_files(
-            p, dandiset_path=dandiset_path, allow_all=allow_any_path
-        ):
-            # Handle broken symlinks (missing file content)
-            is_broken = _is_broken_symlink(df.filepath)
-            if is_broken:
-                if missing_file_content == MissingFileContent.stream:
-                    readable = _prepare_streaming(df)
-                    # A file whose content cannot be streamed gets an error
-                    # and is otherwise skipped
-                    skip_file = readable is None
-                else:
-                    readable = None
-                    skip_file = missing_file_content in (
-                        MissingFileContent.skip,
-                        MissingFileContent.error,
-                    )
-                r = _handle_missing_content(df, missing_file_content, readable)
-                r_id = id(r)
-                if r_id not in df_result_ids:
-                    df_results.append(r)
-                    df_result_ids.add(r_id)
-                    yield r
-                if skip_file:
-                    continue
-                # only-non-data & stream: fall through but pass the policy to
-                # the validators
+    def unique(results: list[ValidationResult]) -> Iterator[ValidationResult]:
+        for r in results:
+            r_id = id(r)
+            if r_id not in df_result_ids:
+                df_results.append(r)
+                df_result_ids.add(r_id)
+                yield r
 
-            for r in df.get_validation_errors(
-                schema_version=schema_version,
-                devel_debug=devel_debug,
-                missing_file_content=(missing_file_content if is_broken else None),
+    # The results of the files, in order, either computed or being computed
+    # in `pool`
+    pending: deque[list[ValidationResult] | Future[list[ValidationResult]]]
+    pending = deque()
+    pool = _ValidationPool(jobs) if jobs > 1 else None
+    try:
+        for p in paths:
+            p = os.path.abspath(p)
+            dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
+            if dandiset_path is None:
+                pending.append(
+                    [
+                        ValidationResult(
+                            id="DANDI.NO_DANDISET_FOUND",
+                            origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
+                            severity=Severity.ERROR,
+                            scope=Scope.DANDISET,
+                            path=Path(p),
+                            message="Path is not inside a Dandiset",
+                        )
+                    ]
+                )
+            for df in find_dandi_files(
+                p, dandiset_path=dandiset_path, allow_all=allow_any_path
             ):
-                # For broken-symlink files under only-non-data and stream,
-                # suppress BIDS errors that require reading file content (e.g.
-                # NIFTI_HEADER_UNREADABLE).  The validator ran in full so
-                # real files still get those checks.
-                if (
-                    is_broken
-                    and missing_file_content
-                    in (MissingFileContent.only_non_data, MissingFileContent.stream)
-                    and r.id in _BIDS_CONTENT_DEPENDENT_CODES
+                # Handle broken symlinks (missing file content)
+                is_broken = _is_broken_symlink(df.filepath)
+                if is_broken:
+                    if missing_file_content == MissingFileContent.stream:
+                        readable = _prepare_streaming(df)
+                        # A file whose content cannot be streamed gets an error
+                        # and is otherwise skipped
+                        skip_file = readable is None
+                    else:
+                        readable = None
+                        skip_file = missing_file_content in (
+                            MissingFileContent.skip,
+                            MissingFileContent.error,
+                        )
+                    pending.append(
+                        [_handle_missing_content(df, missing_file_content, readable)]
+                    )
+                    if skip_file:
+                        continue
+                    # only-non-data & stream: fall through but pass the policy
+                    # to the validators
+
+                file_policy = missing_file_content if is_broken else None
+                if pool is not None and type(df) is NWBAsset:
+                    pending.append(
+                        pool.submit(df, schema_version, devel_debug, file_policy)
+                    )
+                else:
+                    pending.append(
+                        _validate_file(df, schema_version, devel_debug, file_policy)
+                    )
+                # Yield what is ready, or wait (for the oldest file) if enough
+                # files are being validated
+                while pending and (
+                    isinstance(pending[0], list)
+                    or pending[0].done()
+                    or (pool is not None and len(pending) > 2 * jobs)
                 ):
-                    continue
-                r_id = id(r)
-                if r_id not in df_result_ids:
-                    df_results.append(r)
-                    df_result_ids.add(r_id)
-                    yield r
+                    head = pending.popleft()
+                    yield from unique(head if isinstance(head, list) else head.result())
+        while pending:
+            head = pending.popleft()
+            yield from unique(head if isinstance(head, list) else head.result())
+    finally:
+        if pool is not None:
+            pool.shutdown()
+
+
+def _validate_file(
+    df: DandiFile,
+    schema_version: str | None,
+    devel_debug: bool,
+    missing_file_content: MissingFileContent | None,
+) -> list[ValidationResult]:
+    """
+    Return the results of validating ``df``; ``missing_file_content`` is the
+    policy for its missing content, if it is missing
+    """
+    results = []
+    for r in df.get_validation_errors(
+        schema_version=schema_version,
+        devel_debug=devel_debug,
+        missing_file_content=missing_file_content,
+    ):
+        # For broken-symlink files under only-non-data and stream, suppress
+        # BIDS errors that require reading file content (e.g.
+        # NIFTI_HEADER_UNREADABLE).  The validator ran in full so real files
+        # still get those checks.
+        if (
+            missing_file_content
+            in (MissingFileContent.only_non_data, MissingFileContent.stream)
+            and r.id in _BIDS_CONTENT_DEPENDENT_CODES
+        ):
+            continue
+        results.append(r)
+    return results
+
+
+def _validate_file_in_worker(
+    df: LocalFileAsset,
+    schema_version: str | None,
+    devel_debug: bool,
+    missing_file_content: MissingFileContent | None,
+) -> list[ValidationResult]:
+    """`_validate_file()` in a worker process of a `_ValidationPool`"""
+    if missing_file_content == MissingFileContent.stream:
+        # The streamed content is opened in this process
+        _prepare_streaming(df)
+    return _validate_file(df, schema_version, devel_debug, missing_file_content)
+
+
+def _init_worker(log_queue: Any, levels: dict[str, int]) -> None:
+    """
+    Set up a worker process of a `_ValidationPool`: send the log records to
+    the parent process, and ignore the warnings that it ignores
+    """
+    # Avoid heavy import by importing within function:
+    from ..pynwb_utils import ignore_benign_pynwb_warnings
+
+    root = logging.getLogger()
+    root.handlers = [QueueHandler(log_queue)]
+    for name, level in levels.items():
+        logging.getLogger(name).setLevel(level)
+    ignore_benign_pynwb_warnings()
+
+
+class _ValidationPool:
+    """
+    Processes in which files are validated in parallel (h5py serializes all
+    reading of HDF5 files in a process), whose log records are handled by the
+    handlers of this process
+    """
+
+    def __init__(self, jobs: int) -> None:
+        # Not "fork": this process may have started threads (e.g., fsspec's
+        # for streaming content)
+        context = get_context("spawn")
+        self.log_queue = context.Queue()
+        self.listener = QueueListener(
+            self.log_queue, *logging.getLogger().handlers, respect_handler_level=True
+        )
+        self.listener.start()
+        levels = {name: logging.getLogger(name or None).level for name in ("", "dandi")}
+        self.executor = ProcessPoolExecutor(
+            max_workers=jobs,
+            mp_context=context,
+            initializer=_init_worker,
+            initargs=(self.log_queue, levels),
+        )
+
+    def submit(
+        self,
+        df: LocalFileAsset,
+        schema_version: str | None,
+        devel_debug: bool,
+        missing_file_content: MissingFileContent | None,
+    ) -> Future[list[ValidationResult]]:
+        # The source of streamed content cannot be sent to another process;
+        # it is set up again there
+        df = copy(df)
+        df.content_source = None
+        return self.executor.submit(
+            _validate_file_in_worker,
+            df,
+            schema_version,
+            devel_debug,
+            missing_file_content,
+        )
+
+    def shutdown(self) -> None:
+        self.executor.shutdown(cancel_futures=True)
+        self.listener.stop()
+        self.log_queue.close()
 
 
 def _check_streaming_requirements() -> None:
