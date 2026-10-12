@@ -343,9 +343,8 @@ class RemoteReadableAsset(Readable):
 
     def open(self) -> IO[bytes]:
         # Optional dependency:
-        import fsspec
-
         from aiohttp import ClientTimeout
+        import fsspec
 
         # We need to call open() on the return value of fsspec.open() because
         # otherwise the filehandle will only be opened when used to enter a

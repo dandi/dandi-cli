@@ -105,7 +105,8 @@ extras = [
 test = [
     "aiohttp >= 3.8.4, < 3.14",  # See https://github.com/kevin1024/vcrpy/issues/995
     "anys ~= 0.3",
-    "coverage >= 7.0.0",
+    # 7.10.6 has fixes for `patch = subprocess` (see tox.ini)
+    "coverage >= 7.10.6",
     # 4.10.0.84 first built for numpy 2.x ABI (older wheels segfault under numpy 2)
     # Workaround for VideoWriter regression in 4.13.0.90 on Intel macOS
     "opencv-python >= 4.10.0.84, < 4.13 ; sys_platform == 'darwin' and platform_machine != 'arm64'",

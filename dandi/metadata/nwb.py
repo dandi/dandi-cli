@@ -31,7 +31,7 @@ lgr = get_logger()
 @metadata_cache.memoize_path
 def get_metadata(
     path: str | Path | Readable, digest: Digest | None = None
-) -> dict | None:
+) -> dict[str, Any]:
     """
     Get "flatdata" from a .nwb file
 
