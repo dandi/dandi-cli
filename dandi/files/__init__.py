@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
-import os.path
 from pathlib import Path
 
 from dandi import get_logger
@@ -42,6 +41,7 @@ from .bids import (
     GenericBIDSAsset,
     NWBBIDSAsset,
     ZarrBIDSAsset,
+    is_bids_dataset_description,
 )
 from .zarr import LocalZarrEntry, ZarrAsset, ZarrStat
 
@@ -123,7 +123,7 @@ def find_dandi_files(
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
             elif dandiset_path is not None and p == Path(dandiset_path):
-                if os.path.lexists(p / BIDS_DATASET_DESCRIPTION):
+                if is_bids_dataset_description(p / BIDS_DATASET_DESCRIPTION):
                     bids = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                     assert isinstance(bids, BIDSDatasetDescriptionAsset)
                     bidsdd = bids
@@ -137,7 +137,9 @@ def find_dandi_files(
                     # (ie., it's not a Zarr or any other directory asset type
                     # we may add later), so traverse through it as a regular
                     # directory.
-                    if os.path.lexists(p / BIDS_DATASET_DESCRIPTION) and not any(
+                    if is_bids_dataset_description(
+                        p / BIDS_DATASET_DESCRIPTION
+                    ) and not any(
                         i in p.parents for i in bids_roots
                     ):  # No nested BIDS
                         bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
@@ -218,7 +220,9 @@ def find_bids_dataset_description(
     for d in (dirpath, *dirpath.parents):
         bids_marker = d / BIDS_DATASET_DESCRIPTION
         dandi_end = d / dandiset_metadata_file
-        if bids_marker.is_file() or bids_marker.is_symlink():
+        if (
+            bids_marker.is_file() or bids_marker.is_symlink()
+        ) and is_bids_dataset_description(bids_marker):
             f = dandi_file(bids_marker, dandiset_path)
             assert isinstance(f, BIDSDatasetDescriptionAsset)
             topmost = f

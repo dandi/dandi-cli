@@ -23,6 +23,7 @@ from dandi.validate._types import (
     Validator,
 )
 
+from ._bids_version import get_bids_version
 from ._models import BidsValidationResult, Issue
 from ._models import Severity as BidsSeverity
 
@@ -342,10 +343,10 @@ def _harmonize(
         validator=Validator.bids_validator_deno,
         validator_version=get_version(),
         standard=Standard.BIDS,
-        # `BIDSVersion` is unavailable through the BIDS validator; see
+        # The BIDS validator reports only the schema version; see
         #   https://github.com/bids-standard/bids-validator/issues/10#issuecomment-2848121538
         #   for details
-        # standard_version=<BIDS Version>,
+        standard_version=get_bids_version(schema_version),
         standard_schema_version=schema_version,
     )
 

@@ -22,6 +22,7 @@ from .bids import (
     GenericBIDSAsset,
     NWBBIDSAsset,
     ZarrBIDSAsset,
+    is_bids_dataset_description,
 )
 from .zarr import ZarrAsset
 
@@ -46,7 +47,9 @@ class DandiFileType(Enum):
             raise UnknownAssetError(
                 f"Directory has unrecognized suffix {path.suffix!r}"
             )
-        elif path.name == BIDS_DATASET_DESCRIPTION:
+        elif path.name == BIDS_DATASET_DESCRIPTION and is_bids_dataset_description(
+            path
+        ):
             return DandiFileType.BIDS_DATASET_DESCRIPTION
         elif path.suffix == ".nwb":
             return DandiFileType.NWB
