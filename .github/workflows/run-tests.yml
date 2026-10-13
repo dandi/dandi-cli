@@ -129,16 +129,20 @@ jobs:
             git+https://github.com/hdmf-dev/hdmf \
             git+https://github.com/hdmf-dev/hdmf-zarr
 
-    - name: Install git-annex and datalad-fuse (for streaming annexed content)
-      if: matrix.mode == 'datalad'
-      run: pip install git-annex ".[datalad]"
-
-    # TODO: drop once datalad/datalad-fuse#131 is released
-    - name: Install git-annex, remfile and development datalad-fuse
-      if: matrix.mode == 'datalad-dev'
+    # TODO: use releases once the changes of these branches are released
+    - name: Install git-annex and development datalad-fuse and h5py (for streaming annexed content)
+      if: startsWith(matrix.mode, 'datalad')
       run: |
-        pip install git-annex remfile ".[datalad]" \
-            "datalad-fuse @ git+https://github.com/datalad/datalad-fuse@refs/pull/131/head"
+        sudo apt-get update
+        sudo apt-get install -y libhdf5-dev
+        export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial
+        pip install git-annex ".[datalad]" \
+            "datalad-fuse @ git+https://github.com/CodyCBakerPhD/datalad-fuse@stream-random-access" \
+            "h5py @ git+https://github.com/CodyCBakerPhD/h5py@defer-dealloc-when-locked"
+
+    - name: Install remfile
+      if: matrix.mode == 'datalad-dev'
+      run: pip install remfile
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'

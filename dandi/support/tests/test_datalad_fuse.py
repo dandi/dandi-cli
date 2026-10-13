@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import gc
 from pathlib import Path
 import shutil
 
@@ -12,12 +11,7 @@ import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 import pytest
 
-from ..datalad_fuse import (
-    AnnexedReadableFile,
-    _coalescing_block_cache,
-    annex_fingerprint,
-    get_annexed_readable,
-)
+from ..datalad_fuse import AnnexedReadableFile, annex_fingerprint, get_annexed_readable
 from ...pynwb_utils import get_neurodata_types
 from ...tests.fixtures import RangeHTTPServer, make_git_annex_dandiset
 from ...tests.skip import mark
@@ -33,7 +27,7 @@ def streamed_nwb(
     An annexed copy of ``simple2_nwb`` in a git-annex repository, whose content
     is not present but registered at a URL of the HTTP server
     """
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("datalad_fuse.caching")
     server, base_url = range_http_server
     shutil.copy(simple2_nwb, tmp_path / "served" / "content.nwb")
     make_git_annex_dandiset(
@@ -67,31 +61,11 @@ def test_annexed_readable(
 
 
 @pytest.mark.ai_generated
-def test_annexed_readable_pauses_gc(
-    streamed_nwb: tuple[Path, RangeHTTPServer],
-) -> None:
-    # Automatic garbage collection is disabled while any streamed file is open
-    # (to avoid deadlocks with h5py's lock; see `_GCPausedFile`)
-    nwb, _ = streamed_nwb
-    r = get_annexed_readable(nwb)
-    assert r is not None
-    assert gc.isenabled()
-    with r.open() as fp:
-        assert not gc.isenabled()
-        with r.open() as fp2:
-            assert fp2.read(8) == b"\x89HDF\r\n\x1a\n"
-        assert not gc.isenabled()
-        fp.seek(1)
-        assert fp.read(3) == b"HDF"
-    assert gc.isenabled()
-
-
-@pytest.mark.ai_generated
 def test_annexed_readable_reads_little(
     range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
 ) -> None:
     """Reading an NWB file's structure downloads only a small part of it"""
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("datalad_fuse.caching")
     server, base_url = range_http_server
     nwbfile = NWBFile("streamed", "id", datetime(2026, 1, 1, tzinfo=timezone.utc))
     for i in range(4):
@@ -117,7 +91,7 @@ def test_annexed_readable_reads_little(
     assert get_neurodata_types.__wrapped__(r) == get_neurodata_types.__wrapped__(local)
     assert server.bytes_served > 0
     with r.open() as fp:
-        remfile_used = type(fp._fp).__name__ == "RemfileWrapper"  # type: ignore[attr-defined]
+        remfile_used = type(fp).__name__ == "RemfileWrapper"
     if not remfile_used:
         # With fsspec's default 5 MiB read-ahead, most of the file was
         # downloaded.  (remfile, used for HDF5 files by
@@ -127,42 +101,11 @@ def test_annexed_readable_reads_little(
 
 
 @pytest.mark.ai_generated
-def test_coalescing_block_cache() -> None:
-    pytest.importorskip("fsspec")
-    content = bytes(range(256)) * 40
-    requests: list[tuple[int, int]] = []
-
-    def fetcher(start: int, end: int) -> bytes:
-        requests.append((start, end))
-        return content[start:end]
-
-    c = _coalescing_block_cache()(100, fetcher, len(content), maxblocks=5)
-    # The blocks missing for a read are fetched with one request
-    assert c._fetch(150, 420) == content[150:420]
-    assert requests == [(100, 500)]
-    # Cached blocks are not fetched again, and runs of missing blocks around
-    # them are fetched with one request each
-    assert c._fetch(30, 720) == content[30:720]
-    assert requests[1:] == [(0, 100), (500, 800)]
-    # Reads at the end of the content, and beyond
-    assert c._fetch(10_190, 20_000) == content[10_190:]
-    assert requests[3:] == [(10_100, 10_240)]
-    assert c._fetch(20_000, 20_100) == b""
-    # Only the 5 most recently used blocks are kept (but at least the blocks
-    # of the last read)
-    assert sorted(c.blocks) == [5, 6, 7, 101, 102]
-    requests.clear()
-    assert c._fetch(0, 10_240) == content
-    assert requests == [(0, 500), (800, 10_100)]
-    assert len(c.blocks) == 103
-
-
-@pytest.mark.ai_generated
 def test_annexed_readable_large_read(
     range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
 ) -> None:
     """A large read of streamed content is fetched with one request"""
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("datalad_fuse.caching")
     server, base_url = range_http_server
     local = tmp_path / "local.bin"
     content = np.random.default_rng(0).bytes(10_000_000)
@@ -228,7 +171,7 @@ def test_annexed_readable_remfile(
     streamed_nwb: tuple[Path, RangeHTTPServer], simple2_nwb: Path
 ) -> None:
     """With datalad/datalad-fuse#131 and remfile, NWB files are read with remfile"""
-    pytest.importorskip("datalad_fuse.adapter")
+    pytest.importorskip("datalad_fuse.caching")
     pytest.importorskip("remfile")
     from datalad_fuse.remfile import RemfileWrapper
 
@@ -237,8 +180,7 @@ def test_annexed_readable_remfile(
     assert r is not None
     fp = r.open()
     try:
-        # (wrapped to pause garbage collection while it is open)
-        assert isinstance(fp._fp, RemfileWrapper)  # type: ignore[attr-defined]
+        assert isinstance(fp, RemfileWrapper)
         with h5py.File(fp, "r") as h5:
             assert h5.attrs["nwb_version"]
     finally:
