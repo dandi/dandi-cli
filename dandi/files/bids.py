@@ -3,15 +3,30 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import cached_property
+import json
 from pathlib import Path
 from threading import Lock
+from typing import Any
 import weakref
 
-from dandischema.models import BareAsset
+from dandischema.models import (
+    BareAsset,
+    StandardsType,
+    bids_standard,
+    ome_ngff_standard,
+)
 
+import dandi
 from dandi.bids_validator_deno import bids_validate
 
-from .bases import GenericAsset, LocalFileAsset, NWBAsset
+from .bases import (
+    _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    GenericAsset,
+    LocalFileAsset,
+    NWBAsset,
+    _add_data_standard,
+)
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
@@ -24,8 +39,44 @@ from ..validate._types import (
     ValidationResult,
 )
 
+try:
+    from dandischema.models import hed_standard  # type: ignore[attr-defined]
+except ImportError:
+    # TODO: import together with the above once min dandischema >= 0.15.0
+    hed_standard = {}  # type: ignore[no-redef]
+
+lgr = dandi.get_logger()
+
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
+
+
+def _get_hed_data_standard(hed_version: Any) -> StandardsType:
+    """HED ``StandardsType`` for ``HEDVersion`` of ``dataset_description.json``
+
+    ``HEDVersion`` is a string or a list of strings, each either
+    ``[prefix:]version`` for the HED standard schema or
+    ``[prefix:]library_version`` for a library schema (e.g. ``"8.2.0"``,
+    ``"sc:score_1.0.0"``, ``"lang_1.1.0"``).  Library schemas are recorded as
+    ``extensions``.  The dataset-specific namespace prefix is ignored.
+    """
+    kwargs: dict[str, Any] = dict(hed_standard)
+    extensions: list[StandardsType] = []
+    for entry in hed_version if isinstance(hed_version, list) else [hed_version]:
+        if not isinstance(entry, str):
+            continue
+        library, _, version = entry.rpartition(":")[2].rpartition("_")
+        if not version:
+            continue
+        if library:
+            ext = StandardsType(name=library, version=version)  # type: ignore[call-arg]
+            if ext not in extensions:
+                extensions.append(ext)
+        else:
+            kwargs.setdefault("version", version)
+    if extensions:
+        kwargs["extensions"] = extensions
+    return StandardsType(**kwargs)
 
 
 @dataclass
@@ -194,7 +245,41 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         assert self._dataset_errors is not None
         return self._dataset_errors.copy()
 
-    # get_metadata(): inherit use of default metadata from LocalFileAsset
+    @cached_property
+    def data_standards(self) -> tuple[StandardsType, StandardsType | None]:
+        """
+        BIDS standard with ``BIDSVersion``, and HED standard if ``HEDVersion``
+        is declared, as read from the :file:`dataset_description.json` file
+
+        :meta private:
+        """
+        try:
+            with open(self.filepath, encoding="utf-8") as f:
+                desc = json.load(f)
+            if not isinstance(desc, dict):
+                raise ValueError(f"expected a JSON object, got {type(desc).__name__}")
+        except (OSError, ValueError) as e:
+            lgr.warning("Failed to read %s: %s", self.filepath, e)
+            desc = {}
+        bids = dict(bids_standard)
+        if (bids_version := desc.get("BIDSVersion")) is not None:
+            bids["version"] = str(bids_version)
+        hed = None
+        if hed_version := desc.get("HEDVersion"):
+            hed = _get_hed_data_standard(hed_version)
+        return StandardsType(**bids), hed
+
+    def get_metadata(
+        self,
+        digest: Digest | None = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = super().get_metadata(digest=digest, ignore_errors=ignore_errors)
+        if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+            for standard in self.data_standards:
+                if standard is not None:
+                    _add_data_standard(metadata, standard)
+        return metadata
 
 
 @dataclass
@@ -264,7 +349,13 @@ class BIDSAsset(LocalFileAsset):
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
         metadata.path = self.path
+        self._add_bids_data_standard(metadata)
         return metadata
+
+    def _add_bids_data_standard(self, metadata: BareAsset) -> None:
+        if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+            bids, _ = self.bids_dataset_description.data_standards
+            _add_data_standard(metadata, bids)
 
     def get_validation_bids_version(self) -> str | None:
         return self.bids_dataset_description.bids_version
@@ -297,12 +388,15 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
     ) -> BareAsset:
         bids_metadata = self.get_bids_metadata(digest)
         nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
-        return BareAsset(
+        metadata = BareAsset(
             **{
                 **bids_metadata.model_dump(),
                 **nwb_metadata.model_dump(exclude_none=True),
             }
         )
+        # dataStandard of NWB metadata overrode the one from BIDS metadata
+        self._add_bids_data_standard(metadata)
+        return metadata
 
 
 class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
@@ -332,6 +426,9 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
     ) -> BareAsset:
         metadata = self.get_bids_metadata(digest)
         metadata.encodingFormat = ZARR_MIME_TYPE
+        self._add_bids_data_standard(metadata)
+        if self.path.endswith(".ome.zarr"):
+            _add_data_standard(metadata, StandardsType(**ome_ngff_standard))
         return metadata
 
 
