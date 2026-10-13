@@ -43,8 +43,9 @@ from semantic_version import Version
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
-from ..consts import metadata_nwb_subject_fields
+from ..consts import dandiset_metadata_file, metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
+from ..files import NWBBIDSAsset, dandi_file, find_bids_dataset_description
 from ..metadata import nwb as metadata_nwb
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
@@ -147,6 +148,36 @@ def test_bids_nwb_metadata_no_recursion(
     assert spy.call_count == 0
     assert metadata["subject_id"] == "01"
     assert metadata["sex"] == "U"
+
+
+@pytest.mark.ai_generated
+def test_nwb_bids_asset_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # The metadata of an NWBBIDSAsset merges its BIDS and NWB metadata,
+    # extracting the latter (which itself includes BIDS metadata) only once
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    (dpath / dandiset_metadata_file).write_text("identifier: '000027'\n")
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    # (The asset refers to it only weakly)
+    bids_dataset_description = find_bids_dataset_description(file_path)
+    df = dandi_file(file_path, dpath, bids_dataset_description=bids_dataset_description)
+    assert isinstance(df, NWBBIDSAsset)
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = df.get_metadata(digest=DUMMY_DANDI_ETAG, ignore_errors=False)
+    assert spy.call_count == 1
+    assert metadata.wasAttributedTo is not None
+    participant = metadata.wasAttributedTo[0]
+    assert participant.identifier == "01"
+    assert participant.sex is not None
+    assert participant.sex.name == "Unknown"
 
 
 @pytest.mark.parametrize(

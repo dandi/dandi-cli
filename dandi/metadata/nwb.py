@@ -69,10 +69,9 @@ def get_metadata(
             assert isinstance(df, bids.BIDSAsset)
             if not digest:
                 digest = DUMMY_DANDI_ETAG
-            # Only the BIDS metadata: `df` is an `NWBBIDSAsset`, whose own
-            # `get_metadata()` would extract the NWB metadata by calling this
-            # function again, recursing until `RecursionError`
-            path_metadata = bids.BIDSAsset.get_metadata(df, digest=digest)
+            # Not `df.get_metadata()`, which for an NWB file would extract
+            # its NWB metadata, i.e., call this function again
+            path_metadata = df.get_bids_metadata(digest=digest)
             meta["bids_version"] = df.get_validation_bids_version()
             # there might be a more elegant way to do this:
             if path_metadata.wasAttributedTo:
