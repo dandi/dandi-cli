@@ -4,10 +4,13 @@ import json
 from operator import attrgetter
 import os
 from pathlib import Path
+import shutil
 import subprocess
+from typing import Any
 from unittest.mock import ANY
 
-from dandischema.models import get_schema_version
+from dandischema.models import BareAsset, get_schema_version
+import h5py
 import numpy as np
 import pytest
 import zarr
@@ -24,6 +27,7 @@ from ..files import (
     GenericAsset,
     GenericBIDSAsset,
     ImageAsset,
+    LocalAsset,
     NWBAsset,
     NWBBIDSAsset,
     VideoAsset,
@@ -33,6 +37,9 @@ from ..files import (
     find_dandi_files,
 )
 from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
+from ..metadata.core import get_default_metadata
+from ..misctypes import DUMMY_DANDI_ETAG
+from ..pynwb_utils import get_nwb_version
 
 lgr = get_logger()
 
@@ -650,88 +657,194 @@ def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> Non
     assert result_ids == expected_result_ids
 
 
+def _data_standards(metadata: BareAsset) -> dict[str, Any]:
+    # TODO: use metadata.dataStandard directly, and type the result as
+    # dict[str, StandardsType], once min dandischema >= 0.15.0
+    return {s.name: s for s in getattr(metadata, "dataStandard", None) or []}
+
+
 @pytest.mark.ai_generated
-class TestBIDSDatasetDescriptionDataStandard:
-    """Tests for per-asset dataStandard population from dataset_description.json"""
+@pytest.mark.skipif(
+    not _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    reason="dandischema too old, no dataStandard on BareAsset",
+)
+class TestDataStandard:
+    """Tests for per-asset dataStandard population"""
+
+    BIDS = "Brain Imaging Data Structure (BIDS)"
+    HED = "Hierarchical Event Descriptors (HED)"
+    NWB = "Neurodata Without Borders (NWB)"
+    OME_NGFF = "OME/NGFF Standard"
 
     @staticmethod
-    def _make_bids_dd(tmp_path: Path, content: dict) -> BIDSDatasetDescriptionAsset:
+    def _bids_dd_metadata(tmp_path: Path, content: str) -> BareAsset:
         dd_path = tmp_path / "dataset_description.json"
-        dd_path.write_text(json.dumps(content))
+        dd_path.write_text(content)
         return BIDSDatasetDescriptionAsset(
             filepath=dd_path,
             path="dataset_description.json",
             dandiset_path=tmp_path,
+        ).get_metadata()
+
+    @pytest.mark.parametrize(
+        "description, bids_version, hed_version, hed_extensions",
+        [
+            ({"BIDSVersion": "1.9.0"}, "1.9.0", None, None),
+            ({}, None, None, None),
+            # non-string values must not cause a crash
+            ({"BIDSVersion": 1.8}, "1.8", None, None),
+            ({"BIDSVersion": "1.9.0", "HEDVersion": "8.2.0"}, "1.9.0", "8.2.0", None),
+            ({"BIDSVersion": "1.9.0", "HEDVersion": []}, "1.9.0", None, None),
+            # library schemas, with and without namespace prefix
+            (
+                {
+                    "BIDSVersion": "1.9.0",
+                    "HEDVersion": ["8.2.0", "sc:score_1.0.0", "lang_1.1.0"],
+                },
+                "1.9.0",
+                "8.2.0",
+                {"score": "1.0.0", "lang": "1.1.0"},
+            ),
+            # partnered library schema without explicit standard schema
+            (
+                {"BIDSVersion": "1.10.0", "HEDVersion": "score_2.1.0"},
+                "1.10.0",
+                None,
+                {"score": "2.1.0"},
+            ),
+            # prefixed standard schema
+            (
+                {"BIDSVersion": "1.9.0", "HEDVersion": ["ts:8.3.0"]},
+                "1.9.0",
+                "8.3.0",
+                None,
+            ),
+            # non-string entries are ignored
+            (
+                {"BIDSVersion": "1.9.0", "HEDVersion": [{"8.2.0": 1}, "8.2.0"]},
+                "1.9.0",
+                "8.2.0",
+                None,
+            ),
+        ],
+    )
+    def test_bids_dataset_description(
+        self,
+        tmp_path: Path,
+        description: dict,
+        bids_version: str | None,
+        hed_version: str | None,
+        hed_extensions: dict[str, str] | None,
+    ) -> None:
+        standards = _data_standards(
+            self._bids_dd_metadata(
+                tmp_path, json.dumps({"Name": "Test", **description})
+            )
         )
+        assert standards[self.BIDS].version == bids_version
+        if "HEDVersion" in description and description["HEDVersion"]:
+            assert set(standards) == {self.BIDS, self.HED}
+            hed = standards[self.HED]
+            assert hed.version == hed_version
+            if hed_extensions is None:
+                assert hed.extensions is None
+            else:
+                assert hed.extensions is not None
+                assert {e.name: e.version for e in hed.extensions} == hed_extensions
+        else:
+            assert set(standards) == {self.BIDS}
 
-    @staticmethod
-    def _standard_names(metadata):  # type: ignore[no-untyped-def]
-        if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
-            pytest.skip("dandischema too old, no dataStandard on BareAsset")
-        return [s.name for s in (metadata.dataStandard or [])]
+    @pytest.mark.parametrize("content", ["{not json", "[]"])
+    def test_bids_dataset_description_invalid(
+        self, tmp_path: Path, content: str
+    ) -> None:
+        standards = _data_standards(self._bids_dd_metadata(tmp_path, content))
+        assert set(standards) == {self.BIDS}
+        assert standards[self.BIDS].version is None
 
-    def test_bids_always_set(self, tmp_path: Path) -> None:
-        asset = self._make_bids_dd(
-            tmp_path,
-            {"Name": "Test", "BIDSVersion": "1.9.0"},
+    def test_bids_dataset_assets(
+        self, simple1_nwb: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """All assets in a BIDS dataset declare BIDS, dataset_description.json
+        also declares HED"""
+        # Extraction of NWB metadata within a BIDS dataset is not needed here
+        # (and recurses via NWBBIDSAsset.get_metadata() until RecursionError)
+        monkeypatch.setattr(
+            "dandi.metadata.nwb.nwb2asset",
+            lambda path, digest=None, **_: get_default_metadata(path, digest=digest),
         )
-        names = self._standard_names(asset.get_metadata())
-        assert "Brain Imaging Data Structure (BIDS)" in names
-
-    def test_hed_detected_when_hedversion_present(self, tmp_path: Path) -> None:
-        asset = self._make_bids_dd(
-            tmp_path,
-            {"Name": "Test", "BIDSVersion": "1.9.0", "HEDVersion": "8.2.0"},
+        (tmp_path / "dataset_description.json").write_text(
+            json.dumps({"Name": "Test", "BIDSVersion": "1.9.0", "HEDVersion": "8.2.0"})
         )
-        names = self._standard_names(asset.get_metadata())
-        assert "Hierarchical Event Descriptors (HED)" in names
-        assert "Brain Imaging Data Structure (BIDS)" in names
-
-    def test_hed_not_detected_when_hedversion_absent(self, tmp_path: Path) -> None:
-        asset = self._make_bids_dd(
-            tmp_path,
-            {"Name": "Test", "BIDSVersion": "1.9.0"},
+        (tmp_path / "participants.tsv").write_text("participant_id\nsub-01\n")
+        session = tmp_path / "sub-01" / "ses-1"
+        nwb_path = session / "ecephys" / "sub-01_ses-1_ecephys.nwb"
+        nwb_path.parent.mkdir(parents=True)
+        shutil.copy(simple1_nwb, nwb_path)
+        zarr.save(
+            session / "micr" / "sub-01_ses-1_sample-A_SPIM.ome.zarr", np.arange(10)
         )
-        names = self._standard_names(asset.get_metadata())
-        assert "Hierarchical Event Descriptors (HED)" not in names
-
-    def test_hed_detected_with_list_hedversion(self, tmp_path: Path) -> None:
-        """HEDVersion can be a list of strings per BIDS spec."""
-        asset = self._make_bids_dd(
-            tmp_path,
-            {
-                "Name": "Test",
-                "BIDSVersion": "1.9.0",
-                "HEDVersion": ["8.2.0", "sc:1.0.0"],
+        files = {
+            f.path: f
+            for f in find_dandi_files(tmp_path, dandiset_path=tmp_path)
+            if isinstance(f, LocalAsset)
+        }
+        expected = {
+            "dataset_description.json": {self.BIDS: "1.9.0", self.HED: "8.2.0"},
+            "participants.tsv": {self.BIDS: "1.9.0"},
+            "sub-01/ses-1/ecephys/sub-01_ses-1_ecephys.nwb": {
+                self.BIDS: "1.9.0",
+                self.NWB: get_nwb_version(simple1_nwb),
             },
-        )
-        names = self._standard_names(asset.get_metadata())
-        assert "Hierarchical Event Descriptors (HED)" in names
-
-    def test_hed_library_schemas_as_extensions(self, tmp_path: Path) -> None:
-        """HED library schemas in list HEDVersion populate extensions."""
-        if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
-            pytest.skip("dandischema too old, no dataStandard on BareAsset")
-        asset = self._make_bids_dd(
-            tmp_path,
-            {
-                "Name": "Test",
-                "BIDSVersion": "1.9.0",
-                "HEDVersion": ["8.2.0", "sc:1.0.0", "lang:1.1.0"],
+            "sub-01/ses-1/micr/sub-01_ses-1_sample-A_SPIM.ome.zarr": {
+                self.BIDS: "1.9.0",
+                self.OME_NGFF: None,
             },
-        )
-        metadata = asset.get_metadata()
-        hed_standards = [
-            # TODO: use metadata.dataStandard directly once min dandischema >= 0.12.2
-            s
-            for s in (getattr(metadata, "dataStandard", None) or [])
-            if s.name == "Hierarchical Event Descriptors (HED)"
-        ]
-        assert len(hed_standards) == 1
-        hed = hed_standards[0]
-        assert hed.version == "8.2.0"
-        assert hed.extensions is not None
-        ext_names = {e.name for e in hed.extensions}
-        assert ext_names == {"sc", "lang"}
-        ext_map = {e.name: e.version for e in hed.extensions}
-        assert ext_map == {"sc": "1.0.0", "lang": "1.1.0"}
+        }
+        assert set(files) == set(expected)
+        for path, versions in expected.items():
+            standards = _data_standards(
+                files[path].get_metadata(digest=DUMMY_DANDI_ETAG)
+            )
+            assert {name: s.version for name, s in standards.items()} == versions, path
+
+    def test_nwb(self, simple1_nwb: Path, tmp_path: Path) -> None:
+        nwb_path = tmp_path / "sub-1.nwb"
+        shutil.copy(simple1_nwb, nwb_path)
+        with h5py.File(nwb_path, "a") as f:
+            specs = f.require_group("specifications")
+            specs.create_group("ndx-test/0.1.0")
+            specs.create_group("ndx-test/0.2.0")
+        metadata = NWBAsset(
+            filepath=nwb_path, path="sub-1.nwb", dandiset_path=tmp_path
+        ).get_metadata()
+        nwb = _data_standards(metadata)[self.NWB]
+        assert nwb.version == get_nwb_version(nwb_path)
+        assert nwb.extensions is not None
+        assert [(e.name, e.version) for e in nwb.extensions] == [("ndx-test", "0.2.0")]
+
+    def test_nwb_unreadable(self, tmp_path: Path) -> None:
+        nwb_path = tmp_path / "sub-1.nwb"
+        nwb_path.write_text("not an HDF5 file")
+        metadata = NWBAsset(
+            filepath=nwb_path, path="sub-1.nwb", dandiset_path=tmp_path
+        ).get_metadata(ignore_errors=True)
+        nwb = _data_standards(metadata)[self.NWB]
+        assert nwb.version is None
+        assert nwb.extensions is None
+
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            ("sample.ome.zarr", True),
+            ("sample_1.5x.ome.zarr", True),
+            ("sample.zarr", False),
+        ],
+    )
+    def test_zarr(self, tmp_path: Path, path: str, expected: bool) -> None:
+        zarr_path = tmp_path / path
+        zarr.save(zarr_path, np.arange(10))
+        zf = dandi_file(zarr_path, tmp_path)
+        assert isinstance(zf, ZarrAsset)
+        standards = _data_standards(zf.get_metadata())
+        assert (self.OME_NGFF in standards) is expected
