@@ -659,31 +659,47 @@ def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> Non
 
 
 @pytest.mark.ai_generated
+@pytest.mark.parametrize("ds", ["ds", ""], ids=["subdir", "dandiset-root"])
 @pytest.mark.parametrize(
     "content, is_bids, bids_version",
     [
         ('{"Name": "x", "BIDSVersion": "1.9.0"}', True, "1.9.0"),
+        ('\ufeff{"Name": "x", "BIDSVersion": "1.9.0"}', True, "1.9.0"),
         # Invalid but declared BIDS datasets
         ('{"Name": "x", "BIDSVersion": ""}', True, None),
         ('{"Name": "x", "BIDSVersion": 1.9}', True, None),
         # Cannot tell, so left to the BIDS validator to report on
         ("", True, None),
         ("[]", True, None),
+        (None, True, None),  # broken symlink, e.g., to absent annexed content
         # Not a BIDS dataset
         ('{"Name": "x"}', False, None),
     ],
 )
 def test_bids_dataset_description_bids_version(
-    tmp_path: Path, content: str, is_bids: bool, bids_version: str | None
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    ds: str,
+    content: str | None,
+    is_bids: bool,
+    bids_version: str | None,
 ) -> None:
-    mkpaths(tmp_path, "ds/sub-01/sub-01.nwb")
-    (tmp_path / "ds" / "dataset_description.json").write_text(content)
+    ds_path = tmp_path / ds
+    dd_path = ds_path / "dataset_description.json"
+    mkpaths(ds_path, "sub-01/sub-01.nwb")
+    if content is None:
+        try:
+            dd_path.symlink_to(tmp_path / "absent")
+        except OSError as exc:
+            pytest.skip(f"Cannot create symlink: {exc}")
+    else:
+        dd_path.write_text(content, encoding="utf-8")
 
-    bidsdd = find_bids_dataset_description(tmp_path / "ds" / "sub-01", tmp_path)
+    bidsdd = find_bids_dataset_description(ds_path / "sub-01", tmp_path)
 
     def file_types(**kwargs: bool) -> dict[str, type]:
         return {
-            df.filepath.relative_to(tmp_path).as_posix(): type(df)
+            df.filepath.relative_to(ds_path).as_posix(): type(df)
             for df in find_dandi_files(tmp_path, dandiset_path=tmp_path, **kwargs)
         }
 
@@ -691,14 +707,16 @@ def test_bids_dataset_description_bids_version(
     if is_bids:
         assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
         assert bidsdd.bids_version == bids_version
-        assert types["ds/dataset_description.json"] is BIDSDatasetDescriptionAsset
-        assert types["ds/sub-01/sub-01.nwb"] is NWBBIDSAsset
+        assert types["dataset_description.json"] is BIDSDatasetDescriptionAsset
+        assert types["sub-01/sub-01.nwb"] is NWBBIDSAsset
+        assert "BIDSVersion" not in caplog.text
     else:
         assert bidsdd is None
-        assert types["ds/dataset_description.json"] is GenericAsset
-        assert types["ds/sub-01/sub-01.nwb"] is NWBAsset
+        assert types["dataset_description.json"] is GenericAsset
+        assert types["sub-01/sub-01.nwb"] is NWBAsset
+        assert '"BIDSVersion" field; not treating' in caplog.text
         # and not BIDS without allow_all either
-        assert file_types() == {"ds/sub-01/sub-01.nwb": NWBAsset}
+        assert file_types() == {"sub-01/sub-01.nwb": NWBAsset}
 
 
 @pytest.mark.ai_generated
@@ -773,4 +791,5 @@ def test_get_validation_bids_version_bids_examples(bids_examples: Path) -> None:
     assert isinstance(asset, NWBBIDSAsset)
     validation_bids_version = asset.get_validation_bids_version()
     assert validation_bids_version is not None
-    assert validation_bids_version == bids_validate(ds_path)[0].origin.standard_version
+    assert (results := bids_validate(ds_path))
+    assert validation_bids_version == results[0].origin.standard_version

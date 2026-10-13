@@ -38,7 +38,7 @@ def _load_dataset_description(filepath: Path) -> dict[str, Any] | None:
     it cannot be read or is not a JSON object
     """
     try:
-        content = json.loads(filepath.read_text(encoding="utf-8"))
+        content = json.loads(filepath.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return None
     return content if isinstance(content, dict) else None

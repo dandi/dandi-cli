@@ -151,6 +151,12 @@ def find_dandi_files(
                     yield df
         else:
             df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
+            if type(df) is GenericAsset and p.name == BIDS_DATASET_DESCRIPTION:
+                lgr.warning(
+                    '%s: No "BIDSVersion" field; not treating %s as a BIDS dataset',
+                    p,
+                    p.parent,
+                )
             # Don't use isinstance() here, as GenericBIDSAsset's should still
             # be returned
             if type(df) is GenericAsset and not allow_all:
