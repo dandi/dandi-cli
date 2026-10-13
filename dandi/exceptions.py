@@ -91,9 +91,9 @@ class HTTP404Error(requests.HTTPError):
 
 class AssetsNotFoundError(HTTP404Error):
     """
-    A bulk asset deletion request named assets that do not belong to the
-    Dandiset version.  Per the endpoint's all-or-nothing semantics, none of the
-    assets in the request were deleted.
+    An asset deletion request named assets that do not belong to the Dandiset
+    version.  For a bulk deletion request, per the endpoint's all-or-nothing
+    semantics, none of the assets in the request were deleted.
     """
 
     def __init__(

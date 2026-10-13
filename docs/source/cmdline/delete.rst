@@ -12,7 +12,8 @@ in a local Dandiset (in which case the corresponding assets are deleted on the
 remote server) or a :ref:`resource identifier <resource_ids>` pointing to a
 remote asset, directory, or entire Dandiset.
 
-Assets are deleted from the server in batches, one request at a time.  Assets
+Assets are deleted from the server in batches, one request at a time (or one
+asset at a time if the server does not support bulk asset deletion).  Assets
 that no longer exist on the server by the time they are deleted (e.g., because
 they were deleted concurrently by someone else) are reported as skipped rather
 than as errors.
