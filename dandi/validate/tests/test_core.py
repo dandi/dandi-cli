@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -468,6 +469,28 @@ def test_validate_stream_inspection_failure_not_cached(
         m.check_function_name != msg.check_function_name
         for m in _streamed_nwb_asset(ds)._inspect_nwbfile()
     )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("jobs", [1, 2])
+def test_validate_progress(
+    streamable_dandiset: tuple[Path, RangeHTTPServer],
+    simple3_nwb: Path,
+    caplog: pytest.LogCaptureFixture,
+    jobs: int,
+) -> None:
+    """The progress of validation is logged, one message per file."""
+    ds, _ = streamable_dandiset
+    (ds / "sub-002").mkdir()
+    shutil.copy(simple3_nwb, ds / "sub-002" / "sub-002.nwb")
+    caplog.set_level(logging.INFO, logger="dandi")
+    list(validate(ds, missing_file_content=MissingFileContent.stream, jobs=jobs))
+    messages = [r.getMessage() for r in caplog.records]
+    messages = messages[messages.index("Validating 3 files") :]
+    done = [m for m in messages if m.startswith("[")]
+    assert sorted(m.split("] ")[0] for m in done) == ["[1/3", "[2/3", "[3/3"]
+    assert any(m.endswith("] sub-001/sub-001_video.mp4: OK") for m in done)
+    assert any("sub-002/sub-002.nwb: " in m and "issue" in m for m in done)
 
 
 @pytest.mark.ai_generated
