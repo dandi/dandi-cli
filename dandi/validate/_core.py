@@ -13,6 +13,7 @@ from collections import deque
 from collections.abc import Iterator
 from concurrent.futures import Future, ProcessPoolExecutor
 from copy import copy
+from functools import partial
 from importlib.util import find_spec
 import logging
 from logging.handlers import QueueHandler, QueueListener
@@ -20,6 +21,7 @@ from multiprocessing import get_context
 import os
 from pathlib import Path
 import shutil
+from threading import Lock
 from typing import Any
 
 from ._types import (
@@ -33,10 +35,20 @@ from ._types import (
     ValidationResult,
     Validator,
 )
+from .. import get_logger
 from ..consts import dandiset_metadata_file
-from ..files import DandiFile, LocalFileAsset, NWBAsset, find_dandi_files
+from ..files import (
+    BIDSAsset,
+    DandiFile,
+    LocalAsset,
+    LocalFileAsset,
+    NWBAsset,
+    find_dandi_files,
+)
 from ..support.datalad_fuse import AnnexedReadableFile, get_annexed_readable
 from ..utils import find_parent_directory_containing
+
+lgr = get_logger()
 
 BIDS_TO_DANDI = {
     "subject": "subject_id",
@@ -233,73 +245,130 @@ def validate(
     # in `pool`
     pending: deque[list[ValidationResult] | Future[list[ValidationResult]]]
     pending = deque()
+    # The files to validate (and the results for paths not in a Dandiset), all
+    # found first so that the progress can be reported as a count
+    items: list[DandiFile | ValidationResult] = []
+    # The `dataset_description.json` files of BIDS datasets, which the
+    # `BIDSAsset` files found refer to only weakly
+    bids_descriptions = []
+    for p in paths:
+        p = os.path.abspath(p)
+        dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
+        if dandiset_path is None:
+            items.append(
+                ValidationResult(
+                    id="DANDI.NO_DANDISET_FOUND",
+                    origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
+                    severity=Severity.ERROR,
+                    scope=Scope.DANDISET,
+                    path=Path(p),
+                    message="Path is not inside a Dandiset",
+                )
+            )
+        for df in find_dandi_files(
+            p, dandiset_path=dandiset_path, allow_all=allow_any_path
+        ):
+            if isinstance(df, BIDSAsset):
+                bids_descriptions.append(df.bids_dataset_description)
+            items.append(df)
+    progress = _Progress(sum(isinstance(i, DandiFile) for i in items))
+
     pool = _ValidationPool(jobs) if jobs > 1 else None
     try:
-        for p in paths:
-            p = os.path.abspath(p)
-            dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
-            if dandiset_path is None:
-                pending.append(
-                    [
-                        ValidationResult(
-                            id="DANDI.NO_DANDISET_FOUND",
-                            origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
-                            severity=Severity.ERROR,
-                            scope=Scope.DANDISET,
-                            path=Path(p),
-                            message="Path is not inside a Dandiset",
-                        )
-                    ]
-                )
-            for df in find_dandi_files(
-                p, dandiset_path=dandiset_path, allow_all=allow_any_path
-            ):
-                # Handle broken symlinks (missing file content)
-                is_broken = _is_broken_symlink(df.filepath)
-                if is_broken:
-                    if missing_file_content == MissingFileContent.stream:
-                        readable = _prepare_streaming(df)
-                        # A file whose content cannot be streamed gets an error
-                        # and is otherwise skipped
-                        skip_file = readable is None
-                    else:
-                        readable = None
-                        skip_file = missing_file_content in (
-                            MissingFileContent.skip,
-                            MissingFileContent.error,
-                        )
-                    pending.append(
-                        [_handle_missing_content(df, missing_file_content, readable)]
-                    )
-                    if skip_file:
-                        continue
-                    # only-non-data & stream: fall through but pass the policy
-                    # to the validators
-
-                file_policy = missing_file_content if is_broken else None
-                if pool is not None and type(df) is NWBAsset:
-                    pending.append(
-                        pool.submit(df, schema_version, devel_debug, file_policy)
-                    )
+        for item in items:
+            if isinstance(item, ValidationResult):
+                pending.append([item])
+                continue
+            df = item
+            # Handle broken symlinks (missing file content)
+            is_broken = _is_broken_symlink(df.filepath)
+            if is_broken:
+                if missing_file_content == MissingFileContent.stream:
+                    readable = _prepare_streaming(df)
+                    # A file whose content cannot be streamed gets an error
+                    # and is otherwise skipped
+                    skip_file = readable is None
                 else:
-                    pending.append(
-                        _validate_file(df, schema_version, devel_debug, file_policy)
+                    readable = None
+                    skip_file = missing_file_content in (
+                        MissingFileContent.skip,
+                        MissingFileContent.error,
                     )
-                # Yield what is ready, or wait (for the oldest file) if enough
-                # files are being validated
-                while pending and (
-                    isinstance(pending[0], list)
-                    or pending[0].done()
-                    or (pool is not None and len(pending) > 2 * jobs)
-                ):
-                    head = pending.popleft()
-                    yield from unique(head if isinstance(head, list) else head.result())
+                pending.append(
+                    [_handle_missing_content(df, missing_file_content, readable)]
+                )
+                if skip_file:
+                    progress.done(df, None)
+                    continue
+                # only-non-data & stream: fall through but pass the policy
+                # to the validators
+
+            file_policy = missing_file_content if is_broken else None
+            if pool is not None and type(df) is NWBAsset:
+                future = pool.submit(df, schema_version, devel_debug, file_policy)
+                future.add_done_callback(partial(progress.future_done, df))
+                pending.append(future)
+            else:
+                results = _validate_file(df, schema_version, devel_debug, file_policy)
+                progress.done(df, results)
+                pending.append(results)
+            # Yield what is ready, or wait (for the oldest file) if enough
+            # files are being validated
+            while pending and (
+                isinstance(pending[0], list)
+                or pending[0].done()
+                or (pool is not None and len(pending) > 2 * jobs)
+            ):
+                head = pending.popleft()
+                yield from unique(head if isinstance(head, list) else head.result())
         while pending:
             head = pending.popleft()
             yield from unique(head if isinstance(head, list) else head.result())
     finally:
         if pool is not None:
             pool.shutdown()
+
+
+class _Progress:
+    """Report the progress of validating ``total`` files with log messages"""
+
+    def __init__(self, total: int) -> None:
+        self.total = total
+        self.count = 0
+        # Files may be done in the threads of a `_ValidationPool`
+        self.lock = Lock()
+        if total:
+            lgr.info("Validating %d file%s", total, "" if total == 1 else "s")
+
+    def done(
+        self,
+        df: DandiFile,
+        results: list[ValidationResult] | None,
+        outcome: str = "skipped",
+    ) -> None:
+        """
+        Report that validating ``df`` is done, with the given results, or
+        `None` if it was not validated, for the reason ``outcome``
+        """
+        with self.lock:
+            self.count += 1
+            if results is None:
+                pass
+            elif results:
+                outcome = f"{len(results)} issue{'' if len(results) == 1 else 's'}"
+            else:
+                outcome = "OK"
+            path = df.path if isinstance(df, LocalAsset) else df.filepath
+            lgr.info("[%d/%d] %s: %s", self.count, self.total, path, outcome)
+
+    def future_done(
+        self, df: DandiFile, future: Future[list[ValidationResult]]
+    ) -> None:
+        """Report that validating ``df`` in a `_ValidationPool` is done"""
+        if future.cancelled() or future.exception() is not None:
+            self.done(df, None, outcome="failed")
+        else:
+            self.done(df, future.result())
 
 
 def _validate_file(
