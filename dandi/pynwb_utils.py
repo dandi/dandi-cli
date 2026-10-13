@@ -27,6 +27,7 @@ from fscacher import PersistentCache
 import h5py
 import hdmf
 import numpy as np
+from packaging.version import InvalidVersion, Version
 import pynwb
 from pynwb import NWBHDF5IO
 from pynwb.base import ExternalImage
@@ -185,14 +186,18 @@ def get_nwb_extensions(filepath: str | Path | Readable) -> dict[str, str]:
             if name in _NWB_CORE_NAMESPACES:
                 continue
             ns_group = specs[name]
-            if not isinstance(ns_group, h5py.Group):
+            if not isinstance(ns_group, h5py.Group) or not (versions := list(ns_group)):
                 continue
             try:
-                sorted_versions = sorted(ns_group, key=Version)
-                if sorted_versions:
-                    extensions[name] = sorted_versions[-1]
-            except Exception:
-                lgr.debug("Failed to parse versions for NWB extension %s", name)
+                extensions[name] = max(versions, key=Version)
+            except InvalidVersion:
+                lgr.debug(
+                    "Cannot parse versions %s of NWB extension %s, taking the "
+                    "lexicographically last",
+                    versions,
+                    name,
+                )
+                extensions[name] = max(versions)
     return extensions
 
 

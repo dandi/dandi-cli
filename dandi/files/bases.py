@@ -48,20 +48,61 @@ from dandi.validate._types import (
 )
 
 # True when the installed dandischema exposes the per-asset dataStandard field
-# and related StandardsType enhancements (version, extensions).  All these
-# fields ship together starting with dandischema 0.12.2.
+# and related StandardsType enhancements (version, extensions) and
+# hed_standard.  All of these ship together in DANDI schema 0.9.0, expected to
+# be released in dandischema 0.15.0.
 # TODO: remove this guard (and all branches that check it) once the minimum
-# required dandischema version is >= 0.12.2.
+# required dandischema version is >= 0.15.0.
 _SCHEMA_BAREASSET_HAS_DATASTANDARD = "dataStandard" in BareAsset.model_fields
 if not _SCHEMA_BAREASSET_HAS_DATASTANDARD and Version(
     dandischema.__version__
-) >= Version("0.12.2"):
+) >= Version("0.15.0"):
     raise RuntimeError(
         f"dandischema {dandischema.__version__} should have "
         f"'dataStandard' field on BareAsset"
     )
 
 lgr = dandi.get_logger()
+
+
+def _add_data_standard(metadata: BareAsset, standard: StandardsType) -> None:
+    """Add ``standard`` to ``metadata.dataStandard`` unless already listed
+
+    A no-op if the installed dandischema has no per-asset ``dataStandard``.
+    """
+    if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+        return
+    # TODO: use metadata.dataStandard directly once min dandischema >= 0.15.0
+    cur = getattr(metadata, "dataStandard", None)
+    if cur is None:
+        setattr(metadata, "dataStandard", [standard])
+    elif standard not in cur:
+        cur.append(standard)
+
+
+def _get_nwb_data_standard(filepath: str | Path) -> StandardsType:
+    """NWB ``StandardsType`` with the version and extensions (e.g. ``ndx-*``)
+    used by the NWB file, as far as they could be determined"""
+    # Avoid heavy import by importing within function:
+    from dandi.pynwb_utils import get_nwb_extensions, get_nwb_version
+
+    kwargs: dict[str, Any] = dict(nwb_standard)
+    try:
+        if version := get_nwb_version(filepath):
+            kwargs["version"] = version
+        if extensions := get_nwb_extensions(filepath):
+            kwargs["extensions"] = [
+                StandardsType(name=name, version=ver)  # type: ignore[call-arg]
+                for name, ver in sorted(extensions.items())
+            ]
+    except Exception:
+        lgr.debug(
+            "Failed to extract NWB version or extensions from %s",
+            filepath,
+            exc_info=True,
+        )
+    return StandardsType(**kwargs)
+
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
@@ -543,35 +584,7 @@ class NWBAsset(LocalFileAsset):
                 raise
         metadata.path = self.path
         if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
-            kwargs: dict[str, Any] = dict(nwb_standard)
-            # Avoid heavy import by importing within function:
-            from dandi.pynwb_utils import get_nwb_extensions, get_nwb_version
-
-            if nwb_ver := get_nwb_version(self.filepath):
-                kwargs["version"] = nwb_ver
-            try:
-                nwb_exts = get_nwb_extensions(self.filepath)
-            except Exception:
-                lgr.debug(
-                    "Failed to extract NWB extensions from %s",
-                    self.filepath,
-                    exc_info=True,
-                )
-                nwb_exts = {}
-            if nwb_exts:
-                kwargs["extensions"] = [
-                    StandardsType(name=name, version=ver).model_dump(  # type: ignore[call-arg]
-                        mode="json", exclude_none=True
-                    )
-                    for name, ver in sorted(nwb_exts.items())
-                ]
-            nwb = StandardsType(**kwargs)
-            # TODO: use metadata.dataStandard directly once min dandischema >= 0.12.2
-            cur = getattr(metadata, "dataStandard", None)
-            if cur is None:
-                setattr(metadata, "dataStandard", [nwb])
-            elif nwb not in cur:
-                cur.append(nwb)
+            _add_data_standard(metadata, _get_nwb_data_standard(self.filepath))
         return metadata
 
     # TODO: @validate_cache.memoize_path
