@@ -59,9 +59,8 @@ def get_bids_version(schema_version: str | None) -> str | None:
 
 def _parse_mapping(data: Any) -> dict[str, str]:
     return {
-        schema_version: record["bids_version"]
-        for schema_version, record in data["schemas"].items()
-        if record["bids_version"] is not None
+        schema_version: record["bids_version_exact"]
+        for schema_version, record in data.items()
     }
 
 

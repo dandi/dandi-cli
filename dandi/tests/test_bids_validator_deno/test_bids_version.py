@@ -51,16 +51,14 @@ def test_get_bids_version_published(clear_mapping_caches: None) -> None:
     responses.get(
         SCHEMA_TO_BIDS_URL,
         json={
-            "_schema_version": 1,
-            "schemas": {
-                "99.0.0": {"bids_version": "9.9.9"},
-                "99.0.1": {"bids_version": None},
+            "99.0.0": {
+                "bids_version_released": "9.9.9",
+                "bids_version_exact": "9.9.9+1-g123456789",
             },
         },
     )
-    assert get_bids_version("99.0.0") == "9.9.9"
+    assert get_bids_version("99.0.0") == "9.9.9+1-g123456789"
     assert get_bids_version("99.0.1") is None
-    assert get_bids_version("99.0.2") is None
     # fetched only once
     assert len(responses.calls) == 1
 
@@ -68,7 +66,7 @@ def test_get_bids_version_published(clear_mapping_caches: None) -> None:
 @pytest.mark.ai_generated
 @pytest.mark.parametrize(
     "response_kwargs",
-    [{"status": 404}, {"body": "not JSON"}, {"json": {"no": "schemas"}}],
+    [{"status": 404}, {"body": "not JSON"}, {"json": {"99.0.0": "1.0.0"}}],
 )
 @responses.activate
 def test_get_bids_version_published_unavailable(
