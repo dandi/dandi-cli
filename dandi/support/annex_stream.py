@@ -58,10 +58,18 @@ def get_adapter() -> Any:
     from datalad_fuse.adapter import RemoteFilesystemAdapter
 
     # caching=False: do not keep the streamed content on disk, in the dataset.
+    # backends: always read HDF5-based files (such as NWB) with remfile,
+    # whatever a dataset configures (datalad.fusefs.backends), as it reads in
+    # the calling thread: h5py holds a global lock while it reads, and fsspec,
+    # which reads in another thread, could deadlock with h5py finalizers run by
+    # a garbage collection there.
     # init_annex=False: do not initialize git-annex in a dataset in which it is
     # not.  The root and all paths passed to the adapter must be absolute.
     adapter = RemoteFilesystemAdapter(
-        Path(os.path.abspath(os.sep)), caching=False, init_annex=False
+        Path(os.path.abspath(os.sep)),
+        caching=False,
+        backends="remfile,fsspec",
+        init_annex=False,
     )
     atexit.register(adapter.__exit__, None, None, None)
     return adapter
