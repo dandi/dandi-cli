@@ -788,10 +788,13 @@ def _download_file(
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
             if algo == "dandi-etag" and size is not None:
-                # Instantiate outside the lambda so that mypy is assured that
-                # `size` is not None:
-                hasher = ETagHashlike(size)
-                digester = lambda: hasher  # noqa: E731
+                # Bind `size` to a local so that mypy is assured it is not
+                # None.  The lambda must construct a fresh `ETagHashlike` on
+                # each call, as the hashlib branch does: a download attempt
+                # that is retried starts the hashing over, and an
+                # `ETagHashlike` fed past `size` bytes raises `ValueError`.
+                etag_size = size
+                digester = lambda: ETagHashlike(etag_size)  # noqa: E731
             else:
                 digester = getattr(hashlib, algo, None)
             if digester is not None:
@@ -1043,7 +1046,7 @@ def _download_zarr(
     zarr_entry_filter: Callable[[str], bool] | None = None,
 ) -> Iterator[dict]:
     # Avoid heavy import by importing within function:
-    from .support.digests import get_zarr_checksum
+    from .support.digests import get_zarr_checksum, get_zarr_multipart_checksum
 
     # we will collect them all while starting the download
     # with the first page of entries received from the server.
@@ -1052,7 +1055,10 @@ def _download_zarr(
     pc = ProgressCombiner(zarr_size=asset.size)
 
     def digest_callback(path: str, algoname: str, d: str) -> None:
-        if algoname == "md5":
+        # A Zarr's entries are all digested the same way -- with plain MD5 for a
+        # single-part Zarr and with the multipart ETag for a multipart one --
+        # and either is what the Zarr's checksum is computed from.
+        if algoname in ("md5", "dandi-etag"):
             digests[path] = d
 
     def downloads_gen():
@@ -1062,7 +1068,12 @@ def _download_zarr(
                 continue
             entries.append(entry)
             etag = entry.digest
-            assert etag.algorithm is DigestType.md5
+            # An entry of a multipart Zarr is stored under an S3 multipart ETag
+            # rather than a plain MD5 (see `RemoteZarrEntry.from_server_data`).
+            assert etag.algorithm in (DigestType.md5, DigestType.dandi_etag)
+            etag_algo = (
+                "dandi-etag" if etag.algorithm is DigestType.dandi_etag else "md5"
+            )
             yield pairing(
                 entry_path,
                 _download_file(
@@ -1072,7 +1083,7 @@ def _download_zarr(
                     size=entry.size,
                     mtime=entry.modified,
                     existing=existing,
-                    digests={"md5": etag.value},
+                    digests={etag_algo: etag.value},
                     lock=lock,
                     digest_callback=partial(digest_callback, entry_path),
                 ),
@@ -1152,7 +1163,16 @@ def _download_zarr(
 
         if "skipped" not in final_out["message"]:
             zarr_checksum = asset.get_digest().value
-            local_checksum = get_zarr_checksum(zarr_basepath, known=digests)
+            # A multipart Zarr's checksum aggregates its entries' multipart
+            # ETags, so it has to be recomputed the same way; every entry of a
+            # Zarr uses the one scheme the Zarr was created with.
+            multipart = any(
+                e.digest.algorithm is DigestType.dandi_etag for e in entries
+            )
+            checksummer = (
+                get_zarr_multipart_checksum if multipart else get_zarr_checksum
+            )
+            local_checksum = checksummer(zarr_basepath, known=digests)
             if zarr_checksum != local_checksum:
                 msg = f"Zarr checksum: downloaded {local_checksum} != {zarr_checksum}"
                 yield {"checksum": "differs", "status": "error", "message": msg}
