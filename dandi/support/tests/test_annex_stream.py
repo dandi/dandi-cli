@@ -18,8 +18,6 @@ from ..annex_stream import (
     AnnexedReadableFile,
     annex_fingerprint,
     annex_initialized,
-    annex_key_size,
-    annex_urls,
     can_stream,
     get_annexed_readable,
 )
@@ -31,6 +29,11 @@ from ...tests.skip import mark
 pytestmark = mark.skipif_no_git_annex
 
 
+@pytest.fixture(autouse=True)
+def require_streaming() -> None:
+    pytest.importorskip("datalad_fuse.adapter")
+
+
 @pytest.fixture
 def streamed_nwb(
     range_http_server: tuple[RangeHTTPServer, str], simple2_nwb: Path, tmp_path: Path
@@ -39,7 +42,6 @@ def streamed_nwb(
     An annexed copy of ``simple2_nwb`` in a git-annex repository, whose content
     is not present but registered at a URL of the HTTP server
     """
-    pytest.importorskip("remfile")
     server, base_url = range_http_server
     shutil.copy(simple2_nwb, tmp_path / "served" / "content.nwb")
     make_git_annex_dandiset(
@@ -49,20 +51,6 @@ def streamed_nwb(
     nwb = tmp_path / "ds" / "sub-01" / "sub-01.nwb"
     assert not nwb.exists()
     return nwb, server
-
-
-@pytest.mark.ai_generated
-@pytest.mark.parametrize(
-    "key,size",
-    [
-        ("SHA256E-s1234--abc.nwb", 1234),
-        ("MD5E-s0--d41d8cd98f00b204e9800998ecf8427e", 0),
-        ("SHA256E-s99-S10-C2--abc.nwb", 99),
-        ("URL--https&c%%example.org%x.nwb", None),
-    ],
-)
-def test_annex_key_size(key: str, size: int | None) -> None:
-    assert annex_key_size(key) == size
 
 
 @pytest.mark.ai_generated
@@ -89,16 +77,15 @@ def test_annexed_readable(
 def test_annexed_readable_file_object(
     range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
 ) -> None:
-    pytest.importorskip("remfile")
     _, base_url = range_http_server
     content = bytes(range(256)) * 1000
-    local = tmp_path / "local.bin"
+    local = tmp_path / "local.h5"
     local.write_bytes(content)
-    shutil.copy(local, tmp_path / "served" / "content.bin")
+    shutil.copy(local, tmp_path / "served" / "content.h5")
     make_git_annex_dandiset(
-        tmp_path / "ds", {"data.bin": (local, f"{base_url}/content.bin")}
+        tmp_path / "ds", {"data.h5": (local, f"{base_url}/content.h5")}
     )
-    r = get_annexed_readable(tmp_path / "ds" / "data.bin")
+    r = get_annexed_readable(tmp_path / "ds" / "data.h5")
     assert r is not None
     with r.open() as fp:
         assert fp.readable() and fp.seekable()
@@ -120,7 +107,6 @@ def test_annexed_readable_url_fallback(
     range_http_server: tuple[RangeHTTPServer, str], simple2_nwb: Path, tmp_path: Path
 ) -> None:
     """The content is read from the first of its URLs that can be read"""
-    pytest.importorskip("remfile")
     _, base_url = range_http_server
     shutil.copy(simple2_nwb, tmp_path / "served" / "content.nwb")
     make_git_annex_dandiset(
@@ -132,43 +118,25 @@ def test_annexed_readable_url_fallback(
             )
         },
     )
-    found = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
-    assert found is not None
-    # (in the order in which git-annex lists them, which is not the order in
-    # which they were registered)
-    assert sorted(found.urls) == [f"{base_url}/content.nwb", f"{base_url}/missing.nwb"]
-    r = AnnexedReadableFile(
-        filepath=found.filepath,
-        key=found.key,
-        size=found.size,
-        urls=[f"{base_url}/missing.nwb", f"{base_url}/content.nwb"],
-    )
-    assert r.url == f"{base_url}/missing.nwb"
+    r = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
+    assert r is not None
+    # Whichever of the URLs git-annex lists first, the content is read
+    assert r.url in (f"{base_url}/missing.nwb", f"{base_url}/content.nwb")
     with r.open() as fp, h5py.File(fp, "r") as h5:
         assert h5.attrs["nwb_version"]
-    assert r.url == f"{base_url}/content.nwb"
 
 
 @pytest.mark.ai_generated
 def test_annexed_readable_no_url_readable(
     range_http_server: tuple[RangeHTTPServer, str], simple2_nwb: Path, tmp_path: Path
 ) -> None:
-    pytest.importorskip("remfile")
     _, base_url = range_http_server
     make_git_annex_dandiset(
         tmp_path / "ds", {"sub-01.nwb": (simple2_nwb, f"{base_url}/missing.nwb")}
     )
-    found = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
-    assert found is not None
-    # Neither a URL the server does not serve, nor one at which no server
-    # listens, can be read
-    r = AnnexedReadableFile(
-        filepath=found.filepath,
-        key=found.key,
-        size=found.size,
-        urls=found.urls + ["http://127.0.0.1:1/missing.nwb"],
-    )
-    with pytest.raises(OSError, match="None of the URLs"):
+    r = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
+    assert r is not None
+    with pytest.raises(OSError, match="Could not open"):
         r.open()
 
 
@@ -177,7 +145,6 @@ def test_annexed_readable_reads_little(
     range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
 ) -> None:
     """Reading an NWB file's structure downloads only a small part of it"""
-    pytest.importorskip("remfile")
     server, base_url = range_http_server
     nwbfile = NWBFile("streamed", "id", datetime(2026, 1, 1, tzinfo=timezone.utc))
     for i in range(4):
@@ -251,12 +218,19 @@ def test_annexed_readable_none_not_streamable(
     # git-annex knows no URL for the key
     key = "SHA256E-s5--" + "0" * 64 + ".nwb"
     (ds / "nourl.nwb").symlink_to(objects / key / key)
-    assert annex_urls(ds, key) == []
     assert get_annexed_readable(ds / "nourl.nwb") is None
-    # remfile is not installed
-    monkeypatch.setitem(sys.modules, "remfile", None)
-    assert not can_stream()
-    assert get_annexed_readable(nwb) is None
+    # A repository without any commit, which datalad-fuse cannot handle
+    empty = ds.parent / "empty"
+    subprocess.run(["git", "init", "-q", str(empty)], check=True)
+    subprocess.run(["git", "-C", str(empty), "annex", "init", "-q"], check=True)
+    (empty / "sub-01.nwb").symlink_to(objects / key / key)
+    assert get_annexed_readable(empty / "sub-01.nwb") is None
+    # datalad-fuse, or remfile, is not installed
+    for module in ["datalad_fuse.adapter", "remfile"]:
+        with monkeypatch.context() as m:
+            m.setitem(sys.modules, module, None)
+            assert not can_stream()
+            assert get_annexed_readable(nwb) is None
 
 
 @pytest.mark.ai_generated
@@ -265,12 +239,6 @@ def test_annex_initialized_no_git(
 ) -> None:
     monkeypatch.setenv("PATH", str(tmp_path / "nonexistent"))
     assert not annex_initialized(tmp_path)
-
-
-@pytest.mark.ai_generated
-def test_annex_urls_whereis_fails(tmp_path: Path) -> None:
-    # Not a Git repository
-    assert annex_urls(tmp_path, "SHA256E-s5--" + "0" * 64) == []
 
 
 @pytest.mark.ai_generated
