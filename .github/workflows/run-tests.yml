@@ -75,7 +75,7 @@ jobs:
             mode: lowest-deps
           - os: ubuntu-latest
             python: '3.12'
-            mode: datalad
+            mode: annex-streaming
 
     steps:
     - name: Set up environment
@@ -126,9 +126,9 @@ jobs:
             git+https://github.com/hdmf-dev/hdmf \
             git+https://github.com/hdmf-dev/hdmf-zarr
 
-    - name: Install git-annex and datalad-fuse (for streaming annexed content)
-      if: matrix.mode == 'datalad'
-      run: pip install git-annex ".[datalad]"
+    - name: Install git-annex and remfile (for streaming annexed content)
+      if: matrix.mode == 'annex-streaming'
+      run: pip install git-annex ".[streaming]"
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'

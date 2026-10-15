@@ -42,7 +42,7 @@ from .consts import (
     metadata_nwb_subject_fields,
 )
 from .misctypes import Readable
-from .support.datalad_fuse import annex_fingerprint
+from .support.annex_stream import annex_fingerprint
 from .utils import get_module_version, is_url
 from .validate._types import (
     Origin,
