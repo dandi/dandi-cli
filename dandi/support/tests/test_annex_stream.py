@@ -16,6 +16,7 @@ import pytest
 
 from ..annex_stream import (
     AnnexedReadableFile,
+    StreamedFile,
     annex_fingerprint,
     annex_initialized,
     can_stream,
@@ -89,6 +90,7 @@ def test_annexed_readable_remfile_whatever_configured(
     r = get_annexed_readable(nwb)
     assert r is not None
     with r.open() as fp:
+        assert isinstance(fp, StreamedFile)
         assert isinstance(fp._fp, RemfileWrapper)
         with h5py.File(fp, "r") as h5:
             assert h5.attrs["nwb_version"]
