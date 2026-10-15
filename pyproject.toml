@@ -123,7 +123,11 @@ test = [
 # For reading the content of annexed files of DataLad datasets without
 # fetching it (requires git-annex)
 datalad = [
+    # Streaming needs datalad-fuse with pluggable backends
+    # (datalad/datalad-fuse#131) and init_annex, not released yet
     "datalad-fuse >= 0.5.1",
+    # The datalad-fuse backend for HDF5-based files (such as NWB)
+    "remfile",
 ]
 tools = [
     "boto3",

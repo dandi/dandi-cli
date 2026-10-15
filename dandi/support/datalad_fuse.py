@@ -7,22 +7,26 @@ In a git-annex repository, a (locked) annexed file is a symbolic link into
 datalad-fuse can mount such a repository with FUSE so that the content is
 streamed on demand, but its adapter, which the mount is built on, also opens
 the files directly with no mount.  It asks git-annex where the content is
-(``git annex whereis``) and streams it over HTTP(S) with fsspec_.  That adapter
-is used here, so that the files of a DataLad Dandiset can be read (e.g., for
-their metadata, or to be validated) without downloading the (possibly
-terabytes of) data.
+(``git annex whereis``) and streams it over HTTP(S): HDF5-based files (such as
+NWB) with remfile_, which is optimized for HDF5's access pattern and reads in
+the calling thread, and other files with fsspec_.  That adapter is used here,
+so that the files of a DataLad Dandiset can be read (e.g., for their metadata,
+or to be validated) without downloading the (possibly terabytes of) data.
 
 The URLs are tried in the order git-annex lists them; for a DataLad Dandiset,
 that is the DANDI Archive's API download URL (which redirects to S3) before the
 direct S3 URL.  datalad-fuse does not use HTTP proxy environment variables.
 
 This requires datalad-fuse (``pip install "dandi[datalad]"``), which requires
-DataLad and git-annex.
+DataLad and git-annex, in a version with pluggable backends
+(datalad/datalad-fuse#131) and ``init_annex`` (for now, the ``remfile-dev``
+branch of https://github.com/CodyCBakerPhD/datalad-fuse), and remfile.
 
 .. _git-annex: https://git-annex.branchable.com
 .. _DataLad: https://www.datalad.org
 .. _datalad-fuse: https://github.com/datalad/datalad-fuse
 .. _fsspec: https://github.com/fsspec/filesystem_spec
+.. _remfile: https://github.com/flatironinstitute/remfile
 """
 
 from __future__ import annotations
@@ -37,7 +41,6 @@ from itertools import chain
 import logging
 import os
 from pathlib import Path
-import subprocess
 import threading
 from typing import IO, Any, cast
 
@@ -53,37 +56,22 @@ def get_adapter() -> Any:
     root so that it serves files of any dataset, and closed at exit
     """
     # Optional dependency:
-    try:
-        # datalad-fuse with pluggable backends (datalad/datalad-fuse#131):
-        # remfile for HDF5-based files (such as NWB) if installed, fsspec
-        # otherwise, as configured with datalad.fusefs.backends
-        from datalad_fuse.adapter import RemoteFilesystemAdapter as Adapter
-    except ImportError:
-        from datalad_fuse.fsspec import FsspecAdapter as Adapter
+    from datalad_fuse.adapter import RemoteFilesystemAdapter
 
-    # caching=False: do not keep the streamed blocks on disk, in the dataset.
-    # The root and all paths passed to the adapter must be absolute.
-    adapter = Adapter(Path(os.path.abspath(os.sep)), caching=False)
+    adapter = RemoteFilesystemAdapter(
+        # The root and all paths passed to the adapter must be absolute
+        Path(os.path.abspath(os.sep)),
+        # Do not keep the streamed blocks on disk, in the dataset
+        caching=False,
+        # remfile for HDF5-based files (such as NWB), fsspec for the others,
+        # and for HDF5-based files that remfile fails to open
+        backends="remfile,fsspec",
+        # Do not initialize git-annex (modifying the repository) where it is
+        # not
+        init_annex=False,
+    )
     atexit.register(adapter.__exit__, None, None, None)
     return adapter
-
-
-@cache
-def annex_initialized(directory: Path) -> bool:
-    """
-    Whether ``directory`` is in a Git repository in which git-annex is
-    initialized.  (DataLad would otherwise initialize it, modifying the
-    repository.)
-    """
-    try:
-        r = subprocess.run(
-            ["git", "-C", str(directory), "config", "--get", "annex.uuid"],
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError:
-        return False
-    return r.returncode == 0 and bool(r.stdout.strip())
 
 
 _gc_lock = threading.Lock()
@@ -93,14 +81,16 @@ _gc_was_enabled = False
 
 class _GCPausedFile:
     """
-    A file object streamed by datalad-fuse, during whose lifetime automatic
-    garbage collection is disabled
+    A file object streamed by datalad-fuse with fsspec, during whose lifetime
+    automatic garbage collection is disabled
 
-    h5py holds a global lock while it reads from a Python file object, and the
-    read waits for another thread (fsspec's I/O thread, or an HTTP server in
-    the same process) to fetch the data.  If a garbage collection ran in that
-    thread meanwhile, finalizers of h5py objects (e.g., of an unreferenced
-    ``NWBHDF5IO``) would wait for the same lock, deadlocking the process.
+    h5py holds a global lock while it reads from a Python file object, and a
+    read of an fsspec file waits for fsspec's I/O thread to fetch the data.  If
+    a garbage collection ran in that thread meanwhile, finalizers calling h5py
+    (e.g., those of h5py objects, or ``HDMFIO.__del__``, which checks whether
+    the file is open) would wait for the same lock, deadlocking the process.
+    Files read with remfile need no pause: remfile fetches the data in the
+    reading thread.
     """
 
     def __init__(self, fp: Any) -> None:
@@ -161,7 +151,10 @@ class AnnexedReadableFile(Readable):
     adapter: Any = field(repr=False, compare=False)
 
     def open(self) -> IO[bytes]:
-        return cast("IO[bytes]", _GCPausedFile(self.adapter.open(self.filepath, "rb")))
+        fp = self.adapter.open(self.filepath, "rb")
+        if type(fp).__name__ != "RemfileWrapper":
+            fp = _GCPausedFile(fp)
+        return cast("IO[bytes]", fp)
 
     def get_size(self) -> int:
         return self.size
@@ -196,101 +189,6 @@ def annex_fingerprint(source: Any) -> tuple[str, str] | None:
     return cast("tuple[str, str] | None", annex_key_fingerprint(source))
 
 
-#: Size of the blocks in which streamed content is read and cached
-STREAM_BLOCK_SIZE = 256 * 1024
-
-#: Maximum number of blocks cached for each open streamed file
-STREAM_MAX_BLOCKS = 512
-
-#: Name of the fsspec cache defined by `_coalescing_block_cache()`
-COALESCING_BLOCK_CACHE = "dandi-coalescing-blockcache"
-
-
-@cache
-def _coalescing_block_cache() -> type:
-    """
-    Define (once, so as not to import fsspec when this module is imported) and
-    register with fsspec a cache that, like fsspec's ``"blockcache"``, keeps
-    the least recently used blocks of a file, but fetches the consecutive
-    blocks missing for a read with a single request rather than with one
-    request per block, which would make reading a large dataset take one
-    round trip per `STREAM_BLOCK_SIZE` bytes
-    """
-    from collections import OrderedDict
-
-    from fsspec.caching import BaseCache, register_cache
-
-    class CoalescingBlockCache(BaseCache):  # type: ignore[misc]
-        name = COALESCING_BLOCK_CACHE
-
-        def __init__(
-            self,
-            blocksize: int,
-            fetcher: Any,
-            size: int,
-            maxblocks: int = STREAM_MAX_BLOCKS,
-        ) -> None:
-            super().__init__(blocksize, fetcher, size)
-            self.maxblocks = maxblocks
-            self.blocks: OrderedDict[int, bytes] = OrderedDict()
-
-        def _fetch(self, start: int | None, end: int | None) -> bytes:
-            if start is None:
-                start = 0
-            if end is None or end > self.size:
-                end = self.size
-            if start >= end:
-                return b""
-            first = start // self.blocksize
-            last = (end - 1) // self.blocksize
-            numbers = range(first, last + 1)
-            missing = [n for n in numbers if n not in self.blocks]
-            # Fetch each run of consecutive missing blocks in one request
-            i = 0
-            while i < len(missing):
-                j = i
-                while j + 1 < len(missing) and missing[j + 1] == missing[j] + 1:
-                    j += 1
-                run_start = missing[i] * self.blocksize
-                run_end = min((missing[j] + 1) * self.blocksize, self.size)
-                data = self.fetcher(run_start, run_end)
-                for n in range(missing[i], missing[j] + 1):
-                    offset = (n - missing[i]) * self.blocksize
-                    self.blocks[n] = data[offset : offset + self.blocksize]
-                i = j + 1
-            out = []
-            for n in numbers:
-                self.blocks.move_to_end(n)
-                out.append(self.blocks[n])
-            # Evict the least recently used blocks, but not those just read
-            while len(self.blocks) > max(self.maxblocks, len(numbers)):
-                self.blocks.popitem(last=False)
-            data = b"".join(out)
-            offset = first * self.blocksize
-            return data[start - offset : end - offset]
-
-    register_cache(CoalescingBlockCache, clobber=True)
-    return CoalescingBlockCache
-
-
-def _read_in_small_blocks(dsap: Any) -> None:
-    """
-    Make the files of a dataset adapter be read in cached blocks of
-    `STREAM_BLOCK_SIZE` bytes rather than with fsspec's default: h5py reads
-    many small pieces scattered over the file, and with the default (5 MiB of
-    read-ahead, discarded whenever a read jumps elsewhere) reading an NWB file
-    downloads about as much as the whole file each time it is opened
-    """
-    # Avoid heavy import when this module is imported:
-    from fsspec.implementations.http import HTTPFileSystem
-
-    fs = getattr(dsap, "fs", None)
-    if isinstance(fs, HTTPFileSystem):
-        fs.block_size = STREAM_BLOCK_SIZE
-        _coalescing_block_cache()
-        fs.cache_type = COALESCING_BLOCK_CACHE
-
-
 def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
     """
     Return an `AnnexedReadableFile` for streaming the content of the annexed
@@ -306,15 +204,12 @@ def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
     try:
         from datalad_fuse.adapter import FileState
     except ImportError:
-        try:
-            from datalad_fuse.fsspec import FileState
-        except ImportError:
-            return None
-    if not annex_initialized(filepath.parent):
+        # Not installed, or a version without pluggable backends
         return None
     try:
         dsap, relpath = get_adapter().resolve_dataset(filepath)
-        _read_in_small_blocks(dsap)
+        if not dsap.annex_initialized:
+            return None
         state, key = dsap.get_file_state(relpath)
     except Exception as e:
         # E.g., a repository without any commit
@@ -322,10 +217,10 @@ def get_annexed_readable(path: str | Path) -> AnnexedReadableFile | None:
         return None
     if state is not FileState.NO_CONTENT or key is None or key.size is None:
         return None
-    urls: Iterator[str] = dsap.get_urls(str(key))
-    if hasattr(dsap, "get_exporttree_urls"):
-        # Fallback to S3 exports of datalad/datalad-fuse#131
-        urls = chain(urls, dsap.get_exporttree_urls(relpath, key))
+    # Including the S3 exports git-annex knows no URLs on
+    urls: Iterator[str] = chain(
+        dsap.get_urls(str(key)), dsap.get_exporttree_urls(relpath, key)
+    )
     url = next(urls, None)
     if url is None:
         lgr.debug("%s: git-annex knows no URL for key %s", filepath, key)

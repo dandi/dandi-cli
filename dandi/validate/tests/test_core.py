@@ -338,7 +338,7 @@ def streamable_dandiset(
     its key is needed).
     """
     skipif.no_git_annex()
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("datalad_fuse.adapter")
     server, base_url = range_http_server
     shutil.copy(simple3_nwb, tmp_path / "served" / "content.nwb")
     video = tmp_path / "video.mp4"
@@ -520,7 +520,7 @@ def test_validate_jobs(
 @pytest.mark.ai_generated
 def test_validate_stream_not_streamable(tmp_path: Path) -> None:
     """stream policy emits an error for a broken symlink that cannot be streamed."""
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("datalad_fuse.adapter")
     skipif.no_git_annex()
     ds = _make_dandiset_with_broken_symlink(tmp_path)
     results = list(validate(ds, missing_file_content=MissingFileContent.stream))
