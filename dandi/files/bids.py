@@ -248,6 +248,18 @@ class BIDSAsset(LocalFileAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        return self.get_bids_metadata(digest)
+
+    def get_bids_metadata(self, digest: Digest | None = None) -> BareAsset:
+        """
+        Return the metadata of the asset that comes from the BIDS dataset (its
+        path and files such as :file:`participants.tsv`) only.
+
+        Unlike `get_metadata()`, which subclasses override to also extract
+        metadata from the content of the asset (e.g., `NWBBIDSAsset` from the
+        NWB file), this never reads the content, so that the extraction of
+        metadata from the content can use it without recursing.
+        """
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self._content(), start_time, end_time, digest)
@@ -283,7 +295,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        bids_metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
+        bids_metadata = self.get_bids_metadata(digest)
         nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
         return BareAsset(
             **{
@@ -318,10 +330,7 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        metadata = self.bids_dataset_description.get_asset_metadata(self)
-        start_time = end_time = datetime.now().astimezone()
-        add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
-        metadata.path = self.path
+        metadata = self.get_bids_metadata(digest)
         metadata.encodingFormat = ZARR_MIME_TYPE
         return metadata
 
