@@ -262,7 +262,7 @@ synchronized deployments across all instances: those are fragile and need
 orchestration.  Do not ask instances that lack the feature to reject the new
 client via `cli-minimal-version` or `cli-bad-versions` in `/api/info/`.
 
-Decide, per server, whether the feature is available:
+Decide, per server, whether the feature is available, either:
 
 1. **By server version**, if the dandi-archive release that added the feature
    is known: compare it with `DandiAPIClient.server_info["version"]` (the
@@ -277,14 +277,13 @@ Decide, per server, whether the feature is available:
    Choose a signal that cannot be mistaken for another error.  For example, a
    404 from a new endpoint under a Dandiset version path could also mean that
    the version does not exist.
-3. **By a "features" list in `/api/info/`**, once dandi-archive provides one.
 
 Never decide by the instance name or URL.  In addition:
 
-- Give the feature a short uppercase CODENAME (e.g. `BULK_DELETE`), and
-  mention it, the dandi-archive issue/PR, and the dandi-archive version that
-  released it (once known) in a comment at the conditional, so that it can be
-  found, reviewed, and removed later.
+- In a comment at the conditional, refer to the dandi-archive issue/PR it
+  accommodates and say when the fallback can be removed (e.g. "once LINC and
+  EMBER update their API to match dandi-archive >= 0.12.14"), so that it can
+  be found, reviewed, and removed later.
 - Log use of the fallback at DEBUG or INFO level, not as a warning or error;
   users cannot do anything about it.
 - Test both code paths.  Integration tests run against the latest
@@ -293,17 +292,29 @@ Never decide by the instance name or URL.  In addition:
   integration tests needing the feature if the server does not support it.
 - Remove the fallback once all known instances support the feature.
 
-Prior examples in the code:
-`_get_instance()` in `dandi/utils.py` (falls back from `/server-info` to
-`/api/info/`); `check_schema_version()` and `_maybe_downgrade_metadata()` in
-`dandi/dandiapi.py` (use `allowed_schema_versions` if the server provides it,
-and downgrade metadata for servers with an older schema); and Zarr upload in
-`dandi/files/zarr.py` (sends `x-amz-tagging` only if the presigned URL signs
-it, and reuses an existing Zarr on either the old or new error message).
-Bulk asset deletion (`BULK_DELETE`,
-[dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960), using the
+Examples in the code (links are to the 0.81.0 release):
+
+- `_get_instance()` in
+  [`dandi/utils.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/utils.py#L596-L601)
+  falls back from `/server-info` to `/api/info/`.
+- `check_schema_version()` in
+  [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L694-L777)
+  uses `allowed_schema_versions` if the server provides it, and
+  `_maybe_downgrade_metadata()` in
+  [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L802-L839)
+  downgrades metadata for servers with an older schema.
+- Zarr upload in
+  [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L1011-L1032)
+  sends `x-amz-tagging` only if the presigned URL signs it.
+- `mkzarr()` in
+  [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L603-L612)
+  reuses an existing Zarr on either the old or the new server error message.
+
+Bulk asset deletion
+([dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960), using the
 endpoint from [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920))
-is in progress.
+is in progress; it falls back to deleting assets one at a time on servers
+without the endpoint.
 
 ## Test infrastructure
 
