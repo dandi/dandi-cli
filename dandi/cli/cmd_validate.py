@@ -175,7 +175,7 @@ def _filter_results(
     "path layout, 'stream' streams the content of annexed files from the URLs "
     "git-annex knows for it, so that content-dependent validators run without "
     "the files having to be downloaded (requires git-annex and `pip install "
-    "'dandi[streaming]'`).",
+    "'dandi[datalad]'`).",
     type=click.Choice(
         ["error", "only-non-data", "skip", "stream"], case_sensitive=True
     ),

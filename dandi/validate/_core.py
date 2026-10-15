@@ -14,7 +14,6 @@ from collections.abc import Iterator
 from concurrent.futures import Future, ProcessPoolExecutor
 from copy import copy
 from functools import partial
-from importlib.util import find_spec
 import logging
 from logging.handlers import QueueHandler, QueueListener
 from multiprocessing import get_context
@@ -45,7 +44,11 @@ from ..files import (
     NWBAsset,
     find_dandi_files,
 )
-from ..support.annex_stream import AnnexedReadableFile, get_annexed_readable
+from ..support.annex_stream import (
+    AnnexedReadableFile,
+    can_stream,
+    get_annexed_readable,
+)
 from ..utils import find_parent_directory_containing
 
 lgr = get_logger()
@@ -481,10 +484,10 @@ class _ValidationPool:
 def _check_streaming_requirements() -> None:
     """Raise an informative error if what is needed for streaming file content
     is not installed"""
-    if find_spec("remfile") is None:
+    if not can_stream():
         raise RuntimeError(
-            "Streaming file content requires remfile; install it with "
-            "`pip install 'dandi[streaming]'`"
+            "Streaming file content requires datalad-fuse with remfile; install "
+            "them with `pip install 'dandi[datalad]'`"
         )
     if shutil.which("git-annex") is None:
         raise RuntimeError("Streaming file content requires git-annex")
