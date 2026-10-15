@@ -1003,12 +1003,12 @@ def test_validate_missing_file_content_no_broken_symlinks(tmp_path: Path) -> Non
 def test_validate_missing_file_content_stream(
     tmp_path: Path, simple3_nwb: Path, range_http_server: tuple[Any, str]
 ) -> None:
-    """--missing-file-content=stream validates annexed content with datalad-fuse."""
+    """--missing-file-content=stream validates annexed content by streaming it."""
     from ...tests.fixtures import make_git_annex_dandiset
     from ...tests.skip import skipif
 
     skipif.no_git_annex()
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("remfile")
     _, base_url = range_http_server
     shutil.copy(simple3_nwb, tmp_path / "served" / "content.nwb")
     ds = tmp_path / "ds"

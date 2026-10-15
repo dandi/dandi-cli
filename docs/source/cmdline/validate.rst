@@ -74,7 +74,8 @@ Options
         such file but still validate its path layout
 
     ``stream``
-        Stream the content of each such file with datalad-fuse_ so that
+        Stream the content of each such file from the URLs git-annex knows
+        for it so that
         content-dependent validators run without the file having to be
         downloaded; see `Validating DataLad Dandisets Remotely`_
         below.
@@ -100,10 +101,10 @@ annexed files: symbolic links that remain broken until the content is fetched,
 which for some Dandisets would mean downloading terabytes of data.  The
 ``stream`` policy of :option:`--missing-file-content` lets ``dandi validate``
 run the content-dependent validators (pynwb and nwbinspector for NWB files) on
-such files by streaming their content on demand with datalad-fuse_ (without
-mounting anything), which asks git-annex where the content is, reading only
-the parts of each file that the validators need.  This requires git-annex and
-``pip install "dandi[datalad]"``.
+such files by streaming their content on demand: it asks git-annex where the
+content is (``git annex whereis``) and reads only the parts of each file that
+the validators need, with remfile_, which is optimized for HDF5-based files
+such as NWB.  This requires git-annex and ``pip install "dandi[streaming]"``.
 
 For example, to produce a JSON Lines record of *all* validation results for
 a Dandiset::
@@ -121,9 +122,9 @@ Archive's API download URL, which redirects to S3); a file that cannot be stream
 Notes:
 
 - git-annex must be initialized in the clone, which ``datalad clone`` does
-  (after ``git clone``, run ``git annex init``).
-- datalad-fuse does not use the HTTP proxy environment variables
-  (``HTTPS_PROXY`` etc.), so the URLs must be reachable directly.
+  (after ``git clone``, run ``git annex init``): ``dandi validate`` does not
+  run any ``git annex`` command in a clone in which it is not, as that would
+  initialize it, modifying the clone.
 - Some nwbinspector checks read data arrays (e.g., timestamps), so the amount
   of data streamed for a file depends on its content; it is nevertheless
   usually a small fraction of the file.
@@ -144,7 +145,7 @@ Notes:
   present (the non-annexed sidecar files, which are kept in git) or encoded in
   the file and folder names of the annexed files themselves.
 
-.. _datalad-fuse: https://github.com/datalad/datalad-fuse
+.. _remfile: https://github.com/flatironinstitute/remfile
 
 
 Development Options

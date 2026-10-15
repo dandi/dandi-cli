@@ -22,12 +22,9 @@ from ... import __version__
 from ...consts import dandiset_metadata_file
 from ...files import NWBAsset, dandi_file
 from ...pynwb_utils import validate as pynwb_validate
-from ...support.datalad_fuse import get_annexed_readable
-from ...tests.fixtures import (
-    BIDS_TESTDATA_SELECTION,
-    RangeHTTPServer,
-    make_git_annex_dandiset,
-)
+from ...support.annex_stream import get_annexed_readable
+from ...tests.fixtures import BIDS_TESTDATA_SELECTION, make_git_annex_dandiset
+from ...tests.range_http_server import RangeHTTPServer
 from ...tests.skip import skipif
 
 
@@ -338,7 +335,7 @@ def streamable_dandiset(
     its key is needed).
     """
     skipif.no_git_annex()
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("remfile")
     server, base_url = range_http_server
     shutil.copy(simple3_nwb, tmp_path / "served" / "content.nwb")
     video = tmp_path / "video.mp4"
@@ -371,7 +368,7 @@ def test_validate_stream(
     simple3_nwb: Path,
     tmp_path: Path,
 ) -> None:
-    """stream policy validates the content of annexed files with datalad-fuse."""
+    """stream policy validates the content of annexed files by streaming it."""
     ds, server = streamable_dandiset
     results = list(validate(ds, missing_file_content=MissingFileContent.stream))
 
@@ -520,7 +517,7 @@ def test_validate_jobs(
 @pytest.mark.ai_generated
 def test_validate_stream_not_streamable(tmp_path: Path) -> None:
     """stream policy emits an error for a broken symlink that cannot be streamed."""
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("remfile")
     skipif.no_git_annex()
     ds = _make_dandiset_with_broken_symlink(tmp_path)
     results = list(validate(ds, missing_file_content=MissingFileContent.stream))
@@ -557,9 +554,9 @@ def test_validate_stream_unreadable_url(
 
 
 @pytest.mark.ai_generated
-def test_validate_stream_requires_datalad_fuse(
+def test_validate_stream_requires_remfile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("dandi.validate._core.find_spec", lambda name: None)
-    with pytest.raises(RuntimeError, match=r"dandi\[datalad\]"):
+    with pytest.raises(RuntimeError, match=r"dandi\[streaming\]"):
         list(validate(tmp_path, missing_file_content=MissingFileContent.stream))

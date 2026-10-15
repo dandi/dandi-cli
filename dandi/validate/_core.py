@@ -45,7 +45,7 @@ from ..files import (
     NWBAsset,
     find_dandi_files,
 )
-from ..support.datalad_fuse import AnnexedReadableFile, get_annexed_readable
+from ..support.annex_stream import AnnexedReadableFile, get_annexed_readable
 from ..utils import find_parent_directory_containing
 
 lgr = get_logger()
@@ -205,8 +205,8 @@ def validate(
       datalad dataset without fetched data).  ``error`` emits a concise error,
       ``skip`` skips the file with a warning, ``only-non-data`` skips
       content-dependent validators but still validates path layout, and
-      ``stream`` streams the content of annexed files with datalad-fuse (see
-      `dandi.support.datalad_fuse`) so that
+      ``stream`` streams the content of annexed files (see
+      `dandi.support.annex_stream`) so that
       content-dependent validators run without the content being present
       locally.
     jobs : int
@@ -481,10 +481,10 @@ class _ValidationPool:
 def _check_streaming_requirements() -> None:
     """Raise an informative error if what is needed for streaming file content
     is not installed"""
-    if find_spec("datalad_fuse") is None:
+    if find_spec("remfile") is None:
         raise RuntimeError(
-            "Streaming file content requires datalad-fuse; install it with "
-            "`pip install 'dandi[datalad]'`"
+            "Streaming file content requires remfile; install it with "
+            "`pip install 'dandi[streaming]'`"
         )
     if shutil.which("git-annex") is None:
         raise RuntimeError("Streaming file content requires git-annex")
