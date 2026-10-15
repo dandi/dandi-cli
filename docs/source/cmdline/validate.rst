@@ -103,8 +103,10 @@ which for some Dandisets would mean downloading terabytes of data.  The
 run the content-dependent validators (pynwb and nwbinspector for NWB files) on
 such files by streaming their content on demand: it asks git-annex where the
 content is (``git annex whereis``) and reads only the parts of each file that
-the validators need, with remfile_, which is optimized for HDF5-based files
-such as NWB.  This requires git-annex and ``pip install "dandi[streaming]"``.
+the validators need.  This is done with datalad-fuse_ (its adapter, without
+mounting anything), which reads HDF5-based files such as NWB with remfile_,
+optimized for their access pattern.  This requires git-annex and ``pip install
+"dandi[datalad]"``.
 
 For example, to produce a JSON Lines record of *all* validation results for
 a Dandiset::
@@ -145,6 +147,7 @@ Notes:
   present (the non-annexed sidecar files, which are kept in git) or encoded in
   the file and folder names of the annexed files themselves.
 
+.. _datalad-fuse: https://github.com/datalad/datalad-fuse
 .. _remfile: https://github.com/flatironinstitute/remfile
 
 
