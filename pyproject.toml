@@ -122,11 +122,11 @@ test = [
 ]
 # For streaming the content of annexed files of DataLad datasets without
 # fetching it (requires git-annex).
-# TODO: before merging, require the first release with the remfile backend and
-# the `init_annex` option of the adapter (datalad/datalad-fuse#131) instead:
-# PyPI rejects distributions with direct URL dependencies.
+# TODO: before merging, require the first release with the remfile backend
+# (datalad/datalad-fuse#131) instead: PyPI rejects distributions with direct URL
+# dependencies.
 datalad = [
-    "datalad-fuse[remfile] @ git+https://github.com/CodyCBakerPhD/datalad-fuse@7183bf439504495be25924a90902673a92b53894",
+    "datalad-fuse[remfile] @ git+https://github.com/datalad/datalad-fuse@b4dbee656eeb8ed54b1396c8d7e5c8b369b64a4a",
 ]
 tools = [
     "boto3",
