@@ -134,12 +134,17 @@ jobs:
       run: pip install git-annex ".[datalad]"
 
     # TODO: use a release once datalad/datalad-fuse#131 and init_annex are
-    # released
+    # released.  The branch is installed without its dependencies (which are
+    # then installed explicitly) as, the fork having no tags, its version is
+    # 0+untagged..., which does not satisfy the `datalad` extra.
     - name: Install git-annex and development datalad-fuse
       if: matrix.mode == 'datalad-dev'
       run: |
-        pip install git-annex ".[datalad]" \
+        pip install git-annex ".[datalad]"
+        pip install --no-deps --force-reinstall \
             "datalad-fuse @ git+https://github.com/CodyCBakerPhD/datalad-fuse@remfile-dev"
+        pip install boto3 "mfusepy ~= 3.1" "remfile ~= 0.1.15"
+        python -c "from datalad_fuse.adapter import DatasetAdapter as D; import inspect; assert 'init_annex' in inspect.signature(D).parameters"
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'
