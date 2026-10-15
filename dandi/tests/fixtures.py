@@ -3,16 +3,12 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from functools import partial
-from http import HTTPStatus
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import logging
 import os
 from pathlib import Path
 import re
 import shutil
 from subprocess import DEVNULL, check_output, run
-import threading
 from time import sleep
 from typing import Any, Literal
 from uuid import uuid4
@@ -32,6 +28,7 @@ import pytest
 import requests
 import zarr
 
+from .range_http_server import RangeHTTPServer
 from .skip import skipif
 from .. import get_logger
 from ..cli.cmd_organize import organize
@@ -367,14 +364,16 @@ def get_filtered_gitrepo_fixture(
     return fixture
 
 
-def make_git_annex_dandiset(dandiset: Path, files: dict[str, tuple[Path, str]]) -> None:
+def make_git_annex_dandiset(
+    dandiset: Path, files: dict[str, tuple[Path, str | list[str]]]
+) -> None:
     """
     Make the directory ``dandiset`` (created if needed, with a minimal
     :file:`dandiset.yaml`) a git-annex repository looking like a clone of a
     DataLad Dandiset whose annexed content has not been fetched: for each
-    ``relpath: (source, url)`` item of ``files``, a copy of ``source`` is
-    annexed at ``relpath`` with ``url`` registered for it, and then dropped.
-    This needs git-annex.
+    ``relpath: (source, urls)`` item of ``files``, a copy of ``source`` is
+    annexed at ``relpath`` with ``urls`` (one or a list) registered for it, and
+    then dropped.  This needs git-annex.
     """
     env = {
         **os.environ,
@@ -401,92 +400,27 @@ def make_git_annex_dandiset(dandiset: Path, files: dict[str, tuple[Path, str]]) 
         (dandiset / relpath).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(source, dandiset / relpath)
     git("annex", "add", "-q", *files)
-    for relpath, (_, url) in files.items():
+    for relpath, (_, urls) in files.items():
         key = git("annex", "lookupkey", relpath)
-        git("annex", "registerurl", key, url)
+        for url in [urls] if isinstance(urls, str) else urls:
+            git("annex", "registerurl", key, url)
     git("commit", "-q", "-m", "Add files")
     git("annex", "drop", "-q", "--force", *files)
-
-
-class RangeHTTPServer(ThreadingHTTPServer):
-    """An HTTP server counting the range requests and the bytes it served"""
-
-    ranged_requests: int = 0
-    bytes_served: int = 0
-
-
-class RangeHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """
-    A handler serving files with support for ``HEAD`` and single-range ``GET``
-    requests, like S3 does
-    """
-
-    def log_message(self, format: str, *args: Any) -> None:
-        pass
-
-    def _send_headers(
-        self, status: HTTPStatus, length: int, content_range: str | None = None
-    ) -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", "application/octet-stream")
-        self.send_header("Content-Length", str(length))
-        self.send_header("Accept-Ranges", "bytes")
-        if content_range is not None:
-            self.send_header("Content-Range", content_range)
-        self.end_headers()
-
-    def do_HEAD(self) -> None:
-        path = self.translate_path(self.path)
-        if not os.path.isfile(path):
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-        self._send_headers(HTTPStatus.OK, os.path.getsize(path))
-
-    def do_GET(self) -> None:
-        path = self.translate_path(self.path)
-        if not os.path.isfile(path):
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-        size = os.path.getsize(path)
-        start, end = 0, size - 1
-        if m := re.fullmatch(r"bytes=(\d+)-(\d*)", self.headers.get("Range", "")):
-            start = int(m[1])
-            end = min(int(m[2]) if m[2] else size - 1, size - 1)
-            assert isinstance(self.server, RangeHTTPServer)
-            self.server.ranged_requests += 1
-            self._send_headers(
-                HTTPStatus.PARTIAL_CONTENT,
-                end - start + 1,
-                f"bytes {start}-{end}/{size}",
-            )
-        else:
-            self._send_headers(HTTPStatus.OK, size)
-        assert isinstance(self.server, RangeHTTPServer)
-        self.server.bytes_served += end - start + 1
-        with open(path, "rb") as fp:
-            fp.seek(start)
-            self.wfile.write(fp.read(end - start + 1))
 
 
 @pytest.fixture()
 def range_http_server(tmp_path: Path) -> Iterator[tuple[RangeHTTPServer, str]]:
     """
     Serve the files in ``tmp_path / "served"`` over HTTP with support for range
-    requests; yields the server and its base URL
+    requests, from a separate process; yields the server and its base URL
     """
     served = tmp_path / "served"
     served.mkdir()
-    server = RangeHTTPServer(
-        ("127.0.0.1", 0), partial(RangeHTTPRequestHandler, directory=str(served))
-    )
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    server = RangeHTTPServer(served)
     try:
-        yield server, f"http://127.0.0.1:{server.server_address[1]}"
+        yield server, server.url
     finally:
-        server.shutdown()
-        server.server_close()
-        thread.join()
+        server.stop()
 
 
 def _make_subdirs_dandisets(path: Path) -> None:

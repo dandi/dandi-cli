@@ -22,7 +22,7 @@ from ..pynwb_utils import (
     metadata_cache,
     nwb_has_external_links,
 )
-from ..support.datalad_fuse import annex_fingerprint
+from ..support.annex_stream import annex_fingerprint
 from ..utils import find_parent_directory_containing
 
 lgr = get_logger()
