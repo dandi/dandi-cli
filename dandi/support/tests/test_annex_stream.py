@@ -74,6 +74,27 @@ def test_annexed_readable(
 
 
 @pytest.mark.ai_generated
+def test_annexed_readable_remfile_whatever_configured(
+    streamed_nwb: tuple[Path, RangeHTTPServer],
+) -> None:
+    """NWB files are read with remfile even if a dataset configures fsspec"""
+    from datalad_fuse.remfile import RemfileWrapper
+
+    nwb, _ = streamed_nwb
+    ds = nwb.parent.parent
+    subprocess.run(
+        ["git", "-C", str(ds), "config", "datalad.fusefs.backends", "fsspec"],
+        check=True,
+    )
+    r = get_annexed_readable(nwb)
+    assert r is not None
+    with r.open() as fp:
+        assert isinstance(fp._fp, RemfileWrapper)
+        with h5py.File(fp, "r") as h5:
+            assert h5.attrs["nwb_version"]
+
+
+@pytest.mark.ai_generated
 def test_annexed_readable_file_object(
     range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
 ) -> None:
