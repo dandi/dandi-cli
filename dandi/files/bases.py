@@ -35,7 +35,7 @@ from dandi.dandiapi import (
 )
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P, Readable
-from dandi.support.datalad_fuse import annex_fingerprint
+from dandi.support.annex_stream import annex_fingerprint
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate._types import (
     ORIGIN_INTERNAL_DANDI,
@@ -326,7 +326,7 @@ class LocalFileAsset(LocalAsset):
     #: An alternative source for the asset's content, used instead of the file
     #: at `filepath` when set.  This is used to stream the content of an
     #: annexed file (e.g., in a DataLad dataset) that is not present locally;
-    #: see `dandi.support.datalad_fuse`.
+    #: see `dandi.support.annex_stream`.
     content_source: Readable | None = None
 
     def _content(self) -> Path | Readable:
