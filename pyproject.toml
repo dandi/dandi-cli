@@ -122,10 +122,10 @@ test = [
     # 5.0 switched to urllib3.connection.VerifiedHTTPSConnection (urllib3 2.x compat)
     "vcrpy >= 5.0.0",
 ]
-# For reading the content of annexed files of DataLad datasets without
+# For streaming the content of annexed files of DataLad datasets without
 # fetching it (requires git-annex)
-datalad = [
-    "datalad-fuse >= 0.5.1",
+streaming = [
+    "remfile",
 ]
 tools = [
     "boto3",
@@ -222,7 +222,6 @@ follow_imports = "skip"
 module = [
     "bidsschematools.*",
     "click_didyoumean.*",
-    "datalad_fuse.*",
     "etelemetry.*",
     "fasteners.*",
     "fscacher.*",
@@ -234,6 +233,7 @@ module = [
     "nwbinspector.*",
     "pynwb.*",
     "pyout.*",
+    "remfile.*",
     "semantic_version.*",
     "vcr.*",
     "zarr.*",

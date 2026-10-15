@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import gc
+import io
 from pathlib import Path
 import shutil
+import subprocess
 
 from fscacher import PersistentCache
 import h5py
@@ -12,14 +13,15 @@ import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 import pytest
 
-from ..datalad_fuse import (
+from ..annex_stream import (
     AnnexedReadableFile,
-    _coalescing_block_cache,
     annex_fingerprint,
+    annex_key_size,
     get_annexed_readable,
 )
 from ...pynwb_utils import get_neurodata_types
-from ...tests.fixtures import RangeHTTPServer, make_git_annex_dandiset
+from ...tests.fixtures import make_git_annex_dandiset
+from ...tests.range_http_server import RangeHTTPServer
 from ...tests.skip import mark
 
 pytestmark = mark.skipif_no_git_annex
@@ -33,7 +35,7 @@ def streamed_nwb(
     An annexed copy of ``simple2_nwb`` in a git-annex repository, whose content
     is not present but registered at a URL of the HTTP server
     """
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("remfile")
     server, base_url = range_http_server
     shutil.copy(simple2_nwb, tmp_path / "served" / "content.nwb")
     make_git_annex_dandiset(
@@ -43,6 +45,20 @@ def streamed_nwb(
     nwb = tmp_path / "ds" / "sub-01" / "sub-01.nwb"
     assert not nwb.exists()
     return nwb, server
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "key,size",
+    [
+        ("SHA256E-s1234--abc.nwb", 1234),
+        ("MD5E-s0--d41d8cd98f00b204e9800998ecf8427e", 0),
+        ("SHA256E-s99-S10-C2--abc.nwb", 99),
+        ("URL--https&c%%example.org%x.nwb", None),
+    ],
+)
+def test_annex_key_size(key: str, size: int | None) -> None:
+    assert annex_key_size(key) == size
 
 
 @pytest.mark.ai_generated
@@ -56,34 +72,90 @@ def test_annexed_readable(
     assert r.url.endswith("/content.nwb")
     assert r.get_size() == simple2_nwb.stat().st_size
     assert r.get_filename() == "sub-01.nwb"
-    fp = r.open()
-    try:
+    with r.open() as fp:
         # Random access over HTTP is enough for h5py to read the file
         with h5py.File(fp, "r") as h5:
             assert h5.attrs["nwb_version"]
-    finally:
-        fp.close()
     assert server.ranged_requests > 0
 
 
 @pytest.mark.ai_generated
-def test_annexed_readable_pauses_gc(
-    streamed_nwb: tuple[Path, RangeHTTPServer],
+def test_annexed_readable_file_object(
+    range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
 ) -> None:
-    # Automatic garbage collection is disabled while any streamed file is open
-    # (to avoid deadlocks with h5py's lock; see `_GCPausedFile`)
-    nwb, _ = streamed_nwb
-    r = get_annexed_readable(nwb)
+    pytest.importorskip("remfile")
+    _, base_url = range_http_server
+    content = bytes(range(256)) * 1000
+    local = tmp_path / "local.bin"
+    local.write_bytes(content)
+    shutil.copy(local, tmp_path / "served" / "content.bin")
+    make_git_annex_dandiset(
+        tmp_path / "ds", {"data.bin": (local, f"{base_url}/content.bin")}
+    )
+    r = get_annexed_readable(tmp_path / "ds" / "data.bin")
     assert r is not None
-    assert gc.isenabled()
     with r.open() as fp:
-        assert not gc.isenabled()
-        with r.open() as fp2:
-            assert fp2.read(8) == b"\x89HDF\r\n\x1a\n"
-        assert not gc.isenabled()
-        fp.seek(1)
-        assert fp.read(3) == b"HDF"
-    assert gc.isenabled()
+        assert fp.readable() and fp.seekable()
+        assert fp.read(8) == content[:8]
+        assert fp.seek(1000) == 1000
+        assert fp.read(3) == content[1000:1003]
+        assert fp.tell() == 1003
+        assert fp.seek(-5, io.SEEK_END) == len(content) - 5
+        # Reads stop at the end of the content
+        assert fp.read(100) == content[-5:]
+        assert fp.read(100) == b""
+        fp.seek(0)
+        assert fp.read() == content
+    assert fp.closed
+
+
+@pytest.mark.ai_generated
+def test_annexed_readable_url_fallback(
+    range_http_server: tuple[RangeHTTPServer, str], simple2_nwb: Path, tmp_path: Path
+) -> None:
+    """The content is read from the first of its URLs that can be read"""
+    pytest.importorskip("remfile")
+    _, base_url = range_http_server
+    shutil.copy(simple2_nwb, tmp_path / "served" / "content.nwb")
+    make_git_annex_dandiset(
+        tmp_path / "ds",
+        {
+            "sub-01.nwb": (
+                simple2_nwb,
+                [f"{base_url}/missing.nwb", f"{base_url}/content.nwb"],
+            )
+        },
+    )
+    found = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
+    assert found is not None
+    # (in the order in which git-annex lists them, which is not the order in
+    # which they were registered)
+    assert sorted(found.urls) == [f"{base_url}/content.nwb", f"{base_url}/missing.nwb"]
+    r = AnnexedReadableFile(
+        filepath=found.filepath,
+        key=found.key,
+        size=found.size,
+        urls=[f"{base_url}/missing.nwb", f"{base_url}/content.nwb"],
+    )
+    assert r.url == f"{base_url}/missing.nwb"
+    with r.open() as fp, h5py.File(fp, "r") as h5:
+        assert h5.attrs["nwb_version"]
+    assert r.url == f"{base_url}/content.nwb"
+
+
+@pytest.mark.ai_generated
+def test_annexed_readable_no_url_readable(
+    range_http_server: tuple[RangeHTTPServer, str], simple2_nwb: Path, tmp_path: Path
+) -> None:
+    pytest.importorskip("remfile")
+    _, base_url = range_http_server
+    make_git_annex_dandiset(
+        tmp_path / "ds", {"sub-01.nwb": (simple2_nwb, f"{base_url}/missing.nwb")}
+    )
+    r = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
+    assert r is not None
+    with pytest.raises(OSError, match="None of the URLs"):
+        r.open()
 
 
 @pytest.mark.ai_generated
@@ -91,7 +163,7 @@ def test_annexed_readable_reads_little(
     range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
 ) -> None:
     """Reading an NWB file's structure downloads only a small part of it"""
-    pytest.importorskip("datalad_fuse.fsspec")
+    pytest.importorskip("remfile")
     server, base_url = range_http_server
     nwbfile = NWBFile("streamed", "id", datetime(2026, 1, 1, tzinfo=timezone.utc))
     for i in range(4):
@@ -104,8 +176,8 @@ def test_annexed_readable_reads_little(
             )
         )
     local = tmp_path / "local.nwb"
-    with NWBHDF5IO(local, "w") as io:
-        io.write(nwbfile)
+    with NWBHDF5IO(local, "w") as io_:
+        io_.write(nwbfile)
     size = local.stat().st_size
     assert size > 15_000_000
     shutil.copy(local, tmp_path / "served" / "content.nwb")
@@ -115,64 +187,16 @@ def test_annexed_readable_reads_little(
     r = get_annexed_readable(tmp_path / "ds" / "sub-01" / "sub-01.nwb")
     assert r is not None
     assert get_neurodata_types.__wrapped__(r) == get_neurodata_types.__wrapped__(local)
-    # With fsspec's default 5 MiB read-ahead, most of the file was downloaded
     assert 0 < server.bytes_served < size / 10
 
 
-@pytest.mark.ai_generated
-def test_coalescing_block_cache() -> None:
-    pytest.importorskip("fsspec")
-    content = bytes(range(256)) * 40
-    requests: list[tuple[int, int]] = []
-
-    def fetcher(start: int, end: int) -> bytes:
-        requests.append((start, end))
-        return content[start:end]
-
-    c = _coalescing_block_cache()(100, fetcher, len(content), maxblocks=5)
-    # The blocks missing for a read are fetched with one request
-    assert c._fetch(150, 420) == content[150:420]
-    assert requests == [(100, 500)]
-    # Cached blocks are not fetched again, and runs of missing blocks around
-    # them are fetched with one request each
-    assert c._fetch(30, 720) == content[30:720]
-    assert requests[1:] == [(0, 100), (500, 800)]
-    # Reads at the end of the content, and beyond
-    assert c._fetch(10_190, 20_000) == content[10_190:]
-    assert requests[3:] == [(10_100, 10_240)]
-    assert c._fetch(20_000, 20_100) == b""
-    # Only the 5 most recently used blocks are kept (but at least the blocks
-    # of the last read)
-    assert sorted(c.blocks) == [5, 6, 7, 101, 102]
-    requests.clear()
-    assert c._fetch(0, 10_240) == content
-    assert requests == [(0, 500), (800, 10_100)]
-    assert len(c.blocks) == 103
-
-
-@pytest.mark.ai_generated
-def test_annexed_readable_large_read(
-    range_http_server: tuple[RangeHTTPServer, str], tmp_path: Path
-) -> None:
-    """A large read of streamed content is fetched with one request"""
-    pytest.importorskip("datalad_fuse.fsspec")
-    server, base_url = range_http_server
-    local = tmp_path / "local.bin"
-    content = np.random.default_rng(0).bytes(10_000_000)
-    local.write_bytes(content)
-    shutil.copy(local, tmp_path / "served" / "content.bin")
-    make_git_annex_dandiset(
-        tmp_path / "ds", {"sub-01/data.bin": (local, f"{base_url}/content.bin")}
+def annex_uuid(repo: Path) -> str:
+    r = subprocess.run(
+        ["git", "-C", str(repo), "config", "--get", "annex.uuid"],
+        capture_output=True,
+        text=True,
     )
-    r = get_annexed_readable(tmp_path / "ds" / "sub-01" / "data.bin")
-    assert r is not None
-    with r.open() as fp:
-        fp.seek(123)
-        assert fp.read(9_000_000) == content[123:9_000_123]
-        assert server.ranged_requests == 1
-        fp.seek(5_000_000)
-        assert fp.read(100) == content[5_000_000:5_000_100]
-        assert server.ranged_requests == 1
+    return r.stdout.strip()
 
 
 @pytest.mark.ai_generated
@@ -185,13 +209,15 @@ def test_annexed_readable_none(
     assert get_annexed_readable(nwb.parent / "regular.nwb") is None
     # Not in a Git repository
     assert get_annexed_readable(simple2_nwb) is None
-    # A broken symbolic link in a repository without git-annex initialized
-    plain = tmp_path / "plain"
-    plain.mkdir()
-    shutil.copytree(nwb.parent, plain / "sub-01", symlinks=True)
-    shutil.copytree(nwb.parent.parent / ".git", plain / ".git")
-    (plain / ".git" / "config").write_text("[core]\n\tbare = false\n")
-    assert get_annexed_readable(plain / "sub-01" / "sub-01.nwb") is None
+    # A broken symbolic link in a clone in which git-annex is not initialized,
+    # which is not initialized by trying
+    clone = tmp_path / "clone"
+    subprocess.run(
+        ["git", "clone", "-q", str(nwb.parent.parent), str(clone)], check=True
+    )
+    assert annex_uuid(clone) == ""
+    assert get_annexed_readable(clone / "sub-01" / "sub-01.nwb") is None
+    assert annex_uuid(clone) == ""
 
 
 @pytest.mark.ai_generated
