@@ -5,6 +5,7 @@ import io
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 from fscacher import PersistentCache
 import h5py
@@ -16,7 +17,10 @@ import pytest
 from ..annex_stream import (
     AnnexedReadableFile,
     annex_fingerprint,
+    annex_initialized,
     annex_key_size,
+    annex_urls,
+    can_stream,
     get_annexed_readable,
 )
 from ...pynwb_utils import get_neurodata_types
@@ -72,6 +76,8 @@ def test_annexed_readable(
     assert r.url.endswith("/content.nwb")
     assert r.get_size() == simple2_nwb.stat().st_size
     assert r.get_filename() == "sub-01.nwb"
+    assert r.get_mtime() is None
+    assert str(r) == str(nwb)
     with r.open() as fp:
         # Random access over HTTP is enough for h5py to read the file
         with h5py.File(fp, "r") as h5:
@@ -152,8 +158,16 @@ def test_annexed_readable_no_url_readable(
     make_git_annex_dandiset(
         tmp_path / "ds", {"sub-01.nwb": (simple2_nwb, f"{base_url}/missing.nwb")}
     )
-    r = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
-    assert r is not None
+    found = get_annexed_readable(tmp_path / "ds" / "sub-01.nwb")
+    assert found is not None
+    # Neither a URL the server does not serve, nor one at which no server
+    # listens, can be read
+    r = AnnexedReadableFile(
+        filepath=found.filepath,
+        key=found.key,
+        size=found.size,
+        urls=found.urls + ["http://127.0.0.1:1/missing.nwb"],
+    )
     with pytest.raises(OSError, match="None of the URLs"):
         r.open()
 
@@ -218,6 +232,45 @@ def test_annexed_readable_none(
     assert annex_uuid(clone) == ""
     assert get_annexed_readable(clone / "sub-01" / "sub-01.nwb") is None
     assert annex_uuid(clone) == ""
+
+
+@pytest.mark.ai_generated
+def test_annexed_readable_none_not_streamable(
+    streamed_nwb: tuple[Path, RangeHTTPServer], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    nwb, _ = streamed_nwb
+    ds = nwb.parent.parent
+    objects = Path(".git", "annex", "objects", "Xx", "Yy")
+    # A broken symbolic link which is not to annexed content
+    (ds / "other.nwb").symlink_to("missing.nwb")
+    assert get_annexed_readable(ds / "other.nwb") is None
+    # The key does not record the size of the content
+    key = "URL--https&c%%example.org%x.nwb"
+    (ds / "nosize.nwb").symlink_to(objects / key / key)
+    assert get_annexed_readable(ds / "nosize.nwb") is None
+    # git-annex knows no URL for the key
+    key = "SHA256E-s5--" + "0" * 64 + ".nwb"
+    (ds / "nourl.nwb").symlink_to(objects / key / key)
+    assert annex_urls(ds, key) == []
+    assert get_annexed_readable(ds / "nourl.nwb") is None
+    # remfile is not installed
+    monkeypatch.setitem(sys.modules, "remfile", None)
+    assert not can_stream()
+    assert get_annexed_readable(nwb) is None
+
+
+@pytest.mark.ai_generated
+def test_annex_initialized_no_git(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PATH", str(tmp_path / "nonexistent"))
+    assert not annex_initialized(tmp_path)
+
+
+@pytest.mark.ai_generated
+def test_annex_urls_whereis_fails(tmp_path: Path) -> None:
+    # Not a Git repository
+    assert annex_urls(tmp_path, "SHA256E-s5--" + "0" * 64) == []
 
 
 @pytest.mark.ai_generated

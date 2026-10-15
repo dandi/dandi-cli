@@ -19,6 +19,8 @@ from multiprocessing.sharedctypes import Synchronized
 import os
 from pathlib import Path
 import re
+import signal
+import sys
 from typing import Any
 
 
@@ -82,12 +84,19 @@ class _Handler(SimpleHTTPRequestHandler):
             self.wfile.write(fp.read(end - start + 1))
 
 
+def _exit(_signum: int, _frame: Any) -> None:
+    sys.exit(0)
+
+
 def _serve(
     directory: str,
     ranged_requests: Synchronized,
     bytes_served: Synchronized,
     port: Any,
 ) -> None:
+    # Exit normally when terminated by `RangeHTTPServer.stop()`, so that exit
+    # handlers run (e.g., saving coverage data when testing with coverage)
+    signal.signal(signal.SIGTERM, _exit)
     server = _Server(("127.0.0.1", 0), partial(_Handler, directory=directory))
     server.ranged_requests = ranged_requests
     server.bytes_served = bytes_served
