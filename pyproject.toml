@@ -121,9 +121,11 @@ test = [
     "vcrpy >= 5.0.0",
 ]
 # For streaming the content of annexed files of DataLad datasets without
-# fetching it (requires git-annex)
-streaming = [
-    "remfile",
+# fetching it (requires git-annex).
+# TODO: require the first release with the remfile backend and the `init_annex`
+# option of the adapter (datalad/datalad-fuse#131)
+datalad = [
+    "datalad-fuse[remfile] >= 0.6.0",
 ]
 tools = [
     "boto3",
@@ -220,6 +222,7 @@ follow_imports = "skip"
 module = [
     "bidsschematools.*",
     "click_didyoumean.*",
+    "datalad_fuse.*",
     "etelemetry.*",
     "fasteners.*",
     "fscacher.*",
