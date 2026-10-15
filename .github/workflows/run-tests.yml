@@ -126,16 +126,9 @@ jobs:
             git+https://github.com/hdmf-dev/hdmf \
             git+https://github.com/hdmf-dev/hdmf-zarr
 
-    # TODO: install a release once datalad-fuse has the remfile backend and the
-    # `init_annex` option of its adapter (datalad/datalad-fuse#131).  The
-    # branch is fetched with datalad-fuse's tags, which its version is derived
-    # from.
     - name: Install git-annex and datalad-fuse (for streaming annexed content)
       if: matrix.mode == 'datalad-fuse'
-      run: |
-        git clone -q -b remfile-dev https://github.com/CodyCBakerPhD/datalad-fuse /tmp/datalad-fuse
-        git -C /tmp/datalad-fuse fetch -q --tags https://github.com/datalad/datalad-fuse
-        pip install git-annex "/tmp/datalad-fuse[remfile]" ".[datalad]"
+      run: pip install git-annex ".[datalad]"
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'
