@@ -61,6 +61,7 @@ def _collect_results(
     devel_debug: bool,
     allow_any_path: bool,
     missing_file_content: MissingFileContent = MissingFileContent.error,
+    jobs: int = 1,
 ) -> list[ValidationResult]:
     """Run validation and collect all results into a list."""
     # Avoid heavy import by importing within function:
@@ -87,6 +88,7 @@ def _collect_results(
             devel_debug=devel_debug,
             allow_any_path=allow_any_path,
             missing_file_content=missing_file_content,
+            jobs=jobs,
         )
     )
 
@@ -170,9 +172,24 @@ def _filter_results(
     "in a datalad dataset without fetched data). 'error' (default) emits a "
     "concise error per file, 'skip' skips each such file with a warning, "
     "'only-non-data' skips content-dependent validators but still validates "
-    "path layout.",
-    type=click.Choice(["error", "only-non-data", "skip"], case_sensitive=True),
+    "path layout, 'stream' streams the content of annexed files from the URLs "
+    "git-annex knows for it, so that content-dependent validators run without "
+    "the files having to be downloaded (requires git-annex and `pip install "
+    "'dandi[datalad]'`).",
+    type=click.Choice(
+        ["error", "only-non-data", "skip", "stream"], case_sensitive=True
+    ),
     default="error",
+)
+@click.option(
+    "-J",
+    "--jobs",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    help="Number of NWB files to validate in parallel, in separate processes.  "
+    "Useful especially with '--missing-file-content stream', for which "
+    "validating a file mostly waits for its content to be downloaded.",
 )
 @click.option(
     "--load",
@@ -196,6 +213,7 @@ def validate(
     summary: bool = False,
     max_per_group: int | None = None,
     missing_file_content: str = "error",
+    jobs: int = 1,
     load: tuple[str, ...] = (),
     schema: str | None = None,
     devel_debug: bool = False,
@@ -239,7 +257,12 @@ def validate(
     else:
         mfc = MissingFileContent(missing_file_content)
         results = _collect_results(
-            paths, schema, devel_debug, allow_any_path, missing_file_content=mfc
+            paths,
+            schema,
+            devel_debug,
+            allow_any_path,
+            missing_file_content=mfc,
+            jobs=jobs,
         )
         # Auto-save companion right after collection, before filtering — so
         # all results are preserved regardless of display filters.

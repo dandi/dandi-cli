@@ -262,7 +262,7 @@ class BIDSAsset(LocalFileAsset):
         """
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
-        add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
+        add_common_metadata(metadata, self._content(), start_time, end_time, digest)
         metadata.path = self.path
         return metadata
 

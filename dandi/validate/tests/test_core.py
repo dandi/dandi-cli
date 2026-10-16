@@ -1,5 +1,8 @@
 import json
+import logging
+import os
 from pathlib import Path
+import shutil
 from typing import Any
 
 import pytest
@@ -17,7 +20,12 @@ from .._types import (
 )
 from ... import __version__
 from ...consts import dandiset_metadata_file
-from ...tests.fixtures import BIDS_TESTDATA_SELECTION
+from ...files import NWBAsset, dandi_file
+from ...pynwb_utils import validate as pynwb_validate
+from ...support.annex_stream import get_annexed_readable
+from ...tests.fixtures import BIDS_TESTDATA_SELECTION, make_git_annex_dandiset
+from ...tests.range_http_server import RangeHTTPServer
+from ...tests.skip import skipif
 
 
 def test_validate_nwb_error(simple3_nwb: Path) -> None:
@@ -310,3 +318,247 @@ def test_validate_broken_symlink_real_file_still_validated(tmp_path: Path) -> No
         assert (
             len(broken_pynwb) == 0
         ), f"policy={policy.value}: pynwb should not run on the broken symlink"
+
+
+# ---- Tests for streaming the content of annexed files (missing_file_content=stream) ----
+
+
+@pytest.fixture
+def streamable_dandiset(
+    range_http_server: tuple[RangeHTTPServer, str], simple3_nwb: Path, tmp_path: Path
+) -> tuple[Path, RangeHTTPServer]:
+    """A git-annex dandiset looking like a DataLad clone without fetched content.
+
+    ``sub-001/sub-001.nwb`` is an annexed copy of *simple3_nwb* whose content
+    is served by the HTTP server, and ``sub-001/sub-001_video.mp4`` an annexed
+    video registered at a URL that is never read (only the size recorded in
+    its key is needed).
+    """
+    skipif.no_git_annex()
+    pytest.importorskip("datalad_fuse.adapter")
+    pytest.importorskip("remfile")
+    server, base_url = range_http_server
+    shutil.copy(simple3_nwb, tmp_path / "served" / "content.nwb")
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"not really a video")
+    ds = tmp_path / "ds"
+    make_git_annex_dandiset(
+        ds,
+        {
+            "sub-001/sub-001.nwb": (simple3_nwb, f"{base_url}/content.nwb"),
+            "sub-001/sub-001_video.mp4": (video, f"{base_url}/never-read.mp4"),
+        },
+    )
+    return ds, server
+
+
+def _content_results(results: list[ValidationResult], name: str) -> list[tuple]:
+    """Path-independent summary of the results for the file called *name*."""
+    return sorted(
+        (r.id, r.severity, r.origin.validator, r.message)
+        for r in results
+        if r.path is not None
+        and r.path.name == name
+        and r.id != "DANDI.FILE_CONTENT_STREAMED"
+    )
+
+
+@pytest.mark.ai_generated
+def test_validate_stream(
+    streamable_dandiset: tuple[Path, RangeHTTPServer],
+    simple3_nwb: Path,
+    tmp_path: Path,
+) -> None:
+    """stream policy validates the content of annexed files by streaming it."""
+    ds, server = streamable_dandiset
+    results = list(validate(ds, missing_file_content=MissingFileContent.stream))
+
+    streamed = [r for r in results if r.id == "DANDI.FILE_CONTENT_STREAMED"]
+    assert sorted(r.path.name for r in streamed if r.path is not None) == [
+        "sub-001.nwb",
+        "sub-001_video.mp4",
+    ]
+    assert all(r.severity == Severity.INFO for r in streamed)
+    assert not [r for r in results if r.id.startswith("DANDI.FILE_CONTENT_MISSING")]
+    assert server.ranged_requests > 0
+
+    # Validating the video only needs the size recorded in its key
+    assert _content_results(results, "sub-001_video.mp4") == []
+
+    # Content-dependent validation of the NWB file gives the same results as
+    # for a regular dandiset containing the file itself
+    local = tmp_path / "local"
+    (local / "sub-001").mkdir(parents=True)
+    shutil.copy(ds / dandiset_metadata_file, local / dandiset_metadata_file)
+    shutil.copy(simple3_nwb, local / "sub-001" / "sub-001.nwb")
+    expected = list(validate(local))
+    # simple3_nwb lacks a subject_id, which only content-based checks notice
+    assert any(r.origin.validator == Validator.nwbinspector for r in expected)
+    assert _content_results(results, "sub-001.nwb") == _content_results(
+        expected, "sub-001.nwb"
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    os.environ.get("DANDI_CACHE") == "ignore", reason="the validation cache is disabled"
+)
+def test_validate_stream_cached_by_key(
+    streamable_dandiset: tuple[Path, RangeHTTPServer],
+) -> None:
+    """pynwb validation results of a streamed file are cached under its annex key."""
+    ds, server = streamable_dandiset
+    nwb = ds / "sub-001" / "sub-001.nwb"
+    readable = get_annexed_readable(nwb)
+    assert readable is not None
+    results = pynwb_validate(nwb, readable=readable)
+    assert not [r for r in results if r.id == "pynwb.GENERIC"]
+    requests = server.ranged_requests
+    assert requests > 0
+    # Served from the cache, without the content being read again
+    assert pynwb_validate(nwb, readable=get_annexed_readable(nwb)) == results
+    assert server.ranged_requests == requests
+
+
+def _streamed_nwb_asset(ds: Path) -> NWBAsset:
+    nwb = ds / "sub-001" / "sub-001.nwb"
+    df = dandi_file(nwb, ds)
+    assert isinstance(df, NWBAsset)
+    df.content_source = get_annexed_readable(nwb)
+    assert df.content_source is not None
+    return df
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    os.environ.get("DANDI_CACHE") == "ignore", reason="the validation cache is disabled"
+)
+def test_validate_stream_inspection_cached_by_key(
+    streamable_dandiset: tuple[Path, RangeHTTPServer],
+) -> None:
+    """NWB Inspector results of a streamed file are cached under its annex key."""
+    ds, server = streamable_dandiset
+    results = _streamed_nwb_asset(ds).get_validation_errors()
+    inspector = [r for r in results if r.origin.validator == Validator.nwbinspector]
+    # simple3_nwb lacks a subject_id
+    assert inspector
+    requests = server.ranged_requests
+    # Served from the cache, without the content being read again
+    assert _streamed_nwb_asset(ds).get_validation_errors() == results
+    assert server.ranged_requests == requests
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_inspection_failure_not_cached(
+    streamable_dandiset: tuple[Path, RangeHTTPServer], tmp_path: Path
+) -> None:
+    """A failure to read streamed content for NWB Inspector is not cached."""
+    ds, _ = streamable_dandiset
+    served = tmp_path / "served" / "content.nwb"
+    content = served.read_bytes()
+    served.unlink()
+    df = _streamed_nwb_asset(ds)
+    [msg] = df._inspect_nwbfile()
+    assert msg.importance.name == "ERROR"
+    assert msg.check_function_name.startswith("During io.read()")
+    assert msg.file_path == str(df.filepath)
+    served.write_bytes(content)
+    assert all(
+        m.check_function_name != msg.check_function_name
+        for m in _streamed_nwb_asset(ds)._inspect_nwbfile()
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("jobs", [1, 2])
+def test_validate_progress(
+    streamable_dandiset: tuple[Path, RangeHTTPServer],
+    simple3_nwb: Path,
+    caplog: pytest.LogCaptureFixture,
+    jobs: int,
+) -> None:
+    """The progress of validation is logged, one message per file."""
+    ds, _ = streamable_dandiset
+    (ds / "sub-002").mkdir()
+    shutil.copy(simple3_nwb, ds / "sub-002" / "sub-002.nwb")
+    caplog.set_level(logging.INFO, logger="dandi")
+    list(validate(ds, missing_file_content=MissingFileContent.stream, jobs=jobs))
+    messages = [r.getMessage() for r in caplog.records]
+    messages = messages[messages.index("Validating 3 files") :]
+    done = [m for m in messages if m.startswith("[")]
+    assert sorted(m.split("] ")[0] for m in done) == ["[1/3", "[2/3", "[3/3"]
+    assert any(m.endswith("] sub-001/sub-001_video.mp4: OK") for m in done)
+    assert any("sub-002/sub-002.nwb: " in m and "issue" in m for m in done)
+
+
+@pytest.mark.ai_generated
+def test_validate_jobs(
+    streamable_dandiset: tuple[Path, RangeHTTPServer], simple3_nwb: Path
+) -> None:
+    """Validating in parallel processes gives the same results, in order."""
+    ds, server = streamable_dandiset
+    for sub in ("sub-002", "sub-003"):
+        (ds / sub).mkdir()
+        shutil.copy(simple3_nwb, ds / sub / f"{sub}.nwb")
+    # In parallel first, so that the streamed content is read in a worker
+    # process rather than the results taken from the cache
+    parallel = list(
+        validate(ds, missing_file_content=MissingFileContent.stream, jobs=2)
+    )
+    assert server.ranged_requests > 0
+    serial = list(validate(ds, missing_file_content=MissingFileContent.stream))
+    assert any(r.origin.validator == Validator.nwbinspector for r in serial)
+
+    def summary(results: list[ValidationResult]) -> list[tuple]:
+        return [(r.id, r.path, r.origin.validator, r.message) for r in results]
+
+    assert summary(parallel) == summary(serial)
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_not_streamable(tmp_path: Path) -> None:
+    """stream policy emits an error for a broken symlink that cannot be streamed."""
+    pytest.importorskip("datalad_fuse.adapter")
+    pytest.importorskip("remfile")
+    skipif.no_git_annex()
+    ds = _make_dandiset_with_broken_symlink(tmp_path)
+    results = list(validate(ds, missing_file_content=MissingFileContent.stream))
+    errs = [r for r in results if r.id == "DANDI.FILE_CONTENT_MISSING"]
+    assert len(errs) == 1
+    assert errs[0].severity == Severity.ERROR
+    assert errs[0].message is not None
+    assert "cannot be streamed" in errs[0].message
+    assert not [r for r in results if r.id == "DANDI.FILE_CONTENT_STREAMED"]
+    assert not [
+        r
+        for r in results
+        if r.origin.validator in (Validator.pynwb, Validator.nwbinspector)
+    ]
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_unreadable_url(
+    streamable_dandiset: tuple[Path, RangeHTTPServer], tmp_path: Path
+) -> None:
+    """A registered URL that cannot be read yields errors, not an exception."""
+    ds, _ = streamable_dandiset
+    (tmp_path / "served" / "content.nwb").unlink()
+    results = list(validate(ds, missing_file_content=MissingFileContent.stream))
+    nwb = ds / "sub-001" / "sub-001.nwb"
+    assert [
+        r for r in results if r.path == nwb and r.id == "DANDI.FILE_CONTENT_STREAMED"
+    ]
+    errs = [r for r in results if r.path == nwb and r.severity == Severity.ERROR]
+    assert {r.origin.validator for r in errs} == {
+        Validator.pynwb,
+        Validator.nwbinspector,
+    }
+
+
+@pytest.mark.ai_generated
+def test_validate_stream_requires_datalad_fuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("dandi.validate._core.can_stream", lambda: False)
+    with pytest.raises(RuntimeError, match=r"dandi\[datalad\]"):
+        list(validate(tmp_path, missing_file_content=MissingFileContent.stream))
