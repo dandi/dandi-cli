@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+import logging
 import os
 from pathlib import Path
 from shutil import copyfile, rmtree
@@ -20,6 +21,7 @@ from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_valida
 
 from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
+from .. import dandiapi
 from ..consts import (
     DOWNLOAD_SUFFIX,
     ZARR_MIME_TYPE,
@@ -206,6 +208,57 @@ def test_upload_sync_do(mocker: MockerFixture, text_dandiset: SampleDandiset) ->
     confirm_mock.assert_not_called()
     with pytest.raises(NotFoundError):
         text_dandiset.dandiset.get_asset_by_path("file.txt")
+
+
+@pytest.mark.ai_generated
+def test_upload_sync_multiple_batches(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    for p in ["file.txt", "subdir1/apple.txt", "subdir2/banana.txt"]:
+        (text_dandiset.dspath / p).unlink()
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
+    with caplog.at_level(logging.INFO, logger="dandi"):
+        text_dandiset.upload(sync=SyncMode.DO)
+    bulk_delete_calls = [
+        c for c in post_spy.call_args_list if c.args[1].endswith("/bulk-delete/")
+    ]
+    assert len(bulk_delete_calls) == 2
+    assert [a.path for a in text_dandiset.dandiset.get_assets()] == [
+        "subdir2/coconut.txt"
+    ]
+    assert "Deleted 3 assets on server" in caplog.messages
+
+
+@pytest.mark.ai_generated
+def test_upload_sync_asset_deleted_concurrently(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+) -> None:
+    (text_dandiset.dspath / "file.txt").unlink()
+    (text_dandiset.dspath / "subdir2" / "banana.txt").unlink()
+    gone = text_dandiset.dandiset.get_asset_by_path("file.txt")
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets to delete have been
+        # determined, so delete one of them in the meantime
+        gone.delete()
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    with caplog.at_level(logging.INFO, logger="dandi"):
+        text_dandiset.upload(sync=True)
+    assert sorted(a.path for a in text_dandiset.dandiset.get_assets()) == [
+        "subdir1/apple.txt",
+        "subdir2/coconut.txt",
+    ]
+    assert "Deleted 1 asset on server" in caplog.messages
+    assert "Skipped 1 asset already absent from server" in caplog.messages
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
 
 @pytest.mark.ai_generated

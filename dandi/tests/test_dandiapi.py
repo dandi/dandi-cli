@@ -9,6 +9,7 @@ import random
 import re
 from shutil import rmtree
 from typing import Any
+from uuid import uuid4
 
 import anys
 import click
@@ -31,6 +32,7 @@ from ..consts import (
     dandiset_metadata_file,
 )
 from ..dandiapi import (
+    BulkDeleteResult,
     DandiAPIClient,
     RemoteAsset,
     RemoteBlobAsset,
@@ -40,7 +42,13 @@ from ..dandiapi import (
     VersionStatus,
 )
 from ..download import download
-from ..exceptions import NotFoundError, SchemaVersionError
+from ..exceptions import (
+    AssetsNotFoundError,
+    BulkDeleteUnsupportedError,
+    HTTP404Error,
+    NotFoundError,
+    SchemaVersionError,
+)
 from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
 
@@ -1123,3 +1131,360 @@ def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> 
         )
     )
     assert dandi_api_client.api_key_env_var == expected_env_var_name
+
+
+BULK_DELETE_URL = (
+    "https://test.nil/api/dandisets/000001/versions/draft/assets/bulk-delete/"
+)
+
+
+def _bulk_delete_dandiset(version: str = DRAFT) -> RemoteDandiset:
+    _mock_server_info(get_schema_version())
+    return RemoteDandiset(DandiAPIClient("https://test.nil/api"), "000001", version)
+
+
+def _bulk_delete_calls() -> list[Any]:
+    return [c for c in responses.calls if c.request.method == "POST"]
+
+
+def _single_delete_url(asset_id: str) -> str:
+    return f"https://test.nil/api/dandisets/000001/versions/draft/assets/{asset_id}/"
+
+
+def _single_delete_urls() -> list[str]:
+    return [str(c.request.url) for c in responses.calls if c.request.method == "DELETE"]
+
+
+def _bulk_delete_request_ids() -> list[list[str]]:
+    return [json.loads(c.request.body)["asset_ids"] for c in _bulk_delete_calls()]
+
+
+def _missing_assets_message(asset_ids: list[str]) -> str:
+    # The format of the error message returned by the archive's bulk deletion
+    # endpoint
+    return f"The following assets do not belong to this version: {asset_ids}"
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_batches_and_deduplicates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    responses.add(responses.POST, BULK_DELETE_URL, status=204)
+    ids = [str(uuid4()) for _ in range(5)]
+    result = _bulk_delete_dandiset().delete_assets([*ids, ids[1], ids[0]])
+    assert _bulk_delete_request_ids() == [ids[0:2], ids[2:4], ids[4:5]]
+    assert result == BulkDeleteResult(deleted=ids, absent=[])
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_iter_delete_assets_yields_per_batch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    responses.add(responses.POST, BULK_DELETE_URL, status=204)
+    ids = [str(uuid4()) for _ in range(3)]
+    results = list(_bulk_delete_dandiset().iter_delete_assets(ids))
+    assert results == [
+        BulkDeleteResult(deleted=ids[0:2], absent=[]),
+        BulkDeleteResult(deleted=ids[2:3], absent=[]),
+    ]
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_empty() -> None:
+    result = _bulk_delete_dandiset().delete_assets([])
+    assert result == BulkDeleteResult()
+    assert len(_bulk_delete_calls()) == 0
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("structured", [False, True])
+@responses.activate
+def test_delete_assets_skips_missing(structured: bool) -> None:
+    ids = [str(uuid4()) for _ in range(3)]
+    missing = ids[1]
+    body: Any
+    if structured:
+        body = {
+            "detail": "Some assets do not belong to this version.",
+            "missing_asset_ids": [missing],
+        }
+    else:
+        body = _missing_assets_message([missing])
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, json=body)
+    responses.add(responses.POST, BULK_DELETE_URL, status=204)
+    result = _bulk_delete_dandiset().delete_assets(ids)
+    assert _bulk_delete_request_ids() == [ids, [ids[0], ids[2]]]
+    assert result == BulkDeleteResult(deleted=[ids[0], ids[2]], absent=[missing])
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_missing_not_logged_as_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    ids = [str(uuid4()) for _ in range(2)]
+    responses.add(
+        responses.POST,
+        BULK_DELETE_URL,
+        status=404,
+        json=_missing_assets_message([ids[0]]),
+    )
+    responses.add(responses.POST, BULK_DELETE_URL, status=204)
+    with caplog.at_level(logging.DEBUG, logger="dandi"):
+        _bulk_delete_dandiset().delete_assets(ids)
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert any(
+        r.levelno == logging.DEBUG and "Error 404" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_all_missing() -> None:
+    ids = [str(uuid4()) for _ in range(2)]
+    responses.add(
+        responses.POST, BULK_DELETE_URL, status=404, json=_missing_assets_message(ids)
+    )
+    result = _bulk_delete_dandiset().delete_assets(ids)
+    assert len(_bulk_delete_calls()) == 1
+    assert result == BulkDeleteResult(deleted=[], absent=ids)
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_ignores_unrequested_ids_in_message() -> None:
+    ids = [str(uuid4()) for _ in range(2)]
+    responses.add(
+        responses.POST,
+        BULK_DELETE_URL,
+        status=404,
+        json=_missing_assets_message([ids[0].upper(), str(uuid4())]),
+    )
+    responses.add(responses.POST, BULK_DELETE_URL, status=204)
+    result = _bulk_delete_dandiset().delete_assets(ids)
+    assert result == BulkDeleteResult(deleted=[ids[1]], absent=[ids[0]])
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_no_skip_missing() -> None:
+    ids = [str(uuid4()) for _ in range(2)]
+    responses.add(
+        responses.POST,
+        BULK_DELETE_URL,
+        status=404,
+        json=_missing_assets_message([ids[1]]),
+    )
+    with pytest.raises(AssetsNotFoundError) as excinfo:
+        _bulk_delete_dandiset().delete_assets(ids, skip_missing=False)
+    assert excinfo.value.missing_asset_ids == {ids[1]}
+    assert excinfo.value.response is not None
+    assert len(_bulk_delete_calls()) == 1
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"json": {"detail": "Not found."}},
+        {"body": "<h1>Not Found</h1>", "content_type": "text/html"},
+    ],
+)
+@responses.activate
+def test_delete_assets_falls_back_on_unrecognized_404(
+    kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, **kwargs)
+    ids = [str(uuid4()) for _ in range(3)]
+    for aid in ids:
+        responses.add(responses.DELETE, _single_delete_url(aid), status=204)
+    ds = _bulk_delete_dandiset()
+    results = list(ds.iter_delete_assets(ids))
+    assert results == [
+        BulkDeleteResult(deleted=ids[0:2], absent=[]),
+        BulkDeleteResult(deleted=ids[2:3], absent=[]),
+    ]
+    # The bulk endpoint is only tried once; later batches go straight to
+    # single-asset deletion
+    assert len(_bulk_delete_calls()) == 1
+    assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids]
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_fallback_remembered_by_client() -> None:
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    ids = [str(uuid4()) for _ in range(2)]
+    for aid in ids:
+        responses.add(responses.DELETE, _single_delete_url(aid), status=204)
+    ds = _bulk_delete_dandiset()
+    ds.delete_assets([ids[0]])
+    RemoteDandiset(ds.client, "000001", DRAFT).delete_assets([ids[1]])
+    assert len(_bulk_delete_calls()) == 1
+    assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids]
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_fallback_skips_missing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    ids = [str(uuid4()) for _ in range(3)]
+    for aid in ids:
+        responses.add(
+            responses.DELETE,
+            _single_delete_url(aid),
+            status=404 if aid == ids[1] else 204,
+            json={"detail": "Not found."} if aid == ids[1] else None,
+        )
+    with caplog.at_level(logging.DEBUG, logger="dandi"):
+        result = _bulk_delete_dandiset().delete_assets(ids)
+    assert result == BulkDeleteResult(deleted=[ids[0], ids[2]], absent=[ids[1]])
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_fallback_no_skip_missing() -> None:
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    ids = [str(uuid4()) for _ in range(3)]
+    responses.add(responses.DELETE, _single_delete_url(ids[0]), status=204)
+    responses.add(
+        responses.DELETE,
+        _single_delete_url(ids[1]),
+        status=404,
+        json={"detail": "Not found."},
+    )
+    with pytest.raises(AssetsNotFoundError) as excinfo:
+        _bulk_delete_dandiset().delete_assets(ids, skip_missing=False)
+    assert excinfo.value.missing_asset_ids == {ids[1]}
+    assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids[:2]]
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_endpoint_404_naming_no_requested_assets() -> None:
+    responses.add(
+        responses.POST,
+        BULK_DELETE_URL,
+        status=404,
+        json=_missing_assets_message([str(uuid4())]),
+    )
+    with pytest.raises(HTTP404Error) as excinfo:
+        _bulk_delete_dandiset().delete_assets([str(uuid4())])
+    assert not isinstance(
+        excinfo.value, (AssetsNotFoundError, BulkDeleteUnsupportedError)
+    )
+    assert len(_bulk_delete_calls()) == 1
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_requires_draft() -> None:
+    with pytest.raises(ValueError, match="only the draft version"):
+        _bulk_delete_dandiset("0.210831.2033").delete_assets([str(uuid4())])
+    assert len(_bulk_delete_calls()) == 0
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_rejects_asset_from_other_dandiset() -> None:
+    ds = _bulk_delete_dandiset()
+    other = RemoteDandiset(ds.client, "000002", DRAFT)
+    asset = RemoteAsset.from_data(
+        other,
+        {
+            "asset_id": str(uuid4()),
+            "path": "foo.txt",
+            "size": 0,
+            "created": "2020-01-01T00:00:00Z",
+            "modified": "2020-01-01T00:00:00Z",
+            "blob": str(uuid4()),
+        },
+    )
+    with pytest.raises(ValueError, match="belongs to 000002/draft"):
+        ds.delete_assets([str(uuid4()), asset])
+    assert len(_bulk_delete_calls()) == 0
+
+
+@pytest.mark.ai_generated
+def test_delete_assets_integration(
+    monkeypatch: pytest.MonkeyPatch, text_dandiset: SampleDandiset
+) -> None:
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    d = text_dandiset.dandiset
+    doomed = [
+        d.get_asset_by_path("file.txt"),
+        d.get_asset_by_path("subdir1/apple.txt"),
+        d.get_asset_by_path("subdir2/banana.txt"),
+    ]
+    result = d.delete_assets([doomed[0], doomed[1].identifier, doomed[2]])
+    assert result == BulkDeleteResult(deleted=[a.identifier for a in doomed], absent=[])
+    assert [a.path for a in d.get_assets()] == ["subdir2/coconut.txt"]
+
+
+@pytest.mark.ai_generated
+def test_delete_assets_already_deleted_integration(
+    text_dandiset: SampleDandiset,
+) -> None:
+    # Exercises parsing of the 404 response actually returned by the server
+    # when a request names an asset that no longer belongs to the version
+    d = text_dandiset.dandiset
+    gone = d.get_asset_by_path("file.txt")
+    banana = d.get_asset_by_path("subdir2/banana.txt")
+    d.delete_assets([gone])
+
+    with pytest.raises(AssetsNotFoundError) as excinfo:
+        d.delete_assets([gone, banana], skip_missing=False)
+    assert excinfo.value.missing_asset_ids == {gone.identifier}
+    # The request is all-or-nothing, so the other asset must still be there
+    assert d.get_asset_by_path("subdir2/banana.txt").identifier == banana.identifier
+
+    result = d.delete_assets([gone, banana])
+    assert result == BulkDeleteResult(
+        deleted=[banana.identifier], absent=[gone.identifier]
+    )
+    assert sorted(a.path for a in d.get_assets()) == [
+        "subdir1/apple.txt",
+        "subdir2/coconut.txt",
+    ]
+
+
+@pytest.mark.ai_generated
+def test_remote_asset_delete(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
+    d = text_dandiset.dandiset
+    asset = d.get_asset_by_path("file.txt")
+    post_spy = mocker.spy(dandiapi.RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(dandiapi.RESTFullAPIClient, "delete")
+    asset.delete()
+    # The bulk deletion endpoint is always tried first
+    post_spy.assert_called_once_with(
+        mocker.ANY,
+        f"{d.version_api_path}assets/bulk-delete/",
+        json={"asset_ids": [asset.identifier]},
+        quiet_statuses=[404],
+    )
+    if d.client._bulk_delete_unsupported:
+        # The server predates the bulk deletion endpoint, so the asset was
+        # deleted with the single-asset deletion endpoint instead
+        delete_spy.assert_called_once_with(
+            mocker.ANY,
+            f"{d.version_api_path}assets/{asset.identifier}/",
+            quiet_statuses=[404],
+        )
+    else:
+        delete_spy.assert_not_called()
+    with pytest.raises(NotFoundError):
+        d.get_asset_by_path("file.txt")
+    # Deleting an asset that is already gone is still an error either way
+    with pytest.raises(AssetsNotFoundError) as excinfo:
+        asset.delete()
+    assert excinfo.value.missing_asset_ids == {asset.identifier}

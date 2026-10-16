@@ -214,6 +214,10 @@ ZARR_UPLOAD_BATCH_SIZE = 255
 #: Maximum number of Zarr directory entries to delete at once
 ZARR_DELETE_BATCH_SIZE = 100
 
+#: Maximum number of assets to delete from a Dandiset version in a single
+#: bulk deletion request
+BULK_DELETE_BATCH_SIZE = 100
+
 BIDS_DATASET_DESCRIPTION = "dataset_description.json"
 
 BIDS_IGNORE_FILE = ".bidsignore"
