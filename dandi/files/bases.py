@@ -780,18 +780,17 @@ def _get_nwb_inspector_version() -> Version:
     with _nwbinspector_version_lock:
         if _current_nwbinspector_version is not None:
             return _current_nwbinspector_version
-        current_version: Version = get_package_version(name="nwbinspector")
-        _current_nwbinspector_version = current_version
+        _current_nwbinspector_version = get_package_version(name="nwbinspector")
         # Ensure latest version of NWB Inspector is installed and used client-side
         try:
             max_version = _get_latest_nwb_inspector_version()
-            if max_version is not None and current_version < max_version:
+            if max_version is not None and _current_nwbinspector_version < max_version:
                 lgr.warning(
                     "NWB Inspector version %s is installed - please "
                     "use the latest release of the NWB Inspector (%s) "
                     "when performing `dandi validate`. To update, run "
                     "`pip install -U nwbinspector` if you installed it with `pip`.",
-                    current_version,
+                    _current_nwbinspector_version,
                     max_version,
                 )
 
@@ -801,7 +800,7 @@ def _get_nwb_inspector_version() -> Version:
                 type(e).__name__,
                 str(e),
             )
-        return current_version
+        return _current_nwbinspector_version
 
 
 def _get_latest_nwb_inspector_version() -> Version | None:
