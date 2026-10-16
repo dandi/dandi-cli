@@ -28,6 +28,7 @@ import pytest
 import requests
 import zarr
 
+from .range_http_server import RangeHTTPServer
 from .skip import skipif
 from .. import get_logger
 from ..cli.cmd_organize import organize
@@ -361,6 +362,65 @@ def get_filtered_gitrepo_fixture(
         yield path
 
     return fixture
+
+
+def make_git_annex_dandiset(
+    dandiset: Path, files: dict[str, tuple[Path, str | list[str]]]
+) -> None:
+    """
+    Make the directory ``dandiset`` (created if needed, with a minimal
+    :file:`dandiset.yaml`) a git-annex repository looking like a clone of a
+    DataLad Dandiset whose annexed content has not been fetched: for each
+    ``relpath: (source, urls)`` item of ``files``, a copy of ``source`` is
+    annexed at ``relpath`` with ``urls`` (one or a list) registered for it, and
+    then dropped.  This needs git-annex.
+    """
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "DANDI tests",
+        "GIT_AUTHOR_EMAIL": "tests@dandiarchive.org",
+        "GIT_COMMITTER_NAME": "DANDI tests",
+        "GIT_COMMITTER_EMAIL": "tests@dandiarchive.org",
+    }
+
+    def git(*args: str) -> str:
+        return check_output(
+            ["git", "-C", str(dandiset), *args], env=env, text=True
+        ).strip()
+
+    dandiset.mkdir(parents=True, exist_ok=True)
+    (dandiset / dandiset_metadata_file).write_text(
+        "identifier: '000027'\nname: Test\ndescription: Test dandiset\n"
+    )
+    git("init", "-q")
+    git("annex", "init", "-q")
+    git("config", "annex.backend", "SHA256E")
+    git("add", dandiset_metadata_file)
+    for relpath, (source, _) in files.items():
+        (dandiset / relpath).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(source, dandiset / relpath)
+    git("annex", "add", "-q", *files)
+    for relpath, (_, urls) in files.items():
+        key = git("annex", "lookupkey", relpath)
+        for url in [urls] if isinstance(urls, str) else urls:
+            git("annex", "registerurl", key, url)
+    git("commit", "-q", "-m", "Add files")
+    git("annex", "drop", "-q", "--force", *files)
+
+
+@pytest.fixture()
+def range_http_server(tmp_path: Path) -> Iterator[tuple[RangeHTTPServer, str]]:
+    """
+    Serve the files in ``tmp_path / "served"`` over HTTP with support for range
+    requests, from a separate process; yields the server and its base URL
+    """
+    served = tmp_path / "served"
+    served.mkdir()
+    server = RangeHTTPServer(served)
+    try:
+        yield server, server.url
+    finally:
+        server.stop()
 
 
 def _make_subdirs_dandisets(path: Path) -> None:
