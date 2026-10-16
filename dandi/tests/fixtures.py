@@ -71,6 +71,17 @@ def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
 
 
+@pytest.fixture(autouse=True)
+def no_nwbinspector_etelemetry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Do not ask etelemetry for the latest NWB Inspector release when validating
+    NWB files, to avoid network access and "please upgrade" warnings in tests
+    """
+    monkeypatch.setattr(
+        "dandi.files.bases._get_latest_nwb_inspector_version", lambda: None
+    )
+
+
 # TODO: move into some common fixtures.  We might produce a number of files
 #       and also carry some small ones directly in git for regression testing
 @pytest.fixture(scope="session")
