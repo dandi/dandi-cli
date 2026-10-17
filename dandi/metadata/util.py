@@ -288,10 +288,18 @@ def timedelta2duration(delta: timedelta) -> str:
     return s
 
 
+# Names for the sex IRIs which ``extract_sex`` produces itself
+SEX_NAMES_BY_IRI = {
+    "http://purl.obolibrary.org/obo/PATO_0000384": "Male",
+    "http://purl.obolibrary.org/obo/PATO_0000383": "Female",
+}
+
+
 def extract_sex(metadata: dict) -> models.SexType | None:
     value = metadata.get("sex", None)
     if value is not None and value != "":
-        value = value.lower()
+        value_orig = value.strip()
+        value = value_orig.lower()
         if value in ["m", "male"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
             value = "Male"
@@ -305,8 +313,11 @@ def extract_sex(metadata: dict) -> models.SexType | None:
             value_id = None
             value = "Other"
         elif value.startswith("http"):
-            value_id = value
-            value = None
+            value_id = value_orig
+            # dandischema requires a name; fall back to the IRI itself
+            value = {k.lower(): v for k, v in SEX_NAMES_BY_IRI.items()}.get(
+                value, value_id
+            )
         else:
             raise ValueError(f"Cannot interpret sex field: {value}")
         return models.SexType(identifier=value_id, name=value)
@@ -597,7 +608,8 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                         value = " - ".join(
                             [result[key] for key in lookup if key in result]
                         )
-                value_matches.append((value_id, value))
+                # dandischema requires a name; fall back to the IRI itself
+                value_matches.append((value_id, value or value_id))
         else:
             lower_value = value_orig.lower().strip()
             for record in species_map:
