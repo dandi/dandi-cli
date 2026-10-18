@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from importlib.metadata import version
+import json
 from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
+import sys
+from typing import Any
 from unittest.mock import ANY
 
 from dandischema.models import get_schema_version
 import numpy as np
+from packaging.version import Version
 import pytest
 import zarr
 
@@ -31,6 +36,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..validate._types import Validator
 
 lgr = get_logger()
 
@@ -449,6 +455,66 @@ def test_validate_bogus(tmp_path):
     )
     # Recent versions of hdf5 changed the error message, hence the need to
     # check for two different patterns.
+
+
+@pytest.mark.ai_generated
+def test_validate_nwb_records_nwbinspector_version(simple4_nwb: Path) -> None:
+    errors = dandi_file(simple4_nwb).get_validation_errors()
+    nwbi_errors = [e for e in errors if e.origin.validator is Validator.nwbinspector]
+    # simple4_nwb has a data orientation best practice violation
+    assert nwbi_errors
+    assert {e.origin.validator_version for e in nwbi_errors} == {
+        str(Version(version("nwbinspector")))
+    }
+
+
+# Run in a fresh interpreter so that the module-level version cache starts out
+# in its initial state, as it does for `dandi validate`.
+GET_NWBI_VERSION_SCRIPT = """\
+import json
+import sys
+
+import etelemetry
+
+from dandi.files.bases import _get_nwb_inspector_version
+
+lookups = []
+
+
+def get_project(repo, **kwargs):
+    lookups.append(repo)
+    return json.loads(sys.argv[1])
+
+
+etelemetry.get_project = get_project
+versions = [str(_get_nwb_inspector_version()) for _ in range(2)]
+print(json.dumps({"versions": versions, "lookups": lookups}))
+"""
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "project,outdated_warnings",
+    [
+        # What etelemetry.get_project() returns when NO_ET is set
+        (None, 0),
+        ({"version": "9999.0.0"}, 1),
+    ],
+)
+def test_get_nwb_inspector_version_cached(
+    project: dict[str, Any] | None, outdated_warnings: int
+) -> None:
+    r = subprocess.run(
+        [sys.executable, "-c", GET_NWBI_VERSION_SCRIPT, json.dumps(project)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    result = json.loads(r.stdout.splitlines()[-1])
+    assert result["versions"] == [str(Version(version("nwbinspector")))] * 2
+    assert result["lookups"] == ["NeurodataWithoutBorders/nwbinspector"]
+    assert r.stderr.count("please use the latest release") == outdated_warnings
+    assert "Failed to retrieve" not in r.stderr
 
 
 def test_upload_zarr(new_dandiset, tmp_path):
