@@ -65,14 +65,10 @@ def test_find_dandi_files_missing_path(
 
 
 @pytest.mark.ai_generated
+@pytest.mark.skipif(os.name == "nt", reason="Creating symlinks requires Windows privileges")
 def test_find_dandi_files_broken_symlink(tmp_path: Path) -> None:
     link = tmp_path / "unfetched.nwb"
-    try:
-        link.symlink_to(tmp_path / "absent.nwb")
-    except OSError as exc:
-        if getattr(exc, "winerror", None) == 1314:
-            pytest.skip("Creating symlinks requires Windows privileges")
-        raise
+    link.symlink_to(tmp_path / "absent.nwb")
     assets = list(find_dandi_files(link))
     assert len(assets) == 1
     assert isinstance(assets[0], NWBAsset)
