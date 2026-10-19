@@ -15,7 +15,16 @@ import pytest
 from pytest_mock import MockerFixture
 
 from .. import digests
-from ..digests import Digester, checksum_zarr_dir, get_zarr_checksum
+from ..digests import (
+    Digester,
+    checksum_zarr_dir,
+    dandietag_nocache,
+    get_dandietag,
+    get_zarr_checksum,
+    get_zarr_multipart_checksum,
+    is_multipart_etag,
+    md5file_nocache,
+)
 
 
 def test_digester(tmp_path):
@@ -78,10 +87,16 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
     assert (
         get_zarr_checksum(tmp_path / "file1.txt") == "d0aa42f003e36c1ecaf9aa8f20b6f1ad"
     )
+    # get_zarr_checksum is the single-part codepath: entries digested with MD5.
     assert get_zarr_checksum(tmp_path) == "25627e0fc7c609d10100d020f7782a25-8--197"
     assert get_zarr_checksum(sub1) == "64af93ad7f8d471c00044d1ddbd4c0ba-4--97"
-
     assert get_zarr_checksum(empty) == "481a2f77ab786a0f45aafd5db0971caa-0--0"
+
+    # get_zarr_multipart_checksum is the distinct multipart codepath: entries
+    # are digested differently, so it yields a different checksum for the same
+    # content.  (An empty Zarr's checksum does not depend on the scheme.)
+    assert get_zarr_multipart_checksum(tmp_path) != get_zarr_checksum(tmp_path)
+    assert get_zarr_multipart_checksum(empty) == get_zarr_checksum(empty)
 
     spy = mocker.spy(digests, "md5file_nocache")
     assert (
@@ -157,3 +172,54 @@ def test_checksum_zarr_dir(
     checksum: str,
 ) -> None:
     assert checksum_zarr_dir(files=files, directories=directories) == checksum
+
+
+@pytest.mark.ai_generated
+def test_md5file_nocache_single_part(tmp_path: Path) -> None:
+    """An entry of a single-part Zarr is digested with its plain MD5."""
+    f = tmp_path / "sample.txt"
+    f.write_bytes(b"123")
+    assert md5file_nocache(f) == "202cb962ac59075b964b07152d234b70"
+
+
+@pytest.mark.ai_generated
+def test_dandietag_nocache_multipart(tmp_path: Path) -> None:
+    """
+    An entry of a multipart Zarr is digested with its multipart ETag rather than
+    its MD5, as that is what the server ends up storing for it.  This is the
+    distinct multipart codepath, separate from `md5file_nocache`.
+    """
+    f = tmp_path / "sample.txt"
+    f.write_bytes(b"123")
+    digest = dandietag_nocache(f)
+    assert digest != md5file_nocache(f)
+    assert digest == get_dandietag(f).as_str()
+
+
+@pytest.mark.ai_generated
+def test_dandietag_nocache_empty_file(tmp_path: Path) -> None:
+    """
+    S3 rejects a multipart upload with no parts, so an empty object is stored
+    under its plain MD5 under either upload scheme.  `DandiETag` would give it
+    ``<md5>-0``, which is not an ETag S3 ever produces, so `dandietag_nocache`
+    has to fall back to the plain MD5 or the digest would match nothing in the
+    archive.
+    """
+    f = tmp_path / "empty.txt"
+    f.write_bytes(b"")
+    assert dandietag_nocache(f) == md5file_nocache(f)
+    assert dandietag_nocache(f) == "d41d8cd98f00b204e9800998ecf8427e"
+    assert not is_multipart_etag(dandietag_nocache(f))
+
+
+@pytest.mark.ai_generated
+def test_zarr_checksums_agree_on_empty_entry(tmp_path: Path) -> None:
+    """
+    An empty entry is stored under the same ETag under either scheme, so a Zarr
+    of nothing but empty entries has the same checksum either way.
+    """
+    zarr_path = tmp_path / "empty.zarr"
+    (zarr_path / "sub").mkdir(parents=True)
+    (zarr_path / "a").write_bytes(b"")
+    (zarr_path / "sub" / "b").write_bytes(b"")
+    assert get_zarr_multipart_checksum(zarr_path) == get_zarr_checksum(zarr_path)

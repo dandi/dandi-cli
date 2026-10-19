@@ -106,3 +106,49 @@ def test_digest_zarr_with_excluded_dotfiles(
     r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
     assert r.exit_code == 0
     assert r.output == f"sample.zarr: {expected}\n"
+
+
+@pytest.mark.ai_generated
+def test_digest_zarr_multipart_differs_from_singlepart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    The two Zarr checksums are distinct digests of the same content, since S3
+    stores an entry under a plain MD5 ETag for a single-part upload and under a
+    multipart ETag for a multipart one.
+    """
+    runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
+    dt = np.dtype("<i8")
+    zarr.save(
+        "sample.zarr", np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt)
+    )
+    singlepart = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
+    assert singlepart.exit_code == 0
+    multipart = runner.invoke(
+        digest, ["--digest", "zarr-checksum-multipart", "sample.zarr"]
+    )
+    assert multipart.exit_code == 0
+    assert multipart.output != singlepart.output
+    # The single-part checksum is the one keyed by serialisation format in the
+    # tests above; both are Zarr checksums of the same shape.
+    expected = _EXPECTED_SAMPLE_ZARR_DIGEST_BY_FORMAT[
+        zarr_format_of(Path("sample.zarr"))
+    ]
+    assert singlepart.output == f"sample.zarr: {expected}\n"
+
+
+@pytest.mark.ai_generated
+def test_digest_zarr_multipart_of_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Applied to a single file, the multipart Zarr checksum is that entry's own
+    multipart ETag, as `dandi upload` would store it.
+    """
+    runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
+    Path("file.txt").write_bytes(b"123")
+    r = runner.invoke(digest, ["--digest", "zarr-checksum-multipart", "file.txt"])
+    assert r.exit_code == 0
+    assert r.output == "file.txt: d022646351048ac0ba397d12dfafa304-1\n"
