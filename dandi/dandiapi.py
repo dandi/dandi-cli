@@ -1730,6 +1730,8 @@ class RemoteDandiset:
         :raises ~dandi.exceptions.AssetsNotFoundError:
             if ``skip_missing`` is false and the server reports that some
             assets do not belong to the version
+        :raises ~dandi.exceptions.NotFoundError:
+            if the Dandiset version does not exist on the server
         """
         if self.version_id != DRAFT:
             raise ValueError(
@@ -1839,10 +1841,17 @@ class RemoteDandiset:
                 quiet_statuses=[404],
             )
         except HTTP404Error as e:
+            # A 404 could also mean that the Dandiset version does not exist,
+            # so check for the version before concluding that the endpoint is
+            # missing
+            try:
+                self.client.get(self.version_api_path, quiet_statuses=[404])
+            except HTTP404Error as e2:
+                raise NotFoundError(f"{self}: Dandiset version not found") from e2
             raise BulkDeleteUnsupportedError(
-                f"{self}: bulk asset deletion request returned 404; either"
-                " the Dandiset version does not exist or the server does"
-                f" not support bulk asset deletion: {e}",
+                f"{self}: bulk asset deletion request returned 404, but the"
+                " Dandiset version exists, so the server does not support bulk"
+                f" asset deletion: {e}",
                 response=e.response,
             ) from e
         except requests.HTTPError as e:

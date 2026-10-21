@@ -1171,6 +1171,8 @@ BULK_DELETE_URL = (
     "https://test.nil/api/dandisets/000001/versions/draft/assets/bulk-delete/"
 )
 
+VERSION_URL = "https://test.nil/api/dandisets/000001/versions/draft/"
+
 
 def _bulk_delete_dandiset(version: str = DRAFT) -> RemoteDandiset:
     _mock_server_info(get_schema_version())
@@ -1179,6 +1181,14 @@ def _bulk_delete_dandiset(version: str = DRAFT) -> RemoteDandiset:
 
 def _bulk_delete_calls() -> list[Any]:
     return [c for c in responses.calls if c.request.method == "POST"]
+
+
+def _version_calls() -> list[Any]:
+    return [
+        c
+        for c in responses.calls
+        if c.request.method == "GET" and c.request.url == VERSION_URL
+    ]
 
 
 def _single_delete_url(asset_id: str) -> str:
@@ -1333,6 +1343,7 @@ def test_delete_assets_falls_back_on_404(
 ) -> None:
     monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
     responses.add(responses.POST, BULK_DELETE_URL, status=404, **kwargs)
+    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(3)]
     for aid in ids:
         responses.add(responses.DELETE, _single_delete_url(aid), status=204)
@@ -1350,8 +1361,24 @@ def test_delete_assets_falls_back_on_404(
 
 @pytest.mark.ai_generated
 @responses.activate
+def test_delete_assets_404_for_missing_version() -> None:
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    responses.add(responses.GET, VERSION_URL, status=404, json={"detail": "Not found."})
+    ds = _bulk_delete_dandiset()
+    with pytest.raises(NotFoundError, match="version not found"):
+        ds.delete_assets([str(uuid4())])
+    assert len(_bulk_delete_calls()) == 1
+    assert _single_delete_urls() == []
+    # A missing version says nothing about the endpoint, so the fallback is
+    # not remembered
+    assert not ds.client._bulk_delete_unsupported
+
+
+@pytest.mark.ai_generated
+@responses.activate
 def test_delete_assets_fallback_remembered_by_client() -> None:
     responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(2)]
     for aid in ids:
         responses.add(responses.DELETE, _single_delete_url(aid), status=204)
@@ -1359,6 +1386,7 @@ def test_delete_assets_fallback_remembered_by_client() -> None:
     ds.delete_assets([ids[0]])
     RemoteDandiset(ds.client, "000001", DRAFT).delete_assets([ids[1]])
     assert len(_bulk_delete_calls()) == 1
+    assert len(_version_calls()) == 1
     assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids]
 
 
@@ -1368,6 +1396,7 @@ def test_delete_assets_fallback_skips_missing(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(3)]
     for aid in ids:
         responses.add(
@@ -1386,6 +1415,7 @@ def test_delete_assets_fallback_skips_missing(
 @responses.activate
 def test_delete_assets_fallback_no_skip_missing() -> None:
     responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(3)]
     responses.add(responses.DELETE, _single_delete_url(ids[0]), status=204)
     responses.add(
