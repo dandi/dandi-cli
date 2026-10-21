@@ -109,8 +109,8 @@ class AssetsNotFoundError(HTTP404Error):
 
 class BulkDeleteUnsupportedError(HTTP404Error):
     """
-    A bulk asset deletion request returned a 404 that did not come from the
-    bulk deletion endpoint, most likely because the server predates it
+    A bulk asset deletion request returned a 404, most likely because the
+    server predates the bulk deletion endpoint
     """
 
     pass

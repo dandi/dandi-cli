@@ -321,7 +321,8 @@ class RESTFullAPIClient:
         if not result.ok:
             msg = f"Error {result.status_code} while sending {method} request to {url}"
             if result.status_code == 409 or result.status_code in quiet_statuses:
-                # 409: Blob exists on server; log at DEBUG level
+                # 409: Blob exists on server, or assets requested for bulk
+                # deletion are missing; log at DEBUG level
                 lgr.debug("%s: %s", msg, result.text)
             else:
                 lgr.error("%s: %s", msg, result.text)
@@ -1057,42 +1058,27 @@ class BulkDeleteResult:
     absent: list[str] = field(default_factory=list)
 
 
-_UUID_RE = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
-)
-
-#: Text included in the bulk deletion endpoint's 404 message that lists the
-#: requested assets which do not belong to the version
-_BULK_DELETE_MISSING_MSG = "do not belong to this version"
-
-
 def _get_missing_asset_ids(
     response: requests.Response | None, asset_ids: list[str]
-) -> set[str] | None:
+) -> set[str]:
     """
-    Given a 404 response from the bulk asset deletion endpoint and the asset
-    IDs in the request, return the requested IDs that the server reported as
-    not belonging to the version, or `None` if the response did not come from
-    the bulk deletion endpoint.
-
-    Both a structured response body (a JSON object with a
-    ``"missing_asset_ids"`` list) and a bare JSON string message listing the
-    IDs are supported.
+    Given a 409 response from the bulk asset deletion endpoint and the asset
+    IDs in the request, return the requested IDs that the server reported (in
+    the ``"missing_asset_ids"`` list of the response body) as not belonging to
+    the version
     """
     if response is None:
-        return None
+        return set()
     try:
         body = response.json()
     except ValueError:
-        return None
-    if isinstance(body, dict) and isinstance(
-        reported := body.get("missing_asset_ids"), list
+        return set()
+    if not (
+        isinstance(body, dict)
+        and isinstance(reported := body.get("missing_asset_ids"), list)
     ):
-        reported_ids = [r for r in reported if isinstance(r, str)]
-    elif isinstance(body, str) and _BULK_DELETE_MISSING_MSG in body:
-        reported_ids = _UUID_RE.findall(body)
-    else:
-        return None
+        return set()
+    reported_ids = [r for r in reported if isinstance(r, str)]
     # Only trust IDs that were actually in the request, matching them
     # case-insensitively but returning them as given in the request
     requested = {aid.lower(): aid for aid in asset_ids}
@@ -1847,30 +1833,32 @@ class RemoteDandiset:
             self.client.post(
                 f"{self.version_api_path}assets/bulk-delete/",
                 json={"asset_ids": asset_ids},
-                # Missing assets are reported with a 404, which is handled
-                # below
+                # A server without the bulk deletion endpoint responds with a
+                # 404, which is handled below.  (Missing assets are reported
+                # with a 409, which is always logged at DEBUG level.)
                 quiet_statuses=[404],
             )
         except HTTP404Error as e:
-            missing = _get_missing_asset_ids(e.response, asset_ids)
-            if missing is None:
-                raise BulkDeleteUnsupportedError(
-                    f"{self}: bulk asset deletion request returned 404; either"
-                    " the Dandiset version does not exist or the server does"
-                    f" not support bulk asset deletion: {e}",
-                    response=e.response,
-                ) from e
-            elif not missing:
-                # The response came from the endpoint but named none of the
-                # requested assets, so there is nothing to skip
+            raise BulkDeleteUnsupportedError(
+                f"{self}: bulk asset deletion request returned 404; either"
+                " the Dandiset version does not exist or the server does"
+                f" not support bulk asset deletion: {e}",
+                response=e.response,
+            ) from e
+        except requests.HTTPError as e:
+            if e.response is None or e.response.status_code != 409:
                 raise
-            else:
-                raise AssetsNotFoundError(
-                    f"{self}: {len(missing)} asset(s) do not belong to the"
-                    f" version: {', '.join(sorted(missing))}",
-                    missing,
-                    response=e.response,
-                ) from e
+            missing = _get_missing_asset_ids(e.response, asset_ids)
+            if not missing:
+                # The response named none of the requested assets, so there
+                # is nothing to skip
+                raise
+            raise AssetsNotFoundError(
+                f"{self}: {len(missing)} asset(s) do not belong to the"
+                f" version: {', '.join(sorted(missing))}",
+                missing,
+                response=e.response,
+            ) from e
 
 
 class BaseRemoteAsset(ABC, APIBase):

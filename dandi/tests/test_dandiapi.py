@@ -45,7 +45,6 @@ from ..dandiapi import (
 from ..download import download
 from ..exceptions import (
     AssetsNotFoundError,
-    BulkDeleteUnsupportedError,
     HTTP404Error,
     NotFoundError,
     SchemaVersionError,
@@ -1194,10 +1193,13 @@ def _bulk_delete_request_ids() -> list[list[str]]:
     return [json.loads(c.request.body)["asset_ids"] for c in _bulk_delete_calls()]
 
 
-def _missing_assets_message(asset_ids: list[str]) -> str:
-    # The format of the error message returned by the archive's bulk deletion
-    # endpoint
-    return f"The following assets do not belong to this version: {asset_ids}"
+def _missing_assets_body(asset_ids: list[str]) -> dict[str, Any]:
+    # The format of the 409 response body returned by the archive's bulk
+    # deletion endpoint
+    return {
+        "detail": "Some assets do not belong to this version.",
+        "missing_asset_ids": asset_ids,
+    }
 
 
 @pytest.mark.ai_generated
@@ -1235,20 +1237,16 @@ def test_delete_assets_empty() -> None:
 
 
 @pytest.mark.ai_generated
-@pytest.mark.parametrize("structured", [False, True])
 @responses.activate
-def test_delete_assets_skips_missing(structured: bool) -> None:
+def test_delete_assets_skips_missing() -> None:
     ids = [str(uuid4()) for _ in range(3)]
     missing = ids[1]
-    body: Any
-    if structured:
-        body = {
-            "detail": "Some assets do not belong to this version.",
-            "missing_asset_ids": [missing],
-        }
-    else:
-        body = _missing_assets_message([missing])
-    responses.add(responses.POST, BULK_DELETE_URL, status=404, json=body)
+    responses.add(
+        responses.POST,
+        BULK_DELETE_URL,
+        status=409,
+        json=_missing_assets_body([missing]),
+    )
     responses.add(responses.POST, BULK_DELETE_URL, status=204)
     result = _bulk_delete_dandiset().delete_assets(ids)
     assert _bulk_delete_request_ids() == [ids, [ids[0], ids[2]]]
@@ -1264,15 +1262,15 @@ def test_delete_assets_missing_not_logged_as_error(
     responses.add(
         responses.POST,
         BULK_DELETE_URL,
-        status=404,
-        json=_missing_assets_message([ids[0]]),
+        status=409,
+        json=_missing_assets_body([ids[0]]),
     )
     responses.add(responses.POST, BULK_DELETE_URL, status=204)
     with caplog.at_level(logging.DEBUG, logger="dandi"):
         _bulk_delete_dandiset().delete_assets(ids)
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert any(
-        r.levelno == logging.DEBUG and "Error 404" in r.getMessage()
+        r.levelno == logging.DEBUG and "Error 409" in r.getMessage()
         for r in caplog.records
     )
 
@@ -1282,7 +1280,7 @@ def test_delete_assets_missing_not_logged_as_error(
 def test_delete_assets_all_missing() -> None:
     ids = [str(uuid4()) for _ in range(2)]
     responses.add(
-        responses.POST, BULK_DELETE_URL, status=404, json=_missing_assets_message(ids)
+        responses.POST, BULK_DELETE_URL, status=409, json=_missing_assets_body(ids)
     )
     result = _bulk_delete_dandiset().delete_assets(ids)
     assert len(_bulk_delete_calls()) == 1
@@ -1296,8 +1294,8 @@ def test_delete_assets_ignores_unrequested_ids_in_message() -> None:
     responses.add(
         responses.POST,
         BULK_DELETE_URL,
-        status=404,
-        json=_missing_assets_message([ids[0].upper(), str(uuid4())]),
+        status=409,
+        json=_missing_assets_body([ids[0].upper(), str(uuid4())]),
     )
     responses.add(responses.POST, BULK_DELETE_URL, status=204)
     result = _bulk_delete_dandiset().delete_assets(ids)
@@ -1311,8 +1309,8 @@ def test_delete_assets_no_skip_missing() -> None:
     responses.add(
         responses.POST,
         BULK_DELETE_URL,
-        status=404,
-        json=_missing_assets_message([ids[1]]),
+        status=409,
+        json=_missing_assets_body([ids[1]]),
     )
     with pytest.raises(AssetsNotFoundError) as excinfo:
         _bulk_delete_dandiset().delete_assets(ids, skip_missing=False)
@@ -1330,7 +1328,7 @@ def test_delete_assets_no_skip_missing() -> None:
     ],
 )
 @responses.activate
-def test_delete_assets_falls_back_on_unrecognized_404(
+def test_delete_assets_falls_back_on_404(
     kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
@@ -1403,19 +1401,22 @@ def test_delete_assets_fallback_no_skip_missing() -> None:
 
 
 @pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"json": _missing_assets_body([str(uuid4())])},
+        {"json": {"detail": "Conflict."}},
+        {"body": "<h1>Conflict</h1>", "content_type": "text/html"},
+    ],
+)
 @responses.activate
-def test_delete_assets_endpoint_404_naming_no_requested_assets() -> None:
-    responses.add(
-        responses.POST,
-        BULK_DELETE_URL,
-        status=404,
-        json=_missing_assets_message([str(uuid4())]),
-    )
-    with pytest.raises(HTTP404Error) as excinfo:
+def test_delete_assets_409_naming_no_requested_assets(
+    kwargs: dict[str, Any],
+) -> None:
+    responses.add(responses.POST, BULK_DELETE_URL, status=409, **kwargs)
+    with pytest.raises(requests.HTTPError) as excinfo:
         _bulk_delete_dandiset().delete_assets([str(uuid4())])
-    assert not isinstance(
-        excinfo.value, (AssetsNotFoundError, BulkDeleteUnsupportedError)
-    )
+    assert not isinstance(excinfo.value, HTTP404Error)
     assert len(_bulk_delete_calls()) == 1
 
 
