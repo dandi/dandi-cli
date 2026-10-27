@@ -1213,11 +1213,7 @@ def _check_attempts_and_sleep(
         lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
         return 0
     if exc.response is not None:
-        if exc.response.status_code not in (
-            400,  # Bad Request, but happened with girder:
-            # https://github.com/dandi/dandi-cli/issues/87
-            *RETRY_STATUSES,
-        ):
+        if exc.response.status_code not in RETRY_STATUSES:
             lgr.debug(
                 "%s - download failed due to response %d: %s",
                 path,
