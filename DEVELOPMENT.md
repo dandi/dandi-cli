@@ -243,6 +243,79 @@ Because black and isort auto-fix files, a commit that triggers fixes will
 fail the first time.  Simply re-run `git commit` — the second attempt should
 succeed.  Investigate further only if it still fails.
 
+## Compatibility with dandi-archive instances
+
+dandi-cli talks to several independently deployed and upgraded dandi-archive
+instances (see `known_instances` in `dandi/consts.py`): DANDI and EMBER, each
+with a production and a sandbox instance, LINC, and any other instance given
+by URL.  Sandbox instances often run a new feature before it is released, and
+other instances may lag behind, or run forks of, dandi-archive.
+
+**Support for a new dandi-archive feature must be backward compatible** with
+prior versions of dandi-archive, in particular those currently deployed by the
+DANDI and EMBER instances.  A new dandi-cli release must keep working against
+all of them, and use the new feature only where the server provides it.  This
+way dandi-cli can be released before the feature is released or deployed by
+dandi-archive, and tested against sandbox instances that already have it.  We
+do not need synchronized releases of dandi-cli and dandi-archive, or
+synchronized deployments across all instances: those are fragile and need
+orchestration.  Do not ask instances that lack the feature to reject the new
+client via `cli-minimal-version` or `cli-bad-versions` in `/api/info/`.
+
+Decide, per server, whether the feature is available, either:
+
+1. **By server version**, if the dandi-archive release that added the feature
+   is known: compare it with `DandiAPIClient.server_info["version"]` (the
+   `version` field of `/api/info/`).  Forks may report versions that cannot be
+   compared with dandi-archive's (e.g. LINC reported `0.0.post6586+g39387b8`),
+   so a version check works only for instances deploying dandi-archive
+   releases.
+2. **By sensing** the feature, which is the most likely case while it is
+   available only on a sandbox instance or in a fork.  Probe the server once,
+   or detect support from the response to the first use, remember the result
+   (on the `DandiAPIClient`), and otherwise use the prior implementation.
+   Choose a signal that cannot be mistaken for another error.  For example, a
+   404 from a new endpoint under a Dandiset version path could also mean that
+   the version does not exist.
+
+Never decide by the instance name or URL.  In addition:
+
+- In a comment at the conditional, refer to the dandi-archive issue/PR it
+  accommodates and say when the fallback can be removed (e.g. "once LINC and
+  EMBER update their API to match dandi-archive >= 0.12.14"), so that it can
+  be found, reviewed, and removed later.
+- Log use of the fallback at DEBUG or INFO level, not as a warning or error;
+  users cannot do anything about it.
+- Test both code paths.  Integration tests run against the latest
+  `dandiarchive/dandiarchive-api` Docker image (dandi-archive `master`), so
+  test the prior behavior with mocked responses (`responses`), and skip
+  integration tests needing the feature if the server does not support it.
+- Remove the fallback once all known instances support the feature.
+
+Examples in the code (links are to the 0.81.0 release):
+
+- `_get_instance()` in
+  [`dandi/utils.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/utils.py#L596-L601)
+  falls back from `/server-info` to `/api/info/`.
+- `check_schema_version()` in
+  [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L694-L777)
+  uses `allowed_schema_versions` if the server provides it, and
+  `_maybe_downgrade_metadata()` in
+  [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L802-L839)
+  downgrades metadata for servers with an older schema.
+- Zarr upload in
+  [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L1011-L1032)
+  sends `x-amz-tagging` only if the presigned URL signs it.
+- `mkzarr()` in
+  [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L603-L612)
+  reuses an existing Zarr on either the old or the new server error message.
+
+Bulk asset deletion
+([dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960), using the
+endpoint from [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920))
+is in progress; it falls back to deleting assets one at a time on servers
+without the endpoint.
+
 ## Test infrastructure
 
 ### pytest markers
