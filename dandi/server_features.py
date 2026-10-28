@@ -27,15 +27,12 @@ from dataclasses import dataclass
 import os
 import posixpath
 import threading
-from typing import TYPE_CHECKING, Literal
+from typing import Any, Literal, Protocol
 
 from packaging.version import InvalidVersion, Version
 import requests
 
 from . import get_logger
-
-if TYPE_CHECKING:
-    from .dandiapi import DandiAPIClient
 
 lgr = get_logger()
 
@@ -45,6 +42,24 @@ DISABLE_ENV_VAR = "DANDI_DEVEL_DISABLE_SERVER_FEATURES"
 
 #: Timeout (in seconds) for each request probing a server for a feature
 PROBE_TIMEOUT = 30
+
+
+class APIClient(Protocol):
+    """
+    What this module needs of a `~dandi.dandiapi.DandiAPIClient` (declared
+    here so that this module need not import `dandi.dandiapi`, which imports
+    it)
+    """
+
+    api_url: str
+    session: requests.Session
+
+    @property
+    def server_info(self) -> dict[str, Any]:
+        ...
+
+    def get_url(self, path: str) -> str:
+        ...
 
 
 @dataclass(frozen=True)
@@ -61,7 +76,7 @@ class ServerFeature:
     #: Function telling whether the server of the given client supports the
     #: feature.  It must not modify anything on the server.  It is called at
     #: most once per client, and only if the server's version does not decide.
-    sense: Callable[[DandiAPIClient], bool]
+    sense: Callable[[APIClient], bool]
     #: The dandi-archive release on top of which the feature was developed:
     #: servers reporting this or an earlier release do not support it
     base_version: str | None = None
@@ -83,7 +98,7 @@ class FeatureSupport:
     how: Literal["disabled", "version", "sensed", "recorded"]
 
 
-def _has_allowed_schema_versions(client: DandiAPIClient) -> bool:
+def _has_allowed_schema_versions(client: APIClient) -> bool:
     return "allowed_schema_versions" in client.server_info
 
 
@@ -91,7 +106,7 @@ def _content_type(r: requests.Response) -> str:
     return r.headers.get("Content-Type", "").partition(";")[0].strip().lower()
 
 
-def routes_endpoint(client: DandiAPIClient, path: str) -> bool:
+def routes_endpoint(client: APIClient, path: str) -> bool:
     """
     Tell whether the server of ``client`` routes the API endpoint ``path``,
     without any side effects.
@@ -130,7 +145,7 @@ def routes_endpoint(client: DandiAPIClient, path: str) -> bool:
     )
 
 
-def _routes_bulk_delete(client: DandiAPIClient) -> bool:
+def _routes_bulk_delete(client: APIClient) -> bool:
     # Routing does not depend on the Dandiset or version existing
     return routes_endpoint(
         client, "/dandisets/000000/versions/draft/assets/bulk-delete/"
@@ -201,7 +216,7 @@ class ServerFeatures:
     """
 
     def __init__(
-        self, client: DandiAPIClient, disabled: Iterable[str] | None = None
+        self, client: APIClient, disabled: Iterable[str] | None = None
     ) -> None:
         """
         :param client: the client whose server to ask
