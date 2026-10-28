@@ -1462,6 +1462,24 @@ def test__check_attempts_and_sleep() -> None:
             assert mock_sleep.call_args.args[0] >= 0
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("status_code", [400, 403, 404])
+def test__check_attempts_and_sleep_no_retry(status_code: int) -> None:
+    response = requests.Response()
+    response.status_code = status_code
+    with mock.patch("time.sleep") as mock_sleep:
+        assert (
+            _check_attempts_and_sleep(
+                Path("some/path"),
+                HTTPError(response=response),
+                attempt=1,
+                attempts_allowed=2,
+            )
+            == 0
+        )
+        mock_sleep.assert_not_called()
+
+
 @pytest.mark.parametrize("status_code", [429, 503])
 def test__check_attempts_and_sleep_retries(status_code: int) -> None:
     f = partial(_check_attempts_and_sleep, Path("some/path"))
@@ -1553,9 +1571,9 @@ def test_download_zarr_with_glob_filter(
     all_files = list_paths(zarr_dir)
     assert len(all_files) > 0
     for f in all_files:
-        assert f.name.startswith(".z") or f.name == "zarr.json", (
-            f"Non-metadata file downloaded: {f}"
-        )
+        assert (
+            f.name.startswith(".z") or f.name == "zarr.json"
+        ), f"Non-metadata file downloaded: {f}"
 
 
 @pytest.mark.ai_generated
