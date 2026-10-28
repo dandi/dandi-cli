@@ -1,0 +1,42 @@
+name: Survey server features
+
+# Check which known DANDI instances support which features registered in
+# dandi/server_features.py.  Fails when a feature is supported by all of them,
+# i.e., when the code for servers without it can be removed.
+
+on:
+  schedule:
+    # Weekly, on Mondays
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - dandi/server_features.py
+      - dandi/tests/test_server_features.py
+      - .github/workflows/server-features.yml
+
+jobs:
+  survey:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v7
+      with:
+        # Fetch all commits so that versioneer will return something compatible
+        # with semantic-version
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip wheel
+        pip install ".[test]"
+
+    - name: Survey known instances
+      run: |
+        python -m pytest -v -s --server-features-survey -m server_features_survey \
+          dandi/tests/test_server_features.py
