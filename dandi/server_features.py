@@ -56,10 +56,10 @@ class APIClient(Protocol):
 
     @property
     def server_info(self) -> dict[str, Any]:
-        ...
+        """The server's ``/info/``"""
 
     def get_url(self, path: str) -> str:
-        ...
+        """The URL of the API endpoint ``path``"""
 
 
 @dataclass(frozen=True)
