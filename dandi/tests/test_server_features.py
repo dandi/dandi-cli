@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 import logging
 import os
 import re
@@ -364,6 +364,65 @@ def surveyed_clients() -> Iterator[dict[str, DandiAPIClient | Exception]]:
             c.session.close()
 
 
+def _survey(
+    codename: str, clients: Mapping[str, DandiAPIClient | Exception]
+) -> tuple[bool, str]:
+    """
+    Return whether the servers of all ``clients`` support the feature
+    ``codename``, and a Markdown report of which do.  A client may be given as
+    the error from contacting its server.
+    """
+    results: dict[str, str] = {}
+    for name, client in clients.items():
+        try:
+            if isinstance(client, Exception):
+                raise client
+            # Ignore DANDI_DEVEL_DISABLE_SERVER_FEATURES
+            support = ServerFeatures(client, disabled=()).resolve(codename)
+        except Exception as e:
+            results[name] = f"unknown ({type(e).__name__}: {str(e)[:80]})"
+        else:
+            results[name] = f"{'yes' if support.supported else 'no'} ({support.how})"
+    rows = "\n".join(f"| {name} | {result} |" for name, result in results.items())
+    report = f"### {codename}\n\n| Instance | Supported |\n|---|---|\n{rows}\n"
+    return all(r.startswith("yes") for r in results.values()), report
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_survey_report(
+    monkeypatch: pytest.MonkeyPatch, sensers: dict[str, Mock]
+) -> None:
+    _mock_server_info(version="1.1.1.dev3+g1234567")
+    # The survey ignores DANDI_DEVEL_DISABLE_SERVER_FEATURES
+    monkeypatch.setenv(DISABLE_ENV_VAR, "TEST_FEATURE")
+    clients: dict[str, DandiAPIClient | Exception] = {
+        "one": DandiAPIClient(API_URL),
+        "two": DandiAPIClient(API_URL),
+    }
+    assert _survey("TEST_FEATURE", clients) == (
+        True,
+        "### TEST_FEATURE\n\n| Instance | Supported |\n|---|---|\n"
+        "| one | yes (sensed) |\n| two | yes (sensed) |\n",
+    )
+    # An instance which could not be contacted is not known to support it
+    clients["three"] = requests.ConnectionError("Name or service not known")
+    all_supported, report = _survey("TEST_FEATURE", clients)
+    assert not all_supported
+    assert "| three | unknown (ConnectionError: Name or service not known) |" in report
+    # Neither is one failing to sense it
+    sensers["TEST_FEATURE"].side_effect = RuntimeError("oops")
+    all_supported, report = _survey("TEST_FEATURE", {"one": clients["one"]})
+    assert not all_supported
+    assert "| one | unknown (RuntimeError: oops) |" in report
+    # ... nor one without it
+    sensers["TEST_FEATURE"].side_effect = None
+    sensers["TEST_FEATURE"].return_value = False
+    all_supported, report = _survey("TEST_FEATURE", {"one": clients["one"]})
+    assert not all_supported
+    assert "| one | no (sensed) |" in report
+
+
 @pytest.mark.server_features_survey
 @pytest.mark.ai_generated
 @pytest.mark.parametrize("codename", sorted(SERVER_FEATURES))
@@ -375,24 +434,12 @@ def test_survey(
     the code for servers without it is no longer needed.  Run weekly by the
     "Survey server features" workflow.
     """
-    results: dict[str, str] = {}
-    for name, client in surveyed_clients.items():
-        try:
-            if isinstance(client, Exception):
-                raise client
-            # Ignore DANDI_DEVEL_DISABLE_SERVER_FEATURES
-            support = ServerFeatures(client, disabled=()).resolve(codename)
-        except Exception as e:
-            results[name] = f"unknown ({type(e).__name__}: {str(e)[:80]})"
-        else:
-            results[name] = f"{'yes' if support.supported else 'no'} ({support.how})"
-    report = "\n".join(f"| {name} | {result} |" for name, result in results.items())
-    report = f"### {codename}\n\n| Instance | Supported |\n|---|---|\n{report}\n"
+    all_supported, report = _survey(codename, surveyed_clients)
     print(report)
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(summary, "a") as fp:
             print(report, file=fp)
-    assert not all(r.startswith("yes") for r in results.values()), (
+    assert not all_supported, (
         f"All known instances support {codename}: remove the code for servers"
         f" without it and its entry in SERVER_FEATURES.\n\n{report}"
     )
