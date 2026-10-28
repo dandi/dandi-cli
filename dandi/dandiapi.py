@@ -53,6 +53,7 @@ from .consts import (
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring_utils import keyring_lookup, keyring_save
 from .misctypes import Digest, RemoteReadableAsset
+from .server_features import ServerFeatures
 from .utils import (
     USER_AGENT,
     check_dandi_version,
@@ -717,11 +718,10 @@ class DandiAPIClient(RESTFullAPIClient):
             schema_version
         )
         if server_ver > our_ver:
-            # TODO: potentially adjust here if name would be different: see
-            # https://github.com/dandi/dandi-archive/issues/2624
-            allowed_schema_versions = server_info.get(
-                "allowed_schema_versions", dandischema.consts.ALLOWED_INPUT_SCHEMAS
-            )
+            if self.server_features.supports("ALLOWED_SCHEMA_VERSIONS"):
+                allowed_schema_versions = server_info["allowed_schema_versions"]
+            else:
+                allowed_schema_versions = dandischema.consts.ALLOWED_INPUT_SCHEMAS
             if schema_version not in allowed_schema_versions:
                 raise SchemaVersionError(
                     f"Server uses schema version {server_schema_version};"
@@ -784,6 +784,14 @@ class DandiAPIClient(RESTFullAPIClient):
         info = self.get("/info/")
         assert isinstance(info, dict)
         return info
+
+    @cached_property
+    def server_features(self) -> ServerFeatures:
+        """
+        Which features of dandi-archive registered in
+        `dandi.server_features.SERVER_FEATURES` the server supports
+        """
+        return ServerFeatures(self)
 
     @cached_property
     def server_schema_version(self) -> str:

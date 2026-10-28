@@ -262,45 +262,59 @@ synchronized deployments across all instances: those are fragile and need
 orchestration.  Do not ask instances that lack the feature to reject the new
 client via `cli-minimal-version` or `cli-bad-versions` in `/api/info/`.
 
-Decide, per server, whether the feature is available, either:
+Register the feature as a `ServerFeature` in `SERVER_FEATURES` in
+`dandi/server_features.py`, under a short uppercase CODENAME (e.g.
+`BULK_DELETE`) and with links to the dandi-archive issues/PRs about it.  Use it
+only if `client.server_features.supports("CODENAME")`, and otherwise the prior
+implementation.  The registry decides once per server (per `DandiAPIClient`):
 
-1. **By server version**, if the dandi-archive release that added the feature
-   is known: compare it with `DandiAPIClient.server_info["version"]` (the
-   `version` field of `/api/info/`).  Forks may report versions that cannot be
-   compared with dandi-archive's (e.g. LINC reported `0.0.post6586+g39387b8`),
-   so a version check works only for instances deploying dandi-archive
-   releases.
-2. **By sensing** the feature, which is the most likely case while it is
-   available only on a sandbox instance or in a fork.  Probe the server once,
-   or detect support from the response to the first use, remember the result
-   (on the `DandiAPIClient`), and otherwise use the prior implementation.
-   Choose a signal that cannot be mistaken for another error.  For example, a
-   404 from a new endpoint under a Dandiset version path could also mean that
-   the version does not exist.
+1. **By server version**, i.e. the `version` field of `/api/info/`: once
+   known, the `released_version` of dandi-archive which added the feature
+   decides for servers reporting a dandi-archive release; until then, the
+   `base_version` on top of which the feature is developed rules out servers
+   reporting it or an earlier release.  Development versions (e.g. of sandbox
+   instances) and versions of forks, which cannot be compared with
+   dandi-archive's (e.g. LINC reports `0.0.post6586+g39387b8`), do not decide.
+2. **By sensing**, with the feature's `sense` function, which must not modify
+   anything on the server.  For example, `routes_endpoint()` tells whether the
+   server has an API endpoint.  Choose a signal that cannot be mistaken for
+   another error: e.g. a 404 from a new endpoint under a Dandiset version path
+   could also mean that the version does not exist.  Code which finds out
+   about support by using the feature can tell the registry with
+   `client.server_features.record()`.
 
-Never decide by the instance name or URL.  In addition:
+Setting `DANDI_DEVEL_DISABLE_SERVER_FEATURES` (see below) makes dandi-cli use
+the prior implementation even where the server supports the feature.  Never
+decide by the instance name or URL.  In addition:
 
-- In a comment at the conditional, refer to the dandi-archive issue/PR it
-  accommodates and say when the fallback can be removed (e.g. "once LINC and
-  EMBER update their API to match dandi-archive >= 0.12.14"), so that it can
-  be found, reviewed, and removed later.
 - Log use of the fallback at DEBUG or INFO level, not as a warning or error;
   users cannot do anything about it.
 - Test both code paths.  Integration tests run against the latest
   `dandiarchive/dandiarchive-api` Docker image (dandi-archive `master`), so
-  test the prior behavior with mocked responses (`responses`), and skip
-  integration tests needing the feature if the server does not support it.
-- Remove the fallback once all known instances support the feature.
+  test the prior behavior with mocked responses (`responses`) or with
+  `DANDI_DEVEL_DISABLE_SERVER_FEATURES`, and skip integration tests needing the
+  feature if the server does not support it.
+- Remove the fallback, and the feature from the registry, once all known
+  instances support it.  The weekly "Survey server features" workflow
+  (`.github/workflows/server-features.yml`) checks which known instances
+  support which registered features, and fails once all support one.
 
-Examples in the code (links are to the 0.81.0 release):
+Registered features:
+
+- `ALLOWED_SCHEMA_VERSIONS`: `check_schema_version()` in `dandi/dandiapi.py`
+  uses the schema versions which the server accepts, if it lists them.
+- `BULK_DELETE`: the bulk asset deletion endpoint from
+  [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920),
+  which [dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960) is to
+  use (in progress).
+
+Conditionals predating the registry, which are not decided per server (links
+are to the 0.81.0 release):
 
 - `_get_instance()` in
   [`dandi/utils.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/utils.py#L596-L601)
   falls back from `/server-info` to `/api/info/`.
-- `check_schema_version()` in
-  [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L694-L777)
-  uses `allowed_schema_versions` if the server provides it, and
-  `_maybe_downgrade_metadata()` in
+- `_maybe_downgrade_metadata()` in
   [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L802-L839)
   downgrades metadata for servers with an older schema.
 - Zarr upload in
@@ -309,12 +323,6 @@ Examples in the code (links are to the 0.81.0 release):
 - `mkzarr()` in
   [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L603-L612)
   reuses an existing Zarr on either the old or the new server error message.
-
-Bulk asset deletion
-([dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960), using the
-endpoint from [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920))
-is in progress; it falls back to deleting assets one at a time on servers
-without the endpoint.
 
 ## Test infrastructure
 
@@ -325,6 +333,9 @@ without the endpoint.
 - `@pytest.mark.flaky` — known-flaky tests
 - `@pytest.mark.ai_generated` — **mandatory** on any test written with AI
   assistance
+- `@pytest.mark.server_features_survey` — tests checking which known DANDI
+  instances support which server features; skipped unless
+  `--server-features-survey` is given
 
 New markers must be registered in `pytest_configure()` in
 `dandi/pytest_plugin.py`.
@@ -343,6 +354,8 @@ New markers must be registered in `pytest_configure()` in
 - Integration tests use the `local_dandi_api` fixture
 - `--dandi-api` flag: run only integration tests
 - `--scheduled` flag: enable configuration for scheduled daily runs
+- `--server-features-survey` flag: run the tests marked
+  `server_features_survey`
 - VCR (vcrpy) records/replays HTTP interactions; disable with
   `DANDI_TESTS_NO_VCR`
 
@@ -360,6 +373,9 @@ New markers must be registered in `pytest_configure()` in
 - `typing.yml` — mypy
 - `docs.yml` — Sphinx build
 - `release.yml` — automated release via `auto` (see below)
+- `server-features.yml` — weekly survey of which known DANDI instances support
+  which registered server features (see "Compatibility with dandi-archive
+  instances")
 
 ## Environment variables
 
@@ -425,6 +441,12 @@ New markers must be registered in `pytest_configure()` in
 - `DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN` -- When set, the `upload()`
   function will patch `requests` to log the results of calls to
   `requests.utils.super_len()`
+
+- `DANDI_DEVEL_DISABLE_SERVER_FEATURES` -- comma-separated CODENAMEs of
+  server features registered in `dandi/server_features.py` (e.g.
+  `BULK_DELETE`) which dandi-cli must not use, even where the server supports
+  them, falling back to the prior implementation, e.g. if a feature turns out
+  to be buggy.
 
 - `DANDI_DOWNLOAD_AGGRESSIVE_RETRY` -- When set, would make `download()` retry
   very aggressively - it would keep trying if at least some bytes are downloaded

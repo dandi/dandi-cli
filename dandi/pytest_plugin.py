@@ -4,7 +4,7 @@ from importlib.metadata import PackageNotFoundError, requires, version
 
 from dandischema.models import DandiBaseModel
 from packaging.requirements import Requirement
-from pytest import Config, Item, Parser
+from pytest import Config, Item, Parser, mark
 
 from .tests.fixtures import *  # noqa: F401, F403  # lgtm [py/polluting-import]
 
@@ -22,6 +22,15 @@ def pytest_addoption(parser: Parser) -> None:
         default=False,
         help="Use configuration for a scheduled daily test run",
     )
+    parser.addoption(
+        "--server-features-survey",
+        action="store_true",
+        default=False,
+        help=(
+            "Run the tests surveying which known DANDI instances support which"
+            " server features (marked server_features_survey; skipped otherwise)"
+        ),
+    )
 
 
 def pytest_configure(config):
@@ -30,6 +39,7 @@ def pytest_configure(config):
         "obolibrary",
         "flaky",
         "ai_generated",
+        "server_features_survey",
     ]
     for marker in markers:
         config.addinivalue_line("markers", marker)
@@ -71,6 +81,11 @@ def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
                 deselected_items.append(item)
         config.hook.pytest_deselected(items=deselected_items)
         items[:] = selected_items
+    if not config.getoption("--server-features-survey"):
+        skip_survey = mark.skip(reason="Needs --server-features-survey")
+        for item in items:
+            if "server_features_survey" in item.keywords:
+                item.add_marker(skip_survey)
 
 
 def pytest_assertrepr_compare(op, left, right):

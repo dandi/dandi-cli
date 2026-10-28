@@ -43,6 +43,7 @@ Low level interfaces to e.g. interact with the DANDI REST API and files directly
    dandiapi
    files
    misctypes
+   server_features
 
 Support functionality
 =====================
