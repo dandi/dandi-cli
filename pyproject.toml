@@ -53,7 +53,7 @@ dependencies = [
     "dandischema >= 0.12.0, != 0.13.0, < 0.15.0",
     "etelemetry >= 0.2.2",
     "fasteners >= 0.19",
-    "fscacher >= 0.3.0",
+    "fscacher >= 0.5.0",
     # Floor raised to what `py3-lowest` actually resolves: modern pynwb pins
     # hdmf >= 4, so declared floor is now the tested floor.
     "hdmf >= 4.1.0",
@@ -121,6 +121,14 @@ test = [
     "responses >= 0.23.0, != 0.24.0, != 0.25.5",
     # 5.0 switched to urllib3.connection.VerifiedHTTPSConnection (urllib3 2.x compat)
     "vcrpy >= 5.0.0",
+]
+# For streaming the content of annexed files of DataLad datasets without
+# fetching it (requires git-annex).
+# TODO: before merging, require the first release with the remfile backend
+# (datalad/datalad-fuse#131) instead: PyPI rejects distributions with direct URL
+# dependencies.
+datalad = [
+    "datalad-fuse[remfile] @ git+https://github.com/datalad/datalad-fuse@b4dbee656eeb8ed54b1396c8d7e5c8b369b64a4a",
 ]
 tools = [
     "boto3",
@@ -217,6 +225,7 @@ follow_imports = "skip"
 module = [
     "bidsschematools.*",
     "click_didyoumean.*",
+    "datalad_fuse.*",
     "etelemetry.*",
     "fasteners.*",
     "fscacher.*",
@@ -228,6 +237,7 @@ module = [
     "nwbinspector.*",
     "pynwb.*",
     "pyout.*",
+    "remfile.*",
     "semantic_version.*",
     "vcr.*",
     "zarr.*",
