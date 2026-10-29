@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from ..upload import ZarrMode
 
 from dandischema.models import BareAsset, DigestType
+from packaging.version import Version
 from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
@@ -127,9 +128,9 @@ def get_zarr_format_version(path: Path) -> Optional[str]:
     return None
 
 
-def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[ValidationResult]:
+def _validate_zarr3(path: Path, devel_debug: bool = False) -> list[ValidationResult]:
     """
-    Validate a Zarr format V3 LocalStore with the tensorstore package
+    Validate a Zarr format V3 LocalStore with zarr-python
 
     Parameters
     ----------
@@ -151,12 +152,9 @@ def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[Validation
 
     Note
     ----
-        Since tensorstore does not support the concept of a Zarr group, this function
-        validates a Zarr format V3 LocalStore by opening all the contained arrays with
-        tensorstore individually.
-
-        This function will no longer be needed once the upgrade to zarr-python 3.x is
-        done and should be removed.
+        zarr-python can partially open a malformed Zarr format V3 store (e.g. valid
+        root metadata, bad child metadata), so this function validates a Zarr format
+        V3 LocalStore by opening all the contained arrays individually.
     """
 
     if not path.is_dir():
@@ -216,17 +214,17 @@ def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[Validation
             else:
                 # Check if the directory is a Zarr array
                 if meta.node_type == "array":
-                    results.extend(_ts_validate_zarr3_array(Path(root), devel_debug))
+                    results.extend(_validate_zarr3_array(Path(root), devel_debug))
                     dirs.clear()  # Skip subdirectories
 
     return results
 
 
-def _ts_validate_zarr3_array(
+def _validate_zarr3_array(
     path: Path, devel_debug: bool = False
 ) -> list[ValidationResult]:
     """
-    Validate a Zarr format V3 array in a LocalStore with the tensorstore package
+    Validate a Zarr format V3 array in a LocalStore with zarr-python
 
     Parameters
     ----------
@@ -239,41 +237,31 @@ def _ts_validate_zarr3_array(
     -------
     list[ValidationResult]
         A list of validation results representing validation errors encountered
-
-    Note
-    ----
-        This function will no longer be needed once the upgrade to zarr-python 3.x is
-        done and should be removed.
     """
     # Avoid heavy import by importing within function
-    from importlib.metadata import version
-
-    import tensorstore as ts  # type: ignore[import]
+    import zarr
 
     results: list[ValidationResult] = []
 
-    # TensorStore spec describing where and how to read the Zarr array
-    spec = {"driver": "zarr3", "kvstore": {"driver": "file", "path": str(path)}}
-
     try:
-        ts.open(spec, read=True, write=False).result()
+        zarr.open_array(path, mode="r", zarr_format=3)
     except Exception as e:
         if devel_debug:
             raise
         results.append(
             ValidationResult(
-                id="zarr.tensorstore_cannot_open",
+                id="zarr.cannot_open",
                 origin=Origin(
                     type=OriginType.INTERNAL,
-                    validator=Validator.tensorstore,
-                    validator_version=version("tensorstore"),
+                    validator=Validator.zarr,
+                    validator_version=zarr.__version__,
                     standard=Standard.ZARR,
                     standard_version="3",
                 ),
                 scope=Scope.FILE,
                 origin_result=e,
                 severity=Severity.ERROR,
-                message="Error opening Zarr array with tensorstore",
+                message="Error opening Zarr array",
                 path=path,
             )
         )
@@ -474,8 +462,39 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
-        # Avoid heavy import by importing within function:
-        import zarr
+        # zarr-python is an optional dependency (the `zarr` extra), and only
+        # zarr-python 3.x can read Zarr format V3.
+        zarr_version: str | None
+        try:
+            # Avoid heavy import by importing within function:
+            import zarr
+        except ImportError:
+            zarr_version = None
+        else:
+            zarr_version = zarr.__version__
+        if zarr_version is None or Version(zarr_version).major < 3:
+            found = (
+                "it is not installed"
+                if zarr_version is None
+                else f"found {zarr_version}"
+            )
+            return [
+                ValidationResult(
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                    severity=Severity.ERROR,
+                    id="dandi_zarr.zarr_python_required",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message=(
+                        f"Validating Zarr assets requires zarr-python 3.x ({found}). "
+                        "Install it with `pip install 'dandi[zarr]'`."
+                    ),
+                )
+            ] + super().get_validation_errors(
+                schema_version=schema_version,
+                devel_debug=devel_debug,
+                missing_file_content=missing_file_content,
+            )
 
         errors: list[ValidationResult] = []
         origin_internal_zarr: Origin = Origin(
@@ -485,20 +504,22 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             standard=Standard.ZARR,
         )
 
-        # Zarr V3 stores are validated by `_ts_validate_zarr3` regardless of
-        # zarr-python version. With zarr-python 2.x, `zarr.open()` cannot
-        # handle V3 at all (raises `PathNotFoundError`); with zarr-python 3.x
-        # it can sometimes partially open malformed V3 stores (e.g. valid
-        # root metadata, bad child metadata), which would cause us to miss
-        # the `_ts_validate_zarr3` path. Detecting the format up front keeps
-        # the validation behaviour consistent across versions.
+        # Zarr V3 stores are validated by `_validate_zarr3`, which opens every
+        # array individually: `zarr.open()` can sometimes partially open
+        # malformed V3 stores (e.g. valid root metadata, bad child metadata),
+        # which would cause us to miss errors.
         format_version = get_zarr_format_version(self.filepath)
         if format_version == "3":
-            errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
+            errors.extend(_validate_zarr3(self.filepath, devel_debug))
             data = None
         else:
             try:
-                data = zarr.open(str(self.filepath), mode="r")
+                # Consolidated metadata is skipped because zarr-python 3.x
+                # cannot parse some V2 array metadata written by zarr-python
+                # 2.x, such as object arrays with a fill value of 0 or the
+                # `json2` codec, both found in NWB files written by hdmf-zarr.
+                # `_is_empty_group` already tolerates such members.
+                data = zarr.open(str(self.filepath), mode="r", use_consolidated=False)
             except Exception as e:
                 if devel_debug:
                     raise

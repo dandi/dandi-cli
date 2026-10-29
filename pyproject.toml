@@ -70,7 +70,9 @@ dependencies = [
     # Floor raised: dandischema 0.12 / nwbinspector 0.7 require modern pynwb.
     "pynwb >= 3.1.0",
     "numcodecs >= 0.11.0",
-    "nwbinspector >= 0.7.0",
+    # Floor raised: earlier releases require hdmf-zarr, whose releases for
+    # Python 3.11 either cap zarr < 3 or break with zarr 3.
+    "nwbinspector >= 0.7.2",
     "pyout >= 0.7.3",
     "python-dateutil >= 2.9.0",
     # Floor raised: urllib3 2.x requires requests >= 2.30.
@@ -79,13 +81,9 @@ dependencies = [
     "ruamel.yaml >= 0.16.0, < 1",
     "semantic-version >= 2.10.0",
     "tenacity >= 8.2.0",
-    # 0.1.62 first release built for numpy 2.x
-    "tensorstore >= 0.1.62",
     # possibly silently incomplete downloads: https://github.com/dandi/dandi-cli/issues/1500
     "urllib3 >= 2.0.2",
     "yarl >= 1.9.1, < 2",
-    # Floor raised: numcodecs 0.11 / hdmf-zarr chain requires >= 2.18.
-    "zarr >= 2.18.0, < 4",
     "zarr_checksum ~= 0.4.0",
 ]
 dynamic = ["version"]
@@ -119,15 +117,24 @@ test = [
     "responses >= 0.23.0, != 0.24.0, != 0.25.5",
     # 5.0 switched to urllib3.connection.VerifiedHTTPSConnection (urllib3 2.x compat)
     "vcrpy >= 5.0.0",
+    "dandi[zarr]",
 ]
 tools = [
     "boto3",
+]
+# zarr-python is needed only to validate Zarr assets
+zarr = [
+    # Reading strings in Zarr format V3 warns before 3.1.1, and the expected
+    # digests in the tests assume 3.1.4, which stopped writing
+    # `consolidated_metadata: null`.
+    "zarr >= 3.1.4, < 4",
 ]
 all = [
     "dandi[extensions]",
     "dandi[extras]",
     "dandi[test]",
     "dandi[tools]",
+    "dandi[zarr]",
 ]
 
 # Development-only dependency sets, not published in built distributions.
