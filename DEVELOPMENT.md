@@ -278,9 +278,10 @@ Decide, per server, whether the feature is available, either:
 1. **By server version**, if the dandi-archive release that added the feature
    is known: compare it with `DandiAPIClient.server_info["version"]` (the
    `version` field of `/api/info/`).  Forks may report versions that cannot be
-   compared with dandi-archive's (e.g. LINC reported `0.0.post6586+g39387b8`),
-   so a version check works only for instances deploying dandi-archive
-   releases.
+   compared with dandi-archive's (e.g. EMBER reports
+   `0.0.post1.dev7927+g9e4606812` and LINC `0.0.post6586+g39387b8`), so a
+   version check works only for instances deploying dandi-archive releases,
+   i.e. only DANDI's.
 2. **By sensing** the feature, which is the most likely case while it is
    available only on a sandbox instance or in a fork.  Probe the server once,
    or detect support from the response to the first use, remember the result
