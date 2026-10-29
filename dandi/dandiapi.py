@@ -701,8 +701,7 @@ class DandiAPIClient(RESTFullAPIClient):
           number for 0.x series, and same MAJOR version for/after 1.x series;
         - the same;
         - higher than the client has, but only if the client's schema version is listed
-          among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint),
-          or if not there -- `dandischema.consts.ALLOWED_INPUT_SCHEMAS` is consulted.
+          among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint).
 
         If neither of above, a `SchemaVersionError` is raised.
 
@@ -717,11 +716,10 @@ class DandiAPIClient(RESTFullAPIClient):
             schema_version
         )
         if server_ver > our_ver:
-            # TODO: potentially adjust here if name would be different: see
-            # https://github.com/dandi/dandi-archive/issues/2624
-            allowed_schema_versions = server_info.get(
-                "allowed_schema_versions", dandischema.consts.ALLOWED_INPUT_SCHEMAS
-            )
+            # A server without the field (dandi-archive < 0.19.0,
+            # https://github.com/dandi/dandi-archive/pull/2625) accepts no older
+            # schema.  LINC is one, but its schema is older than any client's.
+            allowed_schema_versions = server_info.get("allowed_schema_versions") or []
             if schema_version not in allowed_schema_versions:
                 raise SchemaVersionError(
                     f"Server uses schema version {server_schema_version};"
