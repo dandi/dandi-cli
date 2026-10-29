@@ -694,7 +694,7 @@ INVALID_STORES_PATH = "data/zarr3_stores/invalid_stores"
         ),
         # A store with a corrupt zarr.json for an array (missing fields other than
         # `node_type`)
-        ("array_v3_corrupt_zarr_json.zarr", {"zarr.tensorstore_cannot_open"}),
+        ("array_v3_corrupt_zarr_json.zarr", {"zarr.cannot_open"}),
     ],
 )
 def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> None:
@@ -712,3 +712,55 @@ def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> Non
 
     result_ids = {r.id for r in zf.get_validation_errors()}
     assert result_ids == expected_result_ids
+
+
+@pytest.mark.ai_generated
+def test_validate_zarr3_string_array(tmp_path: Path) -> None:
+    # Variable-length strings are an extension data type in Zarr format V3,
+    # and NWB files store most of their text in them
+    zarr_path = tmp_path / "strings.zarr"
+    group = zarr.open_group(zarr_path, mode="w", zarr_format=3)
+    group.create_array("identifier", shape=(1,), dtype=str)[:] = ["session"]
+    assert dandi_file(zarr_path).get_validation_errors() == []
+
+
+@pytest.mark.ai_generated
+def test_validate_zarr2_unparseable_consolidated_metadata(tmp_path: Path) -> None:
+    # zarr-python 2.x wrote a fill value of 0 for object arrays, which
+    # zarr-python 3.x cannot parse.  hdmf-zarr wrote such arrays in NWB files
+    # (e.g. `session_start_time`) and consolidated their metadata at the root.
+    zarr_path = tmp_path / "example.zarr"
+    array_meta = {
+        "chunks": [1],
+        "compressor": None,
+        "dtype": "|O",
+        "fill_value": 0,
+        "filters": [{"id": "vlen-bytes"}],
+        "order": "C",
+        "shape": [1],
+        "zarr_format": 2,
+    }
+    metadata = {".zgroup": {"zarr_format": 2}, "session_start_time/.zarray": array_meta}
+    (zarr_path / "session_start_time").mkdir(parents=True)
+    for name, meta in metadata.items():
+        (zarr_path / name).write_text(json.dumps(meta))
+    (zarr_path / ".zmetadata").write_text(
+        json.dumps({"metadata": metadata, "zarr_consolidated_format": 1})
+    )
+    assert dandi_file(zarr_path).get_validation_errors() == []
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("zarr_version", [None, "2.18.7"])
+def test_validate_zarr_requires_zarr_python_3(
+    zarr_version: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `None` stands for zarr-python not being installed
+    if zarr_version is None:
+        monkeypatch.setitem(sys.modules, "zarr", None)
+    else:
+        monkeypatch.setattr(zarr, "__version__", zarr_version)
+    zf = dandi_file(Path(__file__).parent / VALID_STORES_PATH / "single_array.zarr")
+    assert [r.id for r in zf.get_validation_errors()] == [
+        "dandi_zarr.zarr_python_required"
+    ]
