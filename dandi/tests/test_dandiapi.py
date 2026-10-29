@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 from datetime import datetime, timezone
+import gc
 import json
 import logging
 from pathlib import Path
@@ -1105,6 +1106,26 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
         assert fp.read() == b"This is test text.\n"
     finally:
         fp.close()
+
+
+@pytest.mark.ai_generated
+def test_asset_as_readable_open_pauses_gc(
+    new_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    # Automatic garbage collection is disabled while a remote asset is open, so
+    # that it cannot run in fsspec's IO thread while h5py holds its lock
+    # (https://github.com/dandi/dandi-cli/issues/1450)
+    p = tmp_path / "foo.txt"
+    p.write_bytes(b"This is test text.\n")
+    d = new_dandiset.dandiset
+    d.upload_raw_asset(p, {"path": "foo.txt"})
+    (asset,) = d.get_assets()
+    assert isinstance(asset, RemoteBlobAsset)
+    assert gc.isenabled()
+    with asset.as_readable().open() as fp:
+        assert not gc.isenabled()
+        assert fp.read() == b"This is test text.\n"
+    assert gc.isenabled()
 
 
 @pytest.mark.parametrize(
