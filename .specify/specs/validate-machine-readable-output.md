@@ -1,0 +1,1108 @@
+# Design: Machine-Readable Validation Output with Store/Reload
+
+## Summary
+
+Add machine-readable output formats to `dandi validate`, support saving validation
+results to disk, and reloading/re-rendering them later with different grouping,
+filtering, and display options. This enables workflows like:
+
+- Sweeping all BIDS example datasets or all DANDI datasets, storing results
+- Storing validation errors during `upload` for later inspection
+- Re-rendering stored results with alternative groupings/filters without re-running validation
+
+## Related Issues & PRs
+
+| # | Title | Status | Relevance |
+|---|-------|--------|-----------|
+| [#1515](https://github.com/dandi/dandi-cli/issues/1515) | `validate: Add -f\|--format option` | Open | Direct: requests JSON/YAML output formats |
+| [#1753](https://github.com/dandi/dandi-cli/issues/1753) | Provide easy means for introspecting upload validation failures | Open | Direct: decouple execution from rendering via JSON dumps |
+| [#1743](https://github.com/dandi/dandi-cli/pull/1743) | Add filtering of issues by type/ID or by file location | Draft | Related: post-validation filtering, blocked pending store/cache |
+| [#1737](https://github.com/dandi/dandi-cli/issues/1737) | `upload,validate: Add --validators option` | Open | Related: selective validator control |
+| [#1748](https://github.com/dandi/dandi-cli/issues/1748) | Tidy up the validate command function | Open | Prerequisite: refactor before adding options |
+| [#1448](https://github.com/dandi/dandi-cli/issues/1448) | Align validation with server | Open | Consistency between client/server validation |
+| [#1624](https://github.com/dandi/dandi-cli/pull/1624) | Serialize Severity by name | Merged | Prerequisite: meaningful JSON Severity output |
+| [#1514](https://github.com/dandi/dandi-cli/pull/1514) | Overhaul validation results (Pydantic Origins) | Merged | Foundation: Pydantic-based models, JSON-ready |
+| [#1619](https://github.com/dandi/dandi-cli/pull/1619) | Deduplicate validation results | Merged | Foundation: no duplicate records |
+| [#1597](https://github.com/dandi/dandi-cli/issues/1597) | Replace bidsschematools with bids-validator-deno | Closed | Mentions filtering + result summaries as follow-ups |
+
+## Current State
+
+### What exists
+
+- **`ValidationResult`** (Pydantic `BaseModel` in `validate_types.py`): fully JSON-serializable
+  with `model_dump(mode="json")` and `model_validate_json()` round-trip support.
+  Fields: `id`, `origin` (validator+standard+versions), `scope`, `severity`, `message`,
+  `path`, `dandiset_path`, `dataset_path`, `asset_paths`, `within_asset_paths`,
+  `path_regex`, `metadata`. The `origin_result` field is excluded from serialization.
+  **No schema/format version field exists on the model itself.**
+- **`Severity_`** annotated type serializes as `"ERROR"`, `"WARNING"`, etc. (not numeric).
+- **`Origin`** is a Pydantic `BaseModel` with `type`, `validator`, `validator_version`,
+  `standard`, `standard_version`, `standard_schema_version`.
+- **CLI output** is human-only: colored text via `click.secho()` with grouping by
+  `none`/`path`, filtering by `--min-severity` and `--ignore REGEX`.
+- **`dandi ls`** already supports `-f json|json_pp|json_lines|yaml` via `formatter.py`
+  with `JSONFormatter`, `JSONLinesFormatter`, `YAMLFormatter` context-manager classes.
+- **Upload** runs `get_validation_errors()` per-file but only logs/raises on errors;
+  no structured output is saved.
+- **Log files** are written to `platformdirs.user_log_dir("dandi-cli", "dandi")`
+  (typically `~/.local/share/logs/dandi-cli/`) with pattern
+  `YYYY.MM.DD-HH.MM.SSZ-PID.log`. The path is stored in `ctx.obj.logfile` in the
+  Click context (set in `command.py:main()`).
+- **Current module layout**: `dandi/validate.py` + `dandi/validate_types.py` as
+  top-level modules. As more validation modules are anticipated (I/O, reporting,
+  additional validator backends), this needs to become a subpackage.
+
+### What's missing
+
+1. No `--format` option on `validate` (only human-readable output)
+2. No `--output` to save results to a file
+3. No `--load` to reload previously-saved results
+4. No summary statistics
+5. No grouping by `validator`, `severity`, `id`, `standard`, etc.
+6. Upload validation results are not persisted for later review
+7. No shared utility for writing/reading validation JSONL files
+8. No schema version on `ValidationResult` for forward-compatible serialization
+9. Validation modules are flat files, not a subpackage
+
+### Importers of current validation modules
+
+The following files import from `validate.py` or `validate_types.py` and will
+need import path updates after the subpackage refactoring:
+
+- `dandi/cli/cmd_validate.py` — `from ..validate import validate`; `from ..validate_types import ...`
+- `dandi/cli/tests/test_cmd_validate.py` — `from ...validate_types import ...`
+- `dandi/cli/tests/test_command.py` — `from ..cmd_validate import validate`
+- `dandi/upload.py` — `from .validate_types import Severity`
+- `dandi/organize.py` — `from .validate_types import ...`
+- `dandi/pynwb_utils.py` — `from .validate_types import ...`
+- `dandi/files/bases.py` — `from dandi.validate_types import ...`
+- `dandi/files/bids.py` — `from ..validate_types import ...`; `from dandi.validate import validate_bids`
+- `dandi/files/zarr.py` — `from ..validate_types import ...`
+- `dandi/bids_validator_deno/_validator.py` — `from dandi.validate_types import ...`
+- `dandi/tests/test_validate.py` — `from ..validate import validate`; `from ..validate_types import ...`
+- `dandi/tests/test_validate_types.py` — `from dandi.validate_types import ...`
+
+## Design Principles
+
+### Separation of concerns (per #1753)
+
+Three decoupled stages:
+
+1. **Execution**: Run validators, produce `ValidationResult` objects
+2. **Serialization**: Dump results to JSONL (the interchange format)
+3. **Rendering**: Display results with grouping, filtering, formatting
+
+Currently stages 1+3 are coupled in `cmd_validate.py`. This design introduces
+stage 2 and makes stage 3 work from either stage 1 (live) or stage 2 (loaded).
+
+```
+Live validation:   validate() → [ValidationResult] → filter/group → render
+                                       ↓
+                                  save(companion)
+
+Stored results:    load(files) → [ValidationResult] → filter/group → render
+
+Upload results:    upload() → [ValidationResult] → save(companion)
+                                      ↓
+                    load(companion) → filter/group → render
+```
+
+### Uniform output across all formats — no envelope/non-envelope split
+
+All structured formats (`json`, `json_pp`, `json_lines`, `yaml`) emit the
+**same data** — a flat list of `ValidationResult` records. No format gets a
+special envelope wrapper that others lack. This avoids having two schemas to
+maintain and document.
+
+**JSONL**: one `ValidationResult` per line (pure results, `cat`-composable):
+
+```bash
+cat results/*.jsonl | jq 'select(.severity == "ERROR")'  # just works
+wc -l results/*.jsonl                                      # = issue count
+grep BIDS.NON_BIDS results/*.jsonl                         # fast text search
+vd results/*.jsonl                                         # instant tabular view
+```
+
+**VisiData integration**: VisiData natively loads `.jsonl` as tabular data —
+each `ValidationResult` becomes a row with columns for `id`, `severity`,
+`path`, `origin.validator`, `message`, etc. This gives immediate interactive
+sorting, filtering, frequency tables, and pivoting with no extra code. Since
+VisiData is Python-based, future integration is possible (e.g., a `dandi`
+VisiData plugin that adds custom commands for grouping by dandiset, linking
+to BIDS spec rules, or opening the offending file).
+
+**JSON / JSON pretty-printed**: a JSON array of `ValidationResult` objects:
+
+```json
+[
+  {"id": "BIDS.NON_BIDS_PATH_PLACEHOLDER", "origin": {...}, "severity": "ERROR", ...},
+  {"id": "NWBI.check_data_orientation", "origin": {...}, "severity": "WARNING", ...}
+]
+```
+
+**YAML**: same array structure in YAML syntax.
+
+Summary statistics are handled separately via `--summary` (human output) or
+post-processing (`jq`, `--load` + `--summary`). They are not baked into the
+serialized data.
+
+### Prior art: bids-validator `output.json`
+
+The bids-validator ([example](https://github.com/bids-standard/bids-examples/blob/3aa560cc/2d_mb_pcasl/derivatives/bids-validator/output.json))
+uses an envelope format:
+
+```json
+{
+  "issues": {
+    "issues": [{"code": "...", "severity": "warning", "location": "...", ...}],
+    "codeMessages": {"JSON_KEY_RECOMMENDED": "A JSON file is missing..."}
+  },
+  "summary": {"subjects": [...], "totalFiles": 11, "schemaVersion": "1.2.1", ...}
+}
+```
+
+Their format is a **final report** — one monolithic JSON per dataset. Our design
+differs intentionally: we produce **composable JSONL records** that can be
+concatenated across datasets, piped through standard Unix tools, and loaded
+into tabular tools like VisiData. The `_record_version` field on each record
+provides the self-describing property that their envelope provides at the
+file level.
+
+### Schema version on `ValidationResult`
+
+Add a `_record_version` field to `ValidationResult` to enable forward-compatible
+deserialization. This lets loaders detect and handle older record formats
+gracefully:
+
+```python
+class ValidationResult(BaseModel):
+    _record_version: str = "1"  # schema version for this record format
+    id: str
+    origin: Origin
+    # ... rest of fields
+```
+
+Serialized as `"_record_version": "1"` in every JSON line. The loader can
+check this and warn/adapt if it encounters a newer version. The underscore
+prefix signals it is metadata about the record format, not validation content.
+
+### Grouping is human-rendering only
+
+Structured output always emits a flat results list. `--grouping` only affects
+human-readable display. Downstream tools can trivially group with
+`jq group_by(.id)` etc., and a stable flat schema is more useful than a format
+that varies by grouping option.
+
+### Orthogonal options
+
+`--format` and `--output` are independent:
+- `--format` controls serialization format (default: `human`)
+- `--output` controls destination (default: stdout)
+- When `--output` is given without `--format`, the format is auto-detected
+  from the file extension: `.json` → `json_pp`, `.jsonl` → `json_lines`,
+  `.yaml`/`.yml` → `yaml`. If the extension is unrecognized, an error is
+  raised (since writing colored human text to a file is not useful)
+
+## Design
+
+### Step 0a: Refactor into `dandi/validate/` subpackage
+
+**Goal**: Convert flat validation modules into a proper subpackage to
+accommodate growing validation functionality (I/O, reporting, future validators).
+
+**Critical**: The `git mv` must be committed **separately** from any content
+changes to preserve git rename tracking.
+
+#### Commit 1: Pure rename (git mv only)
+
+```bash
+mkdir -p dandi/validate
+git mv dandi/validate.py dandi/validate/core.py
+git mv dandi/validate_types.py dandi/validate/types.py
+# Create __init__.py that re-exports everything for backwards compatibility
+```
+
+`dandi/validate/__init__.py` (created, not moved):
+
+```python
+"""Validation of DANDI datasets against schemas and standards.
+
+This package provides validation functionality for dandisets, including:
+- DANDI schema validation
+- BIDS standard validation
+- File layout and organization validation
+- Metadata completeness checking
+"""
+# Re-export public API for backwards compatibility
+from .core import validate, validate_bids  # noqa: F401
+from .types import (  # noqa: F401
+    ORIGIN_INTERNAL_DANDI,
+    ORIGIN_VALIDATION_DANDI,
+    ORIGIN_VALIDATION_DANDI_LAYOUT,
+    ORIGIN_VALIDATION_DANDI_ZARR,
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    Severity_,
+    Standard,
+    ValidationResult,
+    Validator,
+)
+```
+
+This `__init__.py` means **all existing imports continue to work unchanged**:
+- `from dandi.validate import validate` — works (via `__init__.py`)
+- `from dandi.validate_types import ValidationResult` — **breaks**, needs update
+
+#### Commit 2: Update all import paths
+
+Update all importers listed above to use the new subpackage paths:
+- `from dandi.validate_types import X` → `from dandi.validate.types import X`
+  (or `from dandi.validate import X` where re-exported)
+- `from dandi.validate import validate` — already works via `__init__.py`
+- `from ..validate_types import X` → `from ..validate.types import X`
+
+Also move test files:
+- `dandi/tests/test_validate.py` → `dandi/validate/tests/test_core.py`
+- `dandi/tests/test_validate_types.py` → `dandi/validate/tests/test_types.py`
+
+#### Resulting subpackage layout
+
+```
+dandi/validate/
+├── __init__.py          # Re-exports for backwards compat
+├── core.py              # validate(), validate_bids() — was validate.py
+├── types.py             # ValidationResult, Origin, etc. — was validate_types.py
+├── io.py                # NEW: JSONL read/write utilities
+└── tests/
+    ├── __init__.py
+    ├── test_core.py     # was dandi/tests/test_validate.py
+    ├── test_types.py    # was dandi/tests/test_validate_types.py
+    └── test_io.py       # NEW: tests for I/O utilities
+```
+
+### Step 0b: Refactor `cmd_validate.py` (addresses #1748)
+
+Before adding new options, decompose the `validate()` CLI function. It currently
+handles argument parsing, validation execution, filtering, and rendering in one
+function. Extract:
+
+- `_collect_results()` — run validation, return `list[ValidationResult]`
+- `_filter_results()` — apply `--min-severity`, `--ignore`
+- `_render_results()` — dispatch to human or structured output
+
+This keeps complexity per function under the LAD threshold (max-complexity 10)
+and makes it natural to slot in `--load` as an alternative to `_collect_results()`.
+
+Adds `@click.pass_context` to `validate()` to access `ctx.obj.logfile`.
+
+### Step 0c: Add `_record_version` to `ValidationResult`
+
+Add the schema version field to `ValidationResult` in `dandi/validate/types.py`:
+
+```python
+class ValidationResult(BaseModel):
+    _record_version: str = "1"
+    id: str
+    origin: Origin
+    # ... existing fields unchanged
+```
+
+This is a backwards-compatible addition — existing serialized records without
+`_record_version` will deserialize fine (Pydantic fills the default). The loader
+in `io.py` can log a debug message if it encounters an unknown version.
+
+### Shared I/O utility: `dandi/validate/io.py`
+
+New module shared by `cmd_validate.py` and `upload.py`:
+
+```python
+"""Read and write validation results in JSONL format.
+
+JSONL files contain one ValidationResult per line — pure results, no envelope.
+This makes them fully cat-composable, grep-searchable, and jq-processable.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from .types import ValidationResult
+
+lgr = logging.getLogger(__name__)
+
+CURRENT_RECORD_VERSION = "1"
+
+
+def write_validation_jsonl(
+    results: list[ValidationResult],
+    path: str | Path,
+) -> Path:
+    """Write validation results to a JSONL file (one result per line).
+
+    Parameters
+    ----------
+    results : list[ValidationResult]
+        Validation results to write.
+    path : str | Path
+        Output file path.
+
+    Returns
+    -------
+    Path
+        The path written to.
+    """
+    path = Path(path)
+    with open(path, "w") as f:
+        for r in results:
+            f.write(r.model_dump_json() + "\n")
+    return path
+
+
+def append_validation_jsonl(
+    results: list[ValidationResult],
+    path: str | Path,
+) -> None:
+    """Append validation results to an existing JSONL file."""
+    path = Path(path)
+    with open(path, "a") as f:
+        for r in results:
+            f.write(r.model_dump_json() + "\n")
+
+
+def load_validation_jsonl(*paths: str | Path) -> list[ValidationResult]:
+    """Load and concatenate validation results from JSONL files.
+
+    Each line must be a JSON-serialized ValidationResult. Blank lines and
+    lines that fail to parse as ValidationResult are skipped with a warning.
+
+    Parameters
+    ----------
+    *paths
+        One or more JSONL file paths.
+
+    Returns
+    -------
+    list[ValidationResult]
+        Concatenated results from all files.
+    """
+    results: list[ValidationResult] = []
+    for p in paths:
+        p = Path(p)
+        with open(p) as f:
+            for lineno, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    vr = ValidationResult.model_validate_json(line)
+                except Exception:
+                    lgr.debug(
+                        "Skipping unrecognized line %d in %s", lineno, p
+                    )
+                    continue
+                rv = getattr(vr, "_record_version", CURRENT_RECORD_VERSION)
+                if rv != CURRENT_RECORD_VERSION:
+                    lgr.debug(
+                        "Record version %s (expected %s) at %s:%d",
+                        rv, CURRENT_RECORD_VERSION, p, lineno,
+                    )
+                results.append(vr)
+    return results
+
+
+def validation_companion_path(logfile: str | Path) -> Path:
+    """Derive the validation companion path from a log file path.
+
+    Given ``2026.03.19-14.30.00Z-12345.log``, returns
+    ``2026.03.19-14.30.00Z-12345_validation.jsonl`` in the same directory.
+    """
+    logfile = Path(logfile)
+    return logfile.with_name(logfile.stem + "_validation.jsonl")
+```
+
+### Phase 1a: Format output (`-f/--format`) — addresses #1515
+
+**Goal**: Add structured output formats to `dandi validate`.
+
+#### CLI changes
+
+```python
+@click.option(
+    "--format", "-f",
+    "output_format",  # avoid shadowing builtin
+    help="Output format.",
+    type=click.Choice(["human", "json", "json_pp", "json_lines", "yaml"]),
+    default="human",
+)
+```
+
+#### Structured output schema (uniform across formats)
+
+All structured formats emit a flat list of `ValidationResult` records.
+
+**json / json_pp** — JSON array:
+```json
+[
+  {
+    "_record_version": "1",
+    "id": "BIDS.NON_BIDS_PATH_PLACEHOLDER",
+    "origin": {
+      "type": "VALIDATION",
+      "validator": "bids-validator-deno",
+      "validator_version": "2.0.6",
+      "standard": "BIDS",
+      "standard_version": "1.9.0",
+      "standard_schema_version": "0.11.3"
+    },
+    "scope": "file",
+    "severity": "ERROR",
+    "message": "File does not match any pattern known to BIDS.",
+    "path": "sub-01/anat/junk.txt",
+    "dandiset_path": "/data/dandiset001",
+    "dataset_path": "/data/dandiset001",
+    "asset_paths": null,
+    "within_asset_paths": null,
+    "path_regex": null,
+    "metadata": null
+  }
+]
+```
+
+**json_lines** — one record per line (same fields, `cat`-composable):
+```
+{"_record_version":"1","id":"BIDS.NON_BIDS_PATH_PLACEHOLDER","origin":{...},...}
+{"_record_version":"1","id":"NWBI.check_data_orientation","origin":{...},...}
+```
+
+**yaml** — YAML list of the same records.
+
+No envelope in any format. Summary is a separate concern (see Phase 1c).
+
+#### Implementation approach
+
+Reuse `formatter.py` infrastructure. `ValidationResult.model_dump(mode="json")`
+produces a dict compatible with existing `JSONFormatter`/`YAMLFormatter`.
+The `validate()` CLI function collects all results into a list (already does
+for filtering), then dispatches to `display_errors()` (human) or structured
+formatter.
+
+### Phase 1b: File output (`-o/--output`) + auto-save companion
+
+**Goal**: Write results to file and auto-save a `_validation.jsonl` companion
+alongside the `.log` file.
+
+#### CLI changes
+
+```python
+@click.option(
+    "--output", "-o",
+    help="Write output to file instead of stdout. "
+         "Requires --format to be set to a structured format.",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+)
+```
+
+Validation:
+- If `--output` is given and `--format` is `human` (default), auto-detect
+  format from file extension (`.json` → `json_pp`, `.jsonl` → `json_lines`,
+  `.yaml`/`.yml` → `yaml`). If extension is unrecognized, raise
+  `click.UsageError`
+
+#### Auto-save companion
+
+`dandi validate` writes a `_validation.jsonl` companion next to its log file
+**by default** whenever there are results (any severity), regardless of
+`--format`. The companion is **skipped** only when:
+- `--output` is specified (user already has structured results in a file)
+- `--load` is used (re-rendering existing results, not a fresh run)
+- No results are produced (clean validation)
+
+```python
+# After collecting and filtering results, regardless of --format:
+if not load and not output_file and filtered:
+    if hasattr(ctx, "obj") and ctx.obj is not None:
+        _auto_save_companion(filtered, ctx.obj.logfile)
+```
+
+**Important**: The companion must be written in ALL output format branches
+(human, structured-to-stdout, structured-to-file), not just in the
+structured-to-stdout branch. A bug existed where the companion was only saved
+in the `else` branch (structured output to stdout), missing the most common
+case (human output, the default).
+
+The companion accumulation rate matches the already-existing `.log` files.
+
+The `validate` command's help text should mention this behavior so users
+know where to find saved results:
+
+> Validation results are automatically saved as a JSONL companion next to the
+> dandi-cli log file (unless --output is specified). Use ``dandi validate
+> --load <path>`` to re-render saved results with different options.
+
+### Phase 1c: Summary flag (`--summary`)
+
+**Goal**: Add summary statistics as a display option, decoupled from the
+serialized data format.
+
+```python
+@click.option(
+    "--summary / --no-summary",
+    help="Show summary statistics after validation output.",
+    default=False,
+)
+```
+
+Human output appends:
+
+```
+Summary:
+  Total issues: 42
+  By severity:  ERROR: 5, WARNING: 12, HINT: 25
+  By validator: bids-validator-deno: 30, nwbinspector: 10, dandi: 2
+  Files with errors: 8/150
+```
+
+For structured formats, `--summary` appends a summary object **to stderr**
+(keeping stdout as pure machine-parseable results), or is simply computed by
+the consumer from the flat results list. The summary is never mixed into the
+structured output stream itself.
+
+### Phase 2: Load and Re-Render (`--load`) — addresses #1753
+
+**Goal**: Reload previously-saved validation results and apply all display options.
+
+#### CLI option
+
+```python
+@click.option(
+    "--load",
+    help="Load validation results from JSONL file(s) instead of running "
+         "validation. Accepts multiple --load flags. Shell glob expansion "
+         "is supported (e.g. results/*.jsonl).",
+    type=click.Path(exists=True, dir_okay=False),
+    multiple=True,
+    default=(),
+)
+```
+
+#### Mutual exclusivity with paths
+
+`--load` and positional `paths` are mutually exclusive. Enforced explicitly:
+
+```python
+if load and paths:
+    raise click.UsageError(
+        "--load and PATH arguments are mutually exclusive. "
+        "Use --load to re-render stored results, or provide paths to validate."
+    )
+```
+
+#### Behavior
+
+- When `--load` is specified, skip all validation execution
+- Use `load_validation_jsonl()` from `dandi/validate/io.py` to read and concatenate
+- Apply `--min-severity`, `--ignore`, `--grouping`, `--format`, `--output` identically
+- **Exit code**: reflects the loaded results — non-zero if any ERROR-severity
+  issues are present after filtering. Rationale: the user is asking "are there
+  errors in these results?" and the answer should be in the exit code regardless
+  of whether validation was live or loaded.
+- Records with unknown `_record_version` are loaded with a debug-level warning
+  but not rejected (forward-compatible reading)
+
+#### Example workflows
+
+```bash
+# Run validation (auto-saves _validation.jsonl companion)
+dandi validate /data/dandiset001
+
+# Re-render the auto-saved results with different filters
+dandi validate --load ~/.local/share/logs/dandi-cli/*_validation.jsonl \
+  --min-severity ERROR
+dandi validate --load results.jsonl --grouping path
+dandi validate --load results.jsonl -f json_pp --ignore "NWBI\."
+
+# Cross-dataset sweep: validate many, then analyze together
+for ds in bids-examples/*/; do
+  dandi validate "$ds" -f json_lines -o "results/$(basename $ds).jsonl" || true
+done
+dandi validate --load results/*.jsonl --grouping id --min-severity ERROR
+```
+
+Note: shell glob expansion is done by the shell, not by Click. `--load
+results/*.jsonl` works because the shell expands the glob into multiple
+`--load` arguments before the CLI sees them.
+
+### Phase 3: Upload validation companion — addresses #1753
+
+**Goal**: Persist all validation results from `dandi upload` for later inspection.
+
+#### The problem with `ctx.obj.logfile` in upload
+
+The `upload()` function in `upload.py` is both a Python API and a CLI backend.
+The Click context (`ctx.obj.logfile`) is only available via CLI. The upload
+function's validation happens inside a deeply nested generator (`_upload_item`).
+
+**Solution**: Two layers:
+
+1. **Python API** (`upload.py`): accepts `validation_log_path: str | Path | None`
+   parameter. Already implemented.
+2. **CLI** (`cmd_upload.py`): add an explicit `--validation-log` option that
+   makes the feature discoverable and testable.
+
+#### CLI option: `--validation-log`
+
+```python
+@click.option(
+    "--validation-log",
+    help="Path for writing validation results in JSONL format. "
+         "Defaults to a companion file next to the dandi-cli log file. "
+         "Pass empty string to disable.",
+    type=click.Path(dir_okay=False),
+    default=None,
+)
+```
+
+Behavior:
+- **Not specified** (default): derive companion from `ctx.obj.logfile` via
+  `validation_companion_path()` — same as current implicit behavior
+- **Explicit path**: use that path directly as `validation_log_path`
+- **Empty string `""`**: pass `None` to `upload()`, disabling validation logging
+
+This makes the validation companion feature visible in `dandi upload --help`
+and allows users to control where results are saved or opt out entirely.
+
+#### Python API parameter
+
+```python
+def upload(
+    paths: Sequence[str | Path] | None = None,
+    existing: UploadExisting = UploadExisting.REFRESH,
+    validation: UploadValidation = UploadValidation.REQUIRE,
+    # ... existing params ...
+    validation_log_path: str | Path | None = None,
+) -> None:
+```
+
+The CLI wrapper resolves the `--validation-log` option and passes the
+resolved path (or `None`) to `upload()`.
+
+#### Implementation
+
+```python
+# In cmd_upload.py:
+if validation_log is not None:
+    # Explicit --validation-log: use as-is (empty string → disable)
+    companion = Path(validation_log) if validation_log else None
+else:
+    # Default: derive from logfile
+    ctx = click.get_current_context()
+    companion = None
+    if ctx.obj is not None:
+        companion = validation_companion_path(ctx.obj.logfile)
+
+upload_(..., validation_log_path=companion)
+
+# In upload.py, inside the upload loop (already implemented):
+if validation_log_path is not None and validation_statuses:
+    append_validation_jsonl(validation_statuses, validation_log_path)
+```
+
+After the upload completes (or if it fails due to validation errors):
+
+```python
+if validation_log_path and Path(validation_log_path).exists():
+    lgr.info(
+        "Validation results saved to %s\n"
+        "  Use `dandi validate --load %s` to review.",
+        validation_log_path, validation_log_path,
+    )
+```
+
+Uses `append_validation_jsonl()` from `dandi/validate/io.py` — the file is
+opened in append mode for each batch, allowing incremental writes as files are
+validated during upload without holding all results in memory.
+
+#### Testing the upload validation companion
+
+See **Step 3** in the Implementation Order section for detailed test descriptions.
+
+Key insight: to test the default companion-next-to-logfile behavior, CLI tests
+must invoke `main` (the Click group), not `upload` directly, because `main()`
+sets up `ctx.obj.logfile`. Example:
+
+```python
+runner = CliRunner()
+r = runner.invoke(main, ["upload", "--dandi-instance", instance_id, str(dspath)])
+```
+
+Tests for the explicit `--validation-log` option can invoke either `main` or
+`upload` directly since the option bypasses the logfile derivation.
+
+### Phase 4: Extended grouping options — enhances #1743 work
+
+**Goal**: Support additional grouping strategies for human-readable output.
+
+Extend `--grouping` from `{none, path}` to:
+
+| Value | Groups by | Use case |
+|-------|-----------|----------|
+| `none` | No grouping (flat list) | Default, simple review |
+| `path` | File/dataset path | Per-file review |
+| `severity` | Severity level | Triage by priority |
+| `id` | Error ID | Find most common issues |
+| `validator` | Validator name | Per-tool review |
+| `standard` | Standard (BIDS/NWB/etc) | Per-standard review |
+| `dandiset` | Dandiset path | Multi-dandiset sweeps |
+
+Human output with grouping adds section headers and counts:
+
+```
+=== ERROR (5 issues) ===
+[BIDS.NON_BIDS_PATH_PLACEHOLDER] sub-01/junk.txt — File does not match...
+...
+
+=== WARNING (12 issues) ===
+[NWBI.check_data_orientation] sub-01/sub-01.nwb — Data may not be...
+...
+```
+
+**Structured output is unaffected** — always a flat results list regardless
+of `--grouping`. Downstream tools group trivially:
+`jq -s 'group_by(.origin.validator)'`.
+
+### Phase 5: Cross-dataset sweep support and tooling integration (optional)
+
+- Helper script or command for batch validation across directories
+- Consider a `dandi validate-report` subcommand for aggregate analysis
+  across multiple loaded JSONL files (cross-tabulation, top-N errors, etc.)
+- **VisiData plugin**: Since VisiData is Python-based and already opens JSONL
+  natively, a `dandi` VisiData plugin could add:
+  - Custom column extractors for nested `origin.*` fields (flattened for tabular view)
+  - Frequency sheet by error ID / validator / standard
+  - Keybinding to open the offending file or jump to BIDS spec rule
+  - Integration with `dandi validate --load` for round-trip editing
+    (e.g., mark false positives, export filtered subset)
+
+## Path Serialization
+
+Paths in `ValidationResult` are serialized as-is (whatever `Path.__str__`
+produces). For portability across machines:
+
+- **Recommendation**: When the path is within a dandiset, make it relative
+  to `dandiset_path`. When within a BIDS dataset, make it relative to
+  `dataset_path`. This is not a requirement for Phase 1 but should be
+  considered for Phase 2+ to make loaded results meaningful across machines.
+
+## Use Case: Sweeping BIDS Example Datasets / All DANDI Datasets
+
+```bash
+# Validate all BIDS examples, save results per-dataset
+for ds in bids-examples/*/; do
+  dandi validate "$ds" -f json_lines -o "results/$(basename $ds).jsonl" || true
+done
+
+# Combine and analyze with jq
+cat results/*.jsonl | jq 'select(.severity == "ERROR")' | jq -s 'group_by(.id)'
+
+# Or reload individual results with different views
+dandi validate --load results/ds001.jsonl --grouping id --min-severity ERROR
+dandi validate --load results/ds001.jsonl -f json_pp
+
+# Reload ALL results across datasets
+dandi validate --load results/*.jsonl --grouping id --min-severity ERROR --summary
+
+# Interactive exploration with VisiData — sort, filter, pivot, frequency tables
+vd results/*.jsonl
+```
+
+For all DANDI datasets:
+
+```bash
+for dandiset_id in $(dandi ls -f json_lines https://dandiarchive.org/ | jq -r '.identifier'); do
+  dandi download "DANDI:${dandiset_id}/draft" -o "/data/${dandiset_id}" --download dandiset.yaml
+  dandi validate "/data/${dandiset_id}" -f json_lines -o "results/${dandiset_id}.jsonl" || true
+done
+
+# Aggregate cross-dandiset analysis
+cat results/*.jsonl | jq -s '
+  group_by(.id)
+  | map({id: .[0].id, count: length, severity: .[0].severity})
+  | sort_by(-.count)
+'
+```
+
+## Implementation Order
+
+### Step 0a: Refactor into `dandi/validate/` subpackage
+
+- `git mv dandi/validate.py dandi/validate/core.py` — committed alone
+- `git mv dandi/validate_types.py dandi/validate/types.py` — committed alone
+- Create `dandi/validate/__init__.py` with re-exports for backwards compat
+- Separate commit: update all import paths across the codebase
+- Separate commit: move test files to `dandi/validate/tests/`
+- All existing tests must pass after each commit
+
+### Step 0b: Refactor `cmd_validate.py` — addresses #1748
+
+- Extract `_collect_results()`, `_filter_results()`, `_render_results()`
+- Keep `validate()` CLI function as thin orchestrator
+- Existing behavior unchanged, existing tests must pass
+- Add `@click.pass_context` to `validate()` to access `ctx.obj.logfile`
+
+### Step 0c: Add `_record_version` to `ValidationResult`
+
+- Add `_record_version: str = "1"` field
+- Verify serialization round-trip includes it
+- No behavioral change to existing code
+
+### Step 1a: `--format` (structured output to stdout) — addresses #1515
+
+- Add `--format` option with choices `human|json|json_pp|json_lines|yaml`
+- All structured formats emit flat list of ValidationResult records
+- Reuse `formatter.py` infrastructure for JSON/YAML
+- Tests: CliRunner for each format, round-trip serialization
+
+### Step 1b: `--output` + auto-save companion
+
+- Add `--output` option, auto-detect format from extension (`.json` →
+  `json_pp`, `.jsonl` → `json_lines`, `.yaml`/`.yml` → `yaml`); error
+  if extension unrecognized and `--format` not given
+- Create `dandi/validate/io.py` with shared `write_validation_jsonl()`,
+  `append_validation_jsonl()`, `load_validation_jsonl()`,
+  `validation_companion_path()`
+- Auto-save `_validation.jsonl` companion when results are non-empty and
+  `--output` is not specified (user already has their output file)
+- Tests: file creation, companion naming, empty-results no-op, companion
+  suppressed when `--output` is used
+
+### Step 1c: `--summary`
+
+- Add `--summary` flag for human output
+- For structured formats, summary to stderr (not mixed into data stream)
+- Tests: summary output format, counts accuracy
+
+### Step 2: `--load` (reload and re-render) — addresses #1753
+
+- Add `--load` option (multiple, mutually exclusive with paths)
+- Use `load_validation_jsonl()` from shared utility
+- All filtering/grouping/format options work on loaded results
+- Exit code reflects loaded results
+- `_record_version` checked with debug-level warning for unknown versions
+- Tests: load + filter, multi-file concatenation, mutual exclusivity error,
+  forward-compatible loading of unknown versions
+
+### Step 3: Upload validation companion — addresses #1753
+
+#### 3a: Add `--validation-log` CLI option to `dandi upload`
+
+Currently the upload command writes a validation companion derived from
+`ctx.obj.logfile` (the dandi-cli log file), but this is invisible to the
+user — there is no `--help` text about it, no way to control the path, and
+no way to disable it.
+
+Add an explicit `--validation-log` option:
+
+```python
+@click.option(
+    "--validation-log",
+    help="Path for writing validation results in JSONL format. "
+         "Defaults to a companion file next to the dandi-cli log file. "
+         "Pass empty string to disable.",
+    type=click.Path(dir_okay=False),
+    default=None,
+)
+```
+
+Behavior:
+- **Not specified** (default): derive companion from `ctx.obj.logfile` as today
+- **Explicit path**: use that path directly
+- **Empty string `""`**: disable validation logging entirely
+
+This makes the feature discoverable via `--help` and testable without
+needing to go through `main()` to get a logfile.
+
+#### 3b: Python API parameter
+
+- `upload()` already has `validation_log_path: str | Path | None = None`
+- CLI wrapper resolves the `--validation-log` option → path or `None` and
+  passes it through
+
+#### 3c: Testing strategy for upload validation companion
+
+**Problem**: Existing upload tests call `SampleDandiset.upload()` which
+invokes the Python API directly. The Python API's `validation_log_path`
+parameter works, but the real end-to-end flow — where `dandi upload`
+automatically derives the companion from its log file — is untested. Also,
+invoking `CliRunner().invoke(upload, ...)` on the subcommand alone does not
+set `ctx.obj.logfile` (that is done by `main()`).
+
+**Approach — two layers of tests**:
+
+1. **Python API tests** (`dandi/tests/test_upload.py`): Extend existing
+   tests that already exercise `SampleDandiset.upload()` to pass
+   `validation_log_path` and verify companion contents. These test the core
+   write logic without CLI overhead.
+
+   - `test_upload_bids_invalid`: pass `validation_log_path`, verify companion
+     exists with ERROR-level results after `UploadError`
+   - `test_upload_invalid_metadata`: same pattern for NWB validation errors
+   - New `test_upload_validation_companion_clean`: upload valid NWB with
+     `validation_log_path`, verify companion absent or contains only
+     sub-ERROR results
+
+2. **CLI integration tests** (`dandi/cli/tests/test_cmd_upload.py` — new file):
+   Use `CliRunner().invoke(main, ["upload", ...])` to go through `main()`
+   so `ctx.obj.logfile` is set. These require the docker-compose archive
+   fixture. Tests verify:
+
+   - Default behavior: `_validation.jsonl` companion appears next to the log
+     file (derived via `validation_companion_path(ctx.obj.logfile)`)
+   - `--validation-log /path/to/custom.jsonl`: companion at specified path
+   - `--validation-log ""`: no companion written
+   - Companion content is loadable via `load_validation_jsonl()` and contains
+     expected severity levels
+
+   The log file path can be discovered from the CliRunner output (dandi
+   logs "Logs saved in ..." at INFO level) or by inspecting the logdir
+   after invocation.
+
+   ```python
+   @pytest.mark.ai_generated
+   def test_upload_cli_validation_companion(
+       new_dandiset: SampleDandiset, tmp_path: Path
+   ) -> None:
+       """CLI upload creates validation companion next to log file."""
+       # ... set up dandiset with a file that has validation warnings/errors ...
+       runner = CliRunner()
+       r = runner.invoke(main, [
+           "upload",
+           "--dandi-instance", new_dandiset.api.instance_id,
+           str(new_dandiset.dspath),
+       ])
+       # Find the log file from the logdir
+       logdir = Path(platformdirs.user_log_dir("dandi-cli", "dandi"))
+       log_files = sorted(logdir.glob("*.log"))
+       assert log_files  # at least one log was created
+       latest_log = log_files[-1]
+       companion = validation_companion_path(latest_log)
+       if companion.exists():
+           results = load_validation_jsonl(companion)
+           assert len(results) > 0
+   ```
+
+   ```python
+   @pytest.mark.ai_generated
+   def test_upload_cli_validation_log_option(
+       new_dandiset: SampleDandiset, tmp_path: Path
+   ) -> None:
+       """--validation-log sends companion to explicit path."""
+       custom_log = tmp_path / "my-validation.jsonl"
+       runner = CliRunner()
+       r = runner.invoke(main, [
+           "upload",
+           "--validation-log", str(custom_log),
+           "--dandi-instance", new_dandiset.api.instance_id,
+           str(new_dandiset.dspath),
+       ])
+       # Verify custom path was used
+       if custom_log.exists():
+           results = load_validation_jsonl(custom_log)
+           assert all(isinstance(r, ValidationResult) for r in results)
+   ```
+
+   ```python
+   @pytest.mark.ai_generated
+   def test_upload_cli_validation_log_disabled(
+       new_dandiset: SampleDandiset, tmp_path: Path
+   ) -> None:
+       """--validation-log '' disables companion."""
+       runner = CliRunner()
+       r = runner.invoke(main, [
+           "upload",
+           "--validation-log", "",
+           "--dandi-instance", new_dandiset.api.instance_id,
+           str(new_dandiset.dspath),
+       ])
+       # No validation JSONL should exist in logdir
+       logdir = Path(platformdirs.user_log_dir("dandi-cli", "dandi"))
+       assert not list(logdir.glob("*_validation.jsonl"))
+   ```
+
+### Step 4: Extended grouping (human-only) — enhances #1743
+
+- Add `severity`, `id`, `validator`, `standard`, `dandiset` grouping options
+- Implement section headers + counts for human output
+- Structured output unchanged (always flat)
+- This subsumes some of the filtering work in draft PR #1743
+
+### Step 5: Cross-dataset sweep support (optional)
+
+- Helper script or `dandi validate-report` subcommand
+- Aggregate analysis across multiple JSONL files
+
+## Backwards Compatibility
+
+- `dandi validate` with no new options behaves identically to today
+- Exit code semantics preserved: non-zero if any ERROR-severity issues
+- When using `--format` other than `human`, colored output is suppressed
+- When using `--load`, exit code reflects loaded results
+- The auto-save companion is the only new side effect; it writes when there
+  are results and `--output` is not specified (for `validate`), or always
+  (for `upload`). Follows the same lifecycle as the existing `.log` files
+- The `dandi/validate/` subpackage `__init__.py` re-exports all public API,
+  so `from dandi.validate import validate` continues to work. Only direct
+  `from dandi.validate_types import ...` imports need updating.
+
+## Testing Strategy
+
+| Component | Test type | Location | Approach |
+|-----------|-----------|----------|----------|
+| Subpackage refactor | Smoke | existing | All existing tests pass after `git mv` + import updates |
+| `--format` output | CLI unit | `cli/tests/test_cmd_validate.py` | `CliRunner`, assert JSON structure, round-trip |
+| `dandi/validate/io.py` | Unit | `validate/tests/test_io.py` | Write → load round-trip, append, empty files, corrupt lines |
+| `_record_version` | Unit | `validate/tests/test_types.py` | Serialization includes field, loader handles missing/unknown |
+| `--load` | CLI unit | `cli/tests/test_cmd_validate.py` | Load from fixture files, multi-file concat, mutual exclusivity |
+| `--output` | CLI unit | `cli/tests/test_cmd_validate.py` | Verify file creation, content matches stdout format |
+| Companion auto-save (`validate`) | CLI unit | `cli/tests/test_cmd_validate.py` | Verify `_validation.jsonl` created next to mock logfile |
+| Upload companion (Python API) | Integration | `tests/test_upload.py` | Pass `validation_log_path` to `SampleDandiset.upload()`, verify file + contents |
+| Upload companion (CLI, default) | CLI integration | `cli/tests/test_cmd_upload.py` | `CliRunner().invoke(main, ["upload", ...])` — verify `_validation.jsonl` next to log file |
+| Upload `--validation-log` option | CLI integration | `cli/tests/test_cmd_upload.py` | Custom path, empty-string disable |
+| Extended grouping | CLI unit | `cli/tests/test_cmd_validate.py` | Each grouping value, section headers, counts |
+| Summary | CLI unit | `cli/tests/test_cmd_validate.py` | Verify counts match actual results |
+| Edge cases | Unit | various | Empty results, None severity, very long paths, Unicode messages |
+
+**Note on CLI integration tests**: Tests in `cli/tests/test_cmd_upload.py` must invoke
+`main` (not `upload` directly) via `CliRunner().invoke(main, ["upload", ...])` so that
+`ctx.obj.logfile` is set by the `main()` group callback. Invoking the `upload`
+subcommand directly skips the log file setup.
+
+All new tests marked `@pytest.mark.ai_generated`.
+
+## File Inventory
+
+| File | Change |
+|------|--------|
+| `dandi/validate/__init__.py` | **New** — subpackage with re-exports |
+| `dandi/validate/core.py` | **Renamed** from `dandi/validate.py` |
+| `dandi/validate/types.py` | **Renamed** from `dandi/validate_types.py` + add `_record_version` |
+| `dandi/validate/io.py` | **New** — shared JSONL read/write utilities |
+| `dandi/validate/tests/__init__.py` | **New** |
+| `dandi/validate/tests/test_core.py` | **Renamed** from `dandi/tests/test_validate.py` |
+| `dandi/validate/tests/test_types.py` | **Renamed** from `dandi/tests/test_validate_types.py` |
+| `dandi/validate/tests/test_io.py` | **New** — tests for I/O utilities |
+| `dandi/cli/cmd_validate.py` | Refactor + add `--format`, `--output`, `--load`, `--summary`, grouping extensions |
+| `dandi/upload.py` | Add `validation_log_path` parameter, write companion |
+| `dandi/cli/cmd_upload.py` | Add `--validation-log` option, pass companion path to `upload()` |
+| `dandi/cli/tests/test_cmd_upload.py` | **New** — CLI integration tests for upload validation companion |
+| `dandi/cli/tests/test_cmd_validate.py` | Extend with format/load/output/summary tests |
+| `dandi/tests/test_upload.py` | Extend existing tests to pass `validation_log_path` and verify companion |
+| `dandi/pynwb_utils.py` | Update imports |
+| `dandi/organize.py` | Update imports |
+| `dandi/files/bases.py` | Update imports |
+| `dandi/files/bids.py` | Update imports |
+| `dandi/files/zarr.py` | Update imports |
+| `dandi/bids_validator_deno/_validator.py` | Update imports |

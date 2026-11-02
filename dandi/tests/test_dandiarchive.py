@@ -12,12 +12,14 @@ from dandi.dandiarchive import (
     AssetIDURL,
     AssetItemURL,
     AssetPathPrefixURL,
+    AssetZarrEntryURL,
     BaseAssetIDURL,
     DandisetURL,
     ParsedDandiURL,
     follow_redirect,
     multiasset_target,
     parse_dandi_url,
+    split_zarr_location,
 )
 from dandi.exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from dandi.tests.skip import mark
@@ -267,6 +269,36 @@ from .fixtures import DandiAPI, SampleDandiset
                 path="path/",
             ),
         ),
+        # Zarr entry URLs — location crosses a zarr boundary
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0/0",
+            ),
+        ),
+        (
+            "dandi://dandi/000108@draft/sub-1/file.ngff/scale0/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id="draft",
+                asset_path="sub-1/file.ngff",
+                zarr_subpath="scale0/0/0",
+            ),
+        ),
+        (  # plain .zarr URL without subpath should stay AssetItemURL
+            "dandi://dandi/000108/sub-1/file.ome.zarr",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/file.ome.zarr",
+            ),
+        ),
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
@@ -353,6 +385,28 @@ from .fixtures import DandiAPI, SampleDandiset
 )
 def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
     assert parse_dandi_url(url) == parsed_url
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "location,expected",
+    [
+        # Crosses zarr boundary
+        ("sub-1/file.ome.zarr/0/0/0", ("sub-1/file.ome.zarr", "0/0/0")),
+        ("file.zarr/scale0/data", ("file.zarr", "scale0/data")),
+        ("sub-1/file.ngff/0/0", ("sub-1/file.ngff", "0/0")),
+        # No zarr extension
+        ("sub-1/file.nwb", None),
+        ("some/path/file.txt", None),
+        # Zarr without subpath — no split
+        ("sub-1/file.ome.zarr", None),
+        ("file.zarr", None),
+        # Deeply nested subpath
+        ("a/b.zarr/c/d/e/f", ("a/b.zarr", "c/d/e/f")),
+    ],
+)
+def test_split_zarr_location(location: str, expected: tuple[str, str] | None) -> None:
+    assert split_zarr_location(location) == expected
 
 
 @pytest.mark.parametrize(
@@ -456,7 +510,7 @@ def test_follow_redirect_retry_on_connection_error() -> None:
     # Mock requests.head to raise ConnectionError first 2 times, then succeed
     call_count = 0
 
-    def mock_head(url, allow_redirects=True):
+    def mock_head(url, allow_redirects=True, timeout=None):
         nonlocal call_count
         call_count += 1
         if call_count <= 2:
@@ -479,13 +533,44 @@ def test_follow_redirect_exhausted_retries_on_connection_error() -> None:
     test_url = "https://example.com/test"
 
     # Mock requests.head to always raise ConnectionError
-    def mock_head(url, allow_redirects=True):
+    def mock_head(url, allow_redirects=True, timeout=None):
         raise requests.ConnectionError("Connection failed")
 
     with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
         with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
             with pytest.raises(FailedToConnectError, match=r"failed with \d+ attempts"):
                 follow_redirect(test_url)
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        requests.ReadTimeout("Read timed out"),
+        requests.ConnectTimeout("Connect timed out"),
+    ],
+)
+def test_follow_redirect_retry_on_timeout(exc: requests.Timeout) -> None:
+    """Test that follow_redirect retries on requests.Timeout and eventually succeeds."""
+    test_url = "https://example.com/test"
+    expected_url = "https://example.com/redirected"
+
+    call_count = 0
+
+    def mock_head(url, allow_redirects=True, timeout=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise exc
+        response = requests.Response()
+        response.status_code = 200
+        response.url = expected_url
+        return response
+
+    with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
+        with patch("dandi.dandiarchive.sleep"):
+            result = follow_redirect(test_url)
+            assert result == expected_url
+            assert call_count == 3
 
 
 @responses.activate

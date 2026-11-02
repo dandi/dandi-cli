@@ -6,7 +6,7 @@ You are Claude in Agent Mode.
 - After each task, update context files for subsequent sub-plans (e.g., update `context_0b_*.md` after 0a, etc.).
 - Track completion and integration for each sub-plan. On sub-plan completion, verify integration points and update the next sub-plan's context.
 
-**Pre-flight Check:**  
+**Pre-flight Check:**
 1. **Full regression test**: Run the complete test suite to establish baseline:
    ```bash
    pytest -q --tb=short
@@ -22,9 +22,9 @@ You are Claude in Agent Mode.
 3. **Coverage baseline**: Establish current coverage before changes:
    ```bash
    pytest --cov=. --cov-report=term-missing --tb=no -q | grep "TOTAL"
-   ```  
+   ```
 
-**Scope Guard:** Before making any edits, identify the minimal code region needed to satisfy the current failing test. Do **not** modify or delete code outside this region.  
+**Scope Guard:** Before making any edits, identify the minimal code region needed to satisfy the current failing test. Do **not** modify or delete code outside this region.
 
 **Regression Prevention:**
 1. **Dependency Analysis**: Before changing any function/class, run:
@@ -59,17 +59,17 @@ You are Claude in Agent Mode.
 Implement the **next unchecked task** only from the current sub-plan.
 
 **Workflow**
-1. **Write the failing test first.**  
+1. **Write the failing test first.**
    **Testing Strategy by Component Type:**
-   • **API Endpoints & Web Services**: Use integration testing - import the real FastAPI/Django app, mock only external dependencies (databases, APIs, file systems). Test actual HTTP routing, validation, serialization, and error handling.
+   • **API Endpoints & Web Services**: Use integration testing - import the real application, mock only external dependencies (databases, APIs, file systems). Test actual HTTP routing, validation, serialization, and error handling.
    • **Business Logic & Algorithms**: Use unit testing - mock all dependencies, test logic in complete isolation, focus on edge cases.
    • **Data Processing & Utilities**: Use unit testing with minimal dependencies, use test data fixtures.
-   
-   • If you need to store intermediate notes or dependency maps, write them to `docs/_scratch/{{FEATURE_SLUG}}.md` and reference this file in subsequent sub-tasks.  
+
+   • If you need to store intermediate notes or dependency maps, write them to `docs/_scratch/{{FEATURE_SLUG}}.md` and reference this file in subsequent sub-tasks.
    • If the next sub-task will touch >200 lines of code or >10 files, break it into 2–5 indented sub-sub-tasks in the plan, commit that plan update, then proceed with implementation.
 
-2. **Modify minimal code** to pass the new test without breaking existing ones.  
-3. **Ensure NumPy-style docstrings** on all additions.  
+2. **Modify minimal code** to pass the new test without breaking existing ones.
+3. **Ensure NumPy-style docstrings** on all additions.
 4. **Run** `pytest -q` **repeatedly until green.**
 
 4.5 **Continuous Regression Check**: After each code change, run a quick regression test:
@@ -79,16 +79,16 @@ Implement the **next unchecked task** only from the current sub-plan.
    ```
    If any existing tests fail, fix immediately before continuing.
 
-5. **Update docs & plan**:  
-   • If `SPLIT=true` or SUB_PLAN_ID is set → update any `docs/{{DOC_BASENAME}}_*` or `docs/context_{{SUB_PLAN_ID}}.md` files you previously created.  
-   • Else → update `docs/{{DOC_BASENAME}}.md`.  
-   • **Check the box** in your plan file (`plan_{{SUB_PLAN_ID}}.md` or `plan.md`): change the leading `- [ ]` on the task (and any completed sub-steps) you just implemented to `- [x]`.  
+5. **Update docs & plan**:
+   • If `SPLIT=true` or SUB_PLAN_ID is set → update any `docs/{{DOC_BASENAME}}_*` or `docs/context_{{SUB_PLAN_ID}}.md` files you previously created.
+   • Else → update `docs/{{DOC_BASENAME}}.md`.
+   • **Check the box** in your plan file (`plan_{{SUB_PLAN_ID}}.md` or `plan.md`): change the leading `- [ ]` on the task (and any completed sub-steps) you just implemented to `- [x]`.
    • **Update documentation**:
      - In each modified source file, ensure any new or changed functions/classes have NumPy-style docstrings.
      - If you've added new public APIs, append their signature/purpose to the Level 2 API table in your context doc(s).     - Save all doc files (`docs/{{DOC_BASENAME}}.md` or split docs).
 
-5.5 **Quality Gate**  
-   • Run flake8 and quick coverage as described in .copilot-instructions.md.  
+5.5 **Quality Gate**
+   • Run flake8 and quick coverage as described in .copilot-instructions.md.
    • **Final regression test**: Run full test suite to ensure no regressions:
      ```bash
      pytest -q --tb=short
@@ -96,10 +96,10 @@ Implement the **next unchecked task** only from the current sub-plan.
    • If violations or test failures, pause and show first 10 issues, ask user whether to fix now.
 
 6. **Draft commit**:
-   * Header ↠ `feat({{FEATURE_SLUG}}): <concise phrase>`  ← **one sub-task only**  
+   * Header ↠ `feat({{FEATURE_SLUG}}): <concise phrase>`  ← **one sub-task only**
    * Body   ↠ bullet list of the sub-steps you just did.
 
-7. **Show changes & await approval**:  
+7. **Show changes & await approval**:
    Output `git diff --stat --staged` and await user approval.
 
 **When you're ready** to commit and push, type **y**. Then run:

@@ -1,7 +1,7 @@
 # MkDocs Material Formatting Guide for Claude
 
-**Version**: 1.0  
-**Date**: 2025-08-17  
+**Version**: 1.0
+**Date**: 2025-08-17
 **Purpose**: LAD Framework documentation standards to prevent systematic markdown errors in MkDocs Material projects
 
 ---
@@ -167,7 +167,7 @@ def process_data():
 ```
 
 ```bash
-emuses analyze --input data.csv
+mycommand analyze --input data.csv
 ```
 
 ```yaml
@@ -269,5 +269,5 @@ Technical details for developers.
 
 ---
 
-*LAD Framework Documentation Standards v1.0*  
+*LAD Framework Documentation Standards v1.0*
 *Research-based guidelines for error-free technical documentation*

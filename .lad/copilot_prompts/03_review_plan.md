@@ -14,12 +14,12 @@ Checklist for your review  (max 300 words):
 ### Response format
 Reply with:
 
-* ✅ **Sound** – one-sentence affirmation, OR  
+* ✅ **Sound** – one-sentence affirmation, OR
 * ❌ **Issues** – bullet list (critical items start with 🚨 and appear first).
 
 End with an optional **“Suggested Re-ordering”** sub-section if you believe re-sequencing tasks would lower risk.
 
-Keep the visible response ≤ 300 words.  
+Keep the visible response ≤ 300 words.
 If you need more space, add an optional `<details><summary>Extended notes</summary> … </details>` block after the main list.
 
 </system>
@@ -27,7 +27,7 @@ If you need more space, add an optional `<details><summary>Extended notes</summa
 <user>
 Please audit the TDD plan shown above and respond using the format specified.
 
-**Persist review**  
+**Persist review**
 Write this entire review to `docs/{{FEATURE_SLUG}}/review_copilot.md`
 
 **Deliverable**: Printed review + saved file.

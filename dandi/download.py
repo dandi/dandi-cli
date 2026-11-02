@@ -13,8 +13,8 @@ from __future__ import annotations
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
-from datetime import datetime
-from enum import Enum
+from datetime import datetime, timezone
+from enum import Enum, StrEnum
 from functools import partial
 import hashlib
 import inspect
@@ -38,10 +38,17 @@ from interleave import FINISH_CURRENT, lazy_interleave
 import requests
 
 from . import get_logger
-from .consts import DOWNLOAD_SUFFIX, RETRY_STATUSES, dandiset_metadata_file
+from .consts import (
+    DOWNLOAD_SUFFIX,
+    MTIME_TOLERANCE,
+    RETRY_STATUSES,
+    SyncMode,
+    dandiset_metadata_file,
+)
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
 from .dandiarchive import (
     AssetItemURL,
+    AssetZarrEntryURL,
     DandisetURL,
     ParsedDandiURL,
     SingleAssetURL,
@@ -65,35 +72,27 @@ from .utils import (
     pluralize,
     yaml_load,
 )
+from .zarr_filter import ZarrFilter, make_zarr_entry_filter, parse_zarr_filter
 
 lgr = get_logger()
 
 
-class DownloadExisting(str, Enum):
+class DownloadExisting(StrEnum):
     ERROR = "error"
     SKIP = "skip"
     OVERWRITE = "overwrite"
     OVERWRITE_DIFFERENT = "overwrite-different"
     REFRESH = "refresh"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class DownloadFormat(str, Enum):
+class DownloadFormat(StrEnum):
     PYOUT = "pyout"
     DEBUG = "debug"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class PathType(str, Enum):
+class PathType(StrEnum):
     EXACT = "exact"
     GLOB = "glob"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 def download(
@@ -107,7 +106,8 @@ def download(
     get_metadata: bool = True,
     get_assets: bool = True,
     preserve_tree: bool = False,
-    sync: bool = False,
+    sync: bool | SyncMode | None = False,
+    zarr_filters: Sequence[str] = (),
     path_type: PathType = PathType.EXACT,
 ) -> None:
     # TODO: unduplicate with upload. For now stole from that one
@@ -125,6 +125,24 @@ def download(
         )
 
     parsed_urls = [parse_dandi_url(u, glob=path_type is PathType.GLOB) for u in urls]
+
+    # Parse zarr entry filters
+    zarr_entry_filter: Callable[[str], bool] | None = None
+    all_zf: list[ZarrFilter] = []
+    if zarr_filters:
+        for spec in zarr_filters:
+            all_zf.extend(parse_zarr_filter(spec))
+
+    # Merge URL-derived path filters from AssetZarrEntryURL
+    for purl in parsed_urls:
+        if isinstance(purl, AssetZarrEntryURL):
+            all_zf.append(ZarrFilter("path", purl.zarr_subpath))
+
+    if all_zf:
+        zarr_entry_filter = make_zarr_entry_filter(all_zf)
+
+    if sync and zarr_entry_filter is not None:
+        raise ValueError("--sync and --zarr cannot be used together")
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
@@ -162,6 +180,7 @@ def download(
             preserve_tree=preserve_tree,
             jobs_per_zarr=jobs_per_zarr,
             on_error="yield" if format is DownloadFormat.PYOUT else "raise",
+            zarr_entry_filter=zarr_entry_filter,
             **kw,
         )
         for purl in parsed_urls
@@ -206,27 +225,36 @@ def download(
         raise AssertionError(f"Unhandled DownloadFormat member: {format!r}")
 
     if sync:
+        # Normalize legacy bool True to SyncMode.ASK
+        if sync is True:
+            sync = SyncMode.ASK
         to_delete = [p for dl in downloaders for p in dl.delete_for_sync()]
         if to_delete:
-            while True:
-                opt = abbrev_prompt(
-                    f"Delete {pluralize(len(to_delete), 'local asset')}?",
-                    "yes",
-                    "no",
-                    "list",
-                )
-                if opt == "list":
-                    for p in to_delete:
-                        print(p)
-                elif opt == "yes":
-                    for p in to_delete:
-                        if p.is_dir():
-                            rmtree(p)
-                        else:
-                            p.unlink()
-                    break
-                else:
-                    break
+            do_delete = False
+            if sync is SyncMode.DO:
+                do_delete = True
+            else:
+                while True:
+                    opt = abbrev_prompt(
+                        f"Delete {pluralize(len(to_delete), 'local asset')}?",
+                        "yes",
+                        "no",
+                        "list",
+                    )
+                    if opt == "list":
+                        for p in to_delete:
+                            print(p)
+                    elif opt == "yes":
+                        do_delete = True
+                        break
+                    else:
+                        break
+            if do_delete:
+                for p in to_delete:
+                    if p.is_dir():
+                        rmtree(p)
+                    else:
+                        p.unlink()
     if errors:
         error_msg = f"Encountered {pluralize(len(errors), 'error')} while downloading."
         # Also log the first error for easier debugging
@@ -248,6 +276,7 @@ class Downloader:
     preserve_tree: bool
     jobs_per_zarr: int | None
     on_error: Literal["raise", "yield"]
+    zarr_entry_filter: Callable[[str], bool] | None = None
     #: which will be set .gen to assets.  Purpose is to make it possible to get
     #: summary statistics while already downloading.  TODO: reimplement
     #: properly!
@@ -372,6 +401,7 @@ class Downloader:
                         existing=self.existing,
                         jobs=self.jobs_per_zarr,
                         lock=lock,
+                        zarr_entry_filter=self.zarr_entry_filter,
                     )
 
                 def _progress_filter(gen):
@@ -706,7 +736,13 @@ def _download_file(
             else:
                 stat = os.stat(op.realpath(path))
                 same = []
-                if is_same_time(stat.st_mtime, mtime):
+                # The mtime compared against here is the one we set ourselves
+                # with os.utime() after the previous download, so this is
+                # really a filesystem round trip; tolerate the coarsest
+                # granularity filesystems are known to store mtimes with
+                # instead of assuming the value round-trips exactly.  See
+                # https://github.com/dandi/dandi-cli/issues/1907
+                if is_same_time(stat.st_mtime, mtime, tolerance=MTIME_TOLERANCE):
                     same.append("mtime")
                 if size is not None and stat.st_size == size:
                     same.append("size")
@@ -716,7 +752,21 @@ def _download_file(
                     # TODO: add recording and handling of .nwb object_id
                     yield _skip_file("same time and size", size=size)
                     return
-                lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+                # Both timestamps are reported in UTC, which is what
+                # is_same_time() normalizes to before comparing them
+                lgr.debug(
+                    "%r - same attributes: %s.  Redownloading.  "
+                    "local mtime: %s, record mtime: %s, delta: %f s, "
+                    "tolerance: %g s, local size: %s, record size: %s",
+                    str(path),
+                    same,
+                    ensure_datetime(stat.st_mtime, tz=timezone.utc),
+                    ensure_datetime(mtime, tz=timezone.utc),
+                    abs(stat.st_mtime - mtime.timestamp()),
+                    MTIME_TOLERANCE,
+                    stat.st_size,
+                    size,
+                )
 
     if size is not None:
         yield {"size": size}
@@ -994,14 +1044,15 @@ def _download_zarr(
     existing: DownloadExisting,
     lock: Lock,
     jobs: int | None = None,
+    zarr_entry_filter: Callable[[str], bool] | None = None,
 ) -> Iterator[dict]:
     # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
 
     # we will collect them all while starting the download
     # with the first page of entries received from the server.
-    entries = []
-    digests = {}
+    entries: list = []
+    digests: dict[str, str] = {}
     pc = ProgressCombiner(zarr_size=asset.size)
 
     def digest_callback(path: str, algoname: str, d: str) -> None:
@@ -1010,21 +1061,24 @@ def _download_zarr(
 
     def downloads_gen():
         for entry in asset.iterfiles():
+            entry_path = str(entry)
+            if zarr_entry_filter is not None and not zarr_entry_filter(entry_path):
+                continue
             entries.append(entry)
             etag = entry.digest
             assert etag.algorithm is DigestType.md5
             yield pairing(
-                str(entry),
+                entry_path,
                 _download_file(
                     entry.get_download_file_iter(),
-                    download_path / str(entry),
+                    download_path / entry_path,
                     toplevel_path=toplevel_path,
                     size=entry.size,
                     mtime=entry.modified,
                     existing=existing,
                     digests={"md5": etag.value},
                     lock=lock,
-                    digest_callback=partial(digest_callback, str(entry)),
+                    digest_callback=partial(digest_callback, entry_path),
                 ),
             )
         pc.file_qty = len(entries)
@@ -1044,55 +1098,77 @@ def _download_zarr(
             if final_out is not None:
                 break
         else:
+            if zarr_entry_filter is not None:
+                # Filter matched no entries; still report completion
+                yield {"status": "done"}
             return
 
-    yield {"status": "deleting extra files"}
-    remote_paths = set(map(str, entries))
-    zarr_basepath = Path(download_path)
-    dirs = deque([zarr_basepath])
-    empty_dirs: deque[Path] = deque()
-    while dirs:
-        d = dirs.popleft()
-        is_empty = True
-        for p in list(d.iterdir()):
-            if exclude_from_zarr(p):
-                is_empty = False
-            elif (
-                p.is_file()
-                and p.relative_to(zarr_basepath).as_posix() not in remote_paths
-            ):
-                try:
-                    p.unlink()
-                except OSError:
+    if zarr_entry_filter is not None:
+        # Partial download: skip deleting extra local files and skip
+        # whole-zarr checksum verification (individual file checksums
+        # are still verified during download).
+        lgr.debug(
+            "%s: Partial download — skipping extra-file deletion and"
+            " zarr checksum verification",
+            download_path,
+        )
+    else:
+        remote_paths = set(map(str, entries))
+        zarr_basepath = Path(download_path)
+
+        announced: bool = False
+        empty_dirs: deque[Path] = deque()
+        dirs: deque[Path] = deque([zarr_basepath])
+        while dirs:
+            d = dirs.popleft()
+            is_empty = True
+            for p in list(d.iterdir()):
+                if exclude_from_zarr(p):
                     is_empty = False
-            elif p.is_dir():
-                dirs.append(p)
-                is_empty = False
-            else:
-                is_empty = False
-        if is_empty and d != zarr_basepath:
-            empty_dirs.append(d)
-    while empty_dirs:
-        d = empty_dirs.popleft()
-        d.rmdir()
-        if d.parent != zarr_basepath and not any(d.parent.iterdir()):
-            empty_dirs.append(d.parent)
+                elif (
+                    p.is_file()
+                    and p.relative_to(zarr_basepath).as_posix() not in remote_paths
+                ):
+                    if not announced:
+                        announced = True
+                        yield {"status": "deleting extra files"}
+                    try:
+                        lgr.debug("Deleting extra Zarr file %s", p)
+                        p.unlink()
+                    except OSError:
+                        is_empty = False
+                elif p.is_dir():
+                    dirs.append(p)
+                    is_empty = False
+                else:
+                    is_empty = False
+            if is_empty and d != zarr_basepath:
+                empty_dirs.append(d)
+        while empty_dirs:
+            d = empty_dirs.popleft()
+            if not announced:
+                announced = True
+                yield {"status": "deleting extra files"}
+            lgr.debug("Removing now-empty Zarr directory %s", d)
+            d.rmdir()
+            if d.parent != zarr_basepath and not any(d.parent.iterdir()):
+                empty_dirs.append(d.parent)
 
-    if "skipped" not in final_out["message"]:
-        zarr_checksum = asset.get_digest().value
-        local_checksum = get_zarr_checksum(zarr_basepath, known=digests)
-        if zarr_checksum != local_checksum:
-            msg = f"Zarr checksum: downloaded {local_checksum} != {zarr_checksum}"
-            yield {"checksum": "differs", "status": "error", "message": msg}
-            lgr.debug("%s is different: %s.", zarr_basepath, msg)
-            return
-        else:
-            yield {"checksum": "ok"}
-            lgr.debug(
-                "Verified that %s has correct Zarr checksum %s",
-                zarr_basepath,
-                zarr_checksum,
-            )
+        if "skipped" not in final_out["message"]:
+            zarr_checksum = asset.get_digest().value
+            local_checksum = get_zarr_checksum(zarr_basepath, known=digests)
+            if zarr_checksum != local_checksum:
+                msg = f"Zarr checksum: downloaded {local_checksum} != {zarr_checksum}"
+                yield {"checksum": "differs", "status": "error", "message": msg}
+                lgr.debug("%s is different: %s.", zarr_basepath, msg)
+                return
+            else:
+                yield {"checksum": "ok"}
+                lgr.debug(
+                    "Verified that %s has correct Zarr checksum %s",
+                    zarr_basepath,
+                    zarr_checksum,
+                )
 
     yield {"status": "done"}
 
@@ -1141,11 +1217,7 @@ def _check_attempts_and_sleep(
         lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
         return 0
     if exc.response is not None:
-        if exc.response.status_code not in (
-            400,  # Bad Request, but happened with girder:
-            # https://github.com/dandi/dandi-cli/issues/87
-            *RETRY_STATUSES,
-        ):
+        if exc.response.status_code not in RETRY_STATUSES:
             lgr.debug(
                 "%s - download failed due to response %d: %s",
                 path,

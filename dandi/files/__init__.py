@@ -13,11 +13,16 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+import errno
 import os.path
 from pathlib import Path
 
 from dandi import get_logger
-from dandi.consts import BIDS_DATASET_DESCRIPTION, dandiset_metadata_file
+from dandi.consts import (
+    BIDS_DATASET_DESCRIPTION,
+    BIDS_IGNORE_FILE,
+    dandiset_metadata_file,
+)
 from dandi.exceptions import UnknownAssetError
 
 from ._private import BIDSFileFactory, DandiFileFactory
@@ -25,6 +30,7 @@ from .bases import (
     DandiFile,
     DandisetMetadataFile,
     GenericAsset,
+    ImageAsset,
     LocalAsset,
     LocalDirectoryAsset,
     LocalFileAsset,
@@ -47,6 +53,7 @@ __all__ = [
     "DandisetMetadataFile",
     "GenericAsset",
     "GenericBIDSAsset",
+    "ImageAsset",
     "LocalAsset",
     "LocalDirectoryAsset",
     "LocalFileAsset",
@@ -78,6 +85,10 @@ def find_dandi_files(
     they are of a type represented by a `LocalDirectoryAsset` subclass, in
     which case they are not recursed into.
 
+    All requested paths are checked before any files are yielded.  A missing
+    path raises `FileNotFoundError`; a broken symlink is still discovered so
+    that the caller can apply its missing-content policy.
+
     :param dandiset_path:
         The path to the root of the Dandiset in which the paths are located.
         All paths in ``paths`` must be equal to or subpaths of
@@ -105,12 +116,17 @@ def find_dandi_files(
                 raise ValueError(
                     f"Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
+        # Do not follow symlinks: unfetched DataLad content can be a broken link.
+        if not os.path.lexists(p):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(p))
         path_queue.append((Path(p), None))
     bids_roots = []
     while path_queue:
         p, bidsdd = path_queue.popleft()
         if p.name.startswith("."):
-            continue
+            # Allow .bidsignore files within BIDS datasets to be uploaded
+            if not (p.name == BIDS_IGNORE_FILE and bidsdd is not None):
+                continue
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 import logging
 import os
@@ -19,6 +19,7 @@ from dateutil.tz import tzlocal, tzutc
 import numpy as np
 import pynwb
 from pynwb import NWBHDF5IO, NWBFile
+from pynwb.base import ExternalImage, Images
 from pynwb.device import Device
 from pynwb.file import Subject
 import pynwb.image
@@ -42,6 +43,11 @@ from ..upload import upload
 
 lgr = get_logger()
 
+# TODO: simply always inject this when minimal supported pynwb is above 3.1.3
+_imgseries_takes_num_samples = any(
+    arg["name"] == "num_samples"
+    for arg in getattr(ImageSeries.__init__, "__docval__", {}).get("args", [])
+)
 
 BIDS_TESTDATA_SELECTION = [
     "asl003",
@@ -63,6 +69,17 @@ BIDS_ERROR_TESTDATA_SELECTION = ["invalid_asl003", "invalid_pet001"]
 @pytest.fixture(autouse=True)
 def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
+
+
+@pytest.fixture(autouse=True)
+def no_nwbinspector_etelemetry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Do not ask etelemetry for the latest NWB Inspector release when validating
+    NWB files, to avoid network access and "please upgrade" warnings in tests
+    """
+    monkeypatch.setattr(
+        "dandi.files.bases._get_latest_nwb_inspector_version", lambda: None
+    )
 
 
 # TODO: move into some common fixtures.  We might produce a number of files
@@ -373,6 +390,20 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 @pytest.fixture(scope="session")
 def docker_compose_setup() -> Iterator[dict[str, str]]:
     skipif.no_network()
+
+    if external_url := os.environ.get("DANDI_TESTS_API_URL"):
+        api_key = os.environ.get("DANDI_TESTS_DJANGO_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "DANDI_TESTS_API_URL is set but DANDI_TESTS_DJANGO_API_KEY is not; "
+                "set it to a valid admin DRF token for the externally-managed server."
+            )
+        known_instances["dandi-api-local-docker-tests"] = replace(
+            known_instances["dandi-api-local-docker-tests"], api=external_url
+        )
+        yield {"django_api_key": api_key}
+        return
+
     skipif.no_docker_engine()
 
     # Check that we're running on a Unix-based system (Linux or macOS), as the
@@ -687,6 +718,7 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: Path) -> SampleDa
         ignore=shutil.ignore_patterns(dandiset_metadata_file),
     )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    (new_dandiset.dspath / ".bidsignore").write_text("dandiset.yaml\n")
     return new_dandiset
 
 
@@ -736,16 +768,19 @@ def bids_dandiset_invalid(
 
 
 @pytest.fixture()
-def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
+def video_files(
+    request: pytest.FixtureRequest, tmp_path: Path
+) -> list[tuple[Path, Path]]:
     # Avoid heavy import by importing within function:
     import cv2
 
+    ext = getattr(request, "param", ".avi")
     video_paths = []
     video_path = tmp_path / "video_files"
     video_path.mkdir()
     for i in range(2):
-        movie_file1 = video_path / f"test1_{i}.avi"
-        movie_file2 = video_path / f"test2_{i}.avi"
+        movie_file1 = video_path / f"test1_{i}{ext}"
+        movie_file2 = video_path / f"test2_{i}{ext}"
         (nf, nx, ny) = (2, 2, 2)
         writer1 = cv2.VideoWriter(
             filename=str(movie_file1),
@@ -797,7 +832,7 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             devices=[device],
         )
 
-        image_series = ImageSeries(
+        imgseries_kwargs: dict[str, Any] = dict(
             name=f"MouseWhiskers{i}",
             format="external",
             external_file=[str(vid_1), str(vid_2)],
@@ -805,6 +840,9 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             starting_time=0.0,
             rate=150.0,
         )
+        if _imgseries_takes_num_samples:
+            imgseries_kwargs["num_samples"] = 4
+        image_series = ImageSeries(**imgseries_kwargs)
         nwbfile.add_acquisition(image_series)
 
         nwbfile_path = base_nwb_path / f"{name}.nwb"
@@ -824,6 +862,86 @@ def nwbfiles_video_common(video_files: list[tuple[Path, Path]]) -> Path:
     """Create nwbfiles sharing video files."""
     video_list = [video_files[0], video_files[0]]
     return _create_nwb_files(video_list)
+
+
+#: A 1x1 red PNG. `organize` never decodes a referenced image, it only relocates the bytes, but
+#: writing a real one keeps the fixture from resting on that.
+MINIMAL_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de"
+    "0000000c49444154789c63f8cfc0000003010100c9fe92ef0000000049454e44ae426082"
+)
+
+
+@pytest.fixture()
+def image_files(tmp_path: Path) -> list[tuple[Path, Path]]:
+    image_paths = []
+    image_path = tmp_path / "image_files"
+    image_path.mkdir()
+    for i in range(2):
+        image_file1 = image_path / f"test1_{i}.png"
+        image_file2 = image_path / f"test2_{i}.png"
+        image_file1.write_bytes(MINIMAL_PNG)
+        image_file2.write_bytes(MINIMAL_PNG)
+        image_paths.append((image_file1, image_file2))
+    return image_paths
+
+
+def _create_nwb_files_with_images(image_list: list[tuple[Path, Path]]) -> Path:
+    base_path = image_list[0][0].parent.parent
+    base_nwb_path = base_path / "nwbfiles"
+    base_nwb_path.mkdir(parents=True, exist_ok=True)
+    for i, image_loc in enumerate(image_list):
+        image_1 = image_loc[0]
+        image_2 = image_loc[1]
+        subject_id = f"mouse{i}"
+        session_id = f"sessionid{i}"
+        subject = Subject(
+            subject_id=subject_id,
+            species="Mus musculus",
+            sex="M",
+            description="lab mouse ",
+        )
+        device = Device(name=f"imaging_device_{i}")
+        name = f"{image_1.stem}_{i}"
+        nwbfile = NWBFile(
+            f"{name}{i}",
+            "desc: contains images for dandi .png storage as external",
+            datetime.now(tzlocal()),
+            experimenter="Experimenter name",
+            session_id=session_id,
+            subject=subject,
+            devices=[device],
+        )
+
+        # An `ExternalImage` holds one path in `data`, so two of them stand where one `ImageSeries`
+        # holds a two-entry `external_file`.
+        images = Images(
+            name=f"MouseHistology{i}",
+            description="Images referenced by path rather than embedded",
+            images=[
+                ExternalImage(name=f"slice{no}", data=str(image), image_format="PNG")
+                for no, image in enumerate([image_1, image_2])
+            ],
+        )
+        nwbfile.add_acquisition(images)
+
+        nwbfile_path = base_nwb_path / f"{name}.nwb"
+        with NWBHDF5IO(str(nwbfile_path), "w") as io:
+            io.write(nwbfile)
+    return base_nwb_path
+
+
+@pytest.fixture()
+def nwbfiles_image_unique(image_files: list[tuple[Path, Path]]) -> Path:
+    """Create nwbfiles linked with unique set of images."""
+    return _create_nwb_files_with_images(image_files)
+
+
+@pytest.fixture()
+def nwbfiles_image_common(image_files: list[tuple[Path, Path]]) -> Path:
+    """Create nwbfiles sharing image files."""
+    image_list = [image_files[0], image_files[0]]
+    return _create_nwb_files_with_images(image_list)
 
 
 @pytest.fixture()

@@ -16,8 +16,9 @@ from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
-from ..validate_types import (
+from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
+    MissingFileContent,
     Scope,
     Severity,
     ValidationResult,
@@ -92,7 +93,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         with self._lock:
             if self._asset_metadata is None:
                 # Import here to avoid circular import
-                from dandi.validate import validate_bids
+                from dandi.validate._core import validate_bids
 
                 # === Validate the dataset using bidsschematools ===
                 #   This is done to obtain the metadata for each asset in the dataset
@@ -184,6 +185,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         """
         Return all validation results for the containing dataset per the BIDS standard
@@ -237,6 +239,7 @@ class BIDSAsset(LocalFileAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return self.bids_dataset_description.get_asset_errors(self)
 
@@ -245,6 +248,18 @@ class BIDSAsset(LocalFileAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        return self.get_bids_metadata(digest)
+
+    def get_bids_metadata(self, digest: Digest | None = None) -> BareAsset:
+        """
+        Return the metadata of the asset that comes from the BIDS dataset (its
+        path and files such as :file:`participants.tsv`) only.
+
+        Unlike `get_metadata()`, which subclasses override to also extract
+        metadata from the content of the asset (e.g., `NWBBIDSAsset` from the
+        NWB file), this never reads the content, so that the extraction of
+        metadata from the content can use it without recursing.
+        """
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
@@ -266,9 +281,13 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return NWBAsset.get_validation_errors(
-            self, schema_version, devel_debug
+            self,
+            schema_version,
+            devel_debug,
+            missing_file_content=missing_file_content,
         ) + BIDSAsset.get_validation_errors(self)
 
     def get_metadata(
@@ -276,7 +295,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        bids_metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
+        bids_metadata = self.get_bids_metadata(digest)
         nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
         return BareAsset(
             **{
@@ -297,9 +316,13 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return ZarrAsset.get_validation_errors(
-            self, schema_version, devel_debug
+            self,
+            schema_version,
+            devel_debug,
+            missing_file_content=missing_file_content,
         ) + BIDSAsset.get_validation_errors(self)
 
     def get_metadata(
@@ -307,10 +330,7 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        metadata = self.bids_dataset_description.get_asset_metadata(self)
-        start_time = end_time = datetime.now().astimezone()
-        add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
-        metadata.path = self.path
+        metadata = self.get_bids_metadata(digest)
         metadata.encodingFormat = ZARR_MIME_TYPE
         return metadata
 
@@ -328,7 +348,11 @@ class GenericBIDSAsset(BIDSAsset, GenericAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return GenericAsset.get_validation_errors(
-            self, schema_version, devel_debug
+            self,
+            schema_version,
+            devel_debug,
+            missing_file_content=missing_file_content,
         ) + BIDSAsset.get_validation_errors(self)

@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import ExitStack
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from itertools import zip_longest
 import os.path
 from pathlib import Path, PurePosixPath
@@ -35,23 +35,17 @@ from .support import pyout as pyouts
 lgr = get_logger()
 
 
-class MoveExisting(str, Enum):
+class MoveExisting(StrEnum):
     ERROR = "error"
     SKIP = "skip"
     OVERWRITE = "overwrite"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class MoveWorkOn(str, Enum):
+class MoveWorkOn(StrEnum):
     AUTO = "auto"
     BOTH = "both"
     LOCAL = "local"
     REMOTE = "remote"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 #: A /-separated path to an asset, relative to the root of the Dandiset

@@ -48,15 +48,15 @@ class ProgressTracker:
     def __init__(self):
         self.tasks: Dict[str, ImplementationTask] = {}
         self.cycles: List[PDCACycle] = []
-        
+
     def add_task(self, task: ImplementationTask) -> None:
         """Add task to progress tracking"""
         pass
-        
+
     def update_task_status(self, task_id: str, status: str) -> None:
         """Update task status with timestamp"""
         pass
-        
+
     def get_progress_summary(self) -> Dict[str, any]:
         """Generate current progress summary"""
         pass
@@ -67,20 +67,20 @@ def initialize_pdca_cycle_with_prioritized_tasks(
 ) -> Tuple[PDCACycle, ProgressTracker]:
     """
     PLAN Phase: Initialize PDCA cycle with strategic solution planning
-    
+
     Creates systematic implementation plan with TodoWrite-style tracking:
     - Priority-based task selection (P1-CRITICAL first)
     - Solution batching optimization for efficiency
     - Resource allocation and effort estimation
     - Success criteria definition with measurable outcomes
-    
+
     Args:
         implementation_context: Output from analysis framework (04b)
         cycle_number: Current PDCA cycle iteration
-        
+
     Returns:
         Tuple of (PDCACycle object, ProgressTracker instance)
-        
+
     PLAN phase implementation:
         1. Extract P1-CRITICAL and P2-HIGH tasks from context
         2. Identify compatible tasks for batching
@@ -88,7 +88,7 @@ def initialize_pdca_cycle_with_prioritized_tasks(
         4. Estimate effort and set realistic cycle scope
         5. Define success criteria and validation requirements
         6. Initialize TodoWrite progress tracking
-        
+
     Example task organization:
         P1-CRITICAL: Scientific validity + High impact/Low effort
         P2-HIGH: System reliability + Quick wins enabling other fixes
@@ -104,21 +104,21 @@ def execute_systematic_implementation_with_progress_tracking(
 ) -> Dict[str, any]:
     """
     DO Phase: Systematic implementation with real-time progress tracking
-    
+
     Executes fixes using optimized sequence and tracks progress:
     - Mark current task as in_progress before beginning work
     - Implement fixes based on root cause analysis and strategy
     - Document implementation decisions and approach
     - Update progress tracker in real-time
     - Handle dependencies and validation requirements
-    
+
     Args:
         pdca_cycle: Current PDCA cycle with selected tasks
         progress_tracker: TodoWrite-style progress tracking
-        
+
     Returns:
         Implementation results with completed tasks and metadata
-        
+
     DO phase implementation strategy:
         1. Process tasks in dependency order
         2. Mark each task in_progress before starting
@@ -130,7 +130,7 @@ def execute_systematic_implementation_with_progress_tracking(
         4. Document implementation approach and rationale
         5. Mark tasks completed only after successful implementation
         6. Handle blockers by creating new tasks or adjusting approach
-        
+
     Implementation patterns:
         Quick wins first (momentum building)
         Dependency resolution (unblock other work)
@@ -146,33 +146,33 @@ def perform_comprehensive_validation_with_regression_prevention(
 ) -> Dict[str, any]:
     """
     CHECK Phase: Comprehensive validation with regression prevention
-    
+
     Validates implementation results using systematic approach:
     - Targeted validation for affected test categories
     - Integration validation (import testing, basic functionality)
     - Regression prevention for critical systems
     - Health metrics update and comparison with baseline
-    
+
     Args:
         implementation_results: Output from DO phase execution
         pdca_cycle: Current PDCA cycle with success criteria
-        
+
     Returns:
         Comprehensive validation report with health metrics
-        
+
     CHECK phase validation protocol:
         1. Direct test validation: Run tests for implemented fixes
         2. Integration validation: Verify imports and basic functionality
         3. Regression testing: Ensure critical systems remain functional
         4. Health metrics update: Compare current vs baseline success rates
         5. Success criteria evaluation: Assess cycle objectives achievement
-        
+
     Validation levels:
         Immediate: Affected tests pass without errors
         Integration: Related modules import and function correctly
         System: Critical test categories maintain high success rates
         Baseline: Overall health metrics show improvement or stability
-        
+
     Health metrics tracking:
         - Test collection success rate
         - Category-wise success rate improvements
@@ -189,21 +189,21 @@ def generate_user_decision_framework_with_options(
 ) -> str:
     """
     ACT Phase: Generate structured user decision framework
-    
+
     Analyzes validation results and presents strategic options:
     A) Continue cycles - Implement next priority fixes
-    B) Adjust approach - Modify strategy based on findings  
+    B) Adjust approach - Modify strategy based on findings
     C) Add coverage analysis - Integrate coverage improvement
     D) Complete current level - Achieve target success threshold
-    
+
     Args:
         validation_report: Results from CHECK phase validation
         pdca_cycle: Completed PDCA cycle with results
         progress_tracker: Current progress state
-        
+
     Returns:
         Formatted decision prompt with specific recommendations
-        
+
     ACT phase decision framework:
         1. Analyze cycle completion and success metrics
         2. Assess remaining priority tasks and effort required
@@ -211,13 +211,13 @@ def generate_user_decision_framework_with_options(
         4. Present structured options with specific metrics
         5. Provide technical recommendation based on analysis
         6. Consider resource optimization for solo programmer context
-        
+
     Decision option details:
         A) CONTINUE: Next cycle focus, estimated effort, target improvement
         B) ADJUST: Strategy refinement needs, approach modifications
         C) COVERAGE: Coverage gap analysis, integration complexity
         D) COMPLETE: Achievement validation, resource optimization
-        
+
     User decision tracking:
         - Track choice patterns for preference learning
         - Optimize future decision presentations
@@ -233,26 +233,26 @@ def save_comprehensive_session_state_for_resumption(
 ) -> None:
     """
     Enhanced session state preservation for seamless resumption
-    
+
     Saves complete session state including:
     - Current PDCA cycle and phase
     - TodoWrite progress tracking state
     - Analysis findings and patterns discovered
     - Implementation decisions and approaches used
     - Critical context for next session continuation
-    
+
     Args:
         pdca_cycle: Current PDCA cycle state
         progress_tracker: TodoWrite progress tracking
         cycle_findings: Key insights and patterns discovered
-        
+
     Session state preservation:
         1. PDCA cycle progress: Which cycle, phase, tasks status
         2. TodoWrite state: All tasks with current status
         3. Key findings: Successful approaches, patterns discovered
         4. Implementation context: Decision rationale, approaches used
         5. Next session preparation: Immediate actions, context to load
-        
+
     File organization:
         - pdca_session_state.md: Comprehensive session overview
         - essential_context.md: Critical information for resumption
@@ -268,20 +268,20 @@ def integrate_coverage_analysis_with_pdca_cycles(
 ) -> Dict[str, any]:
     """
     Coverage-driven test enhancement integration (Option C)
-    
+
     Links test failures to coverage gaps for comprehensive improvement:
     - Identifies critical functions with <80% coverage
     - Maps uncovered integration points to test failure patterns
     - Prioritizes coverage improvements by impact and effort
     - Integrates coverage tasks into PDCA cycle framework
-    
+
     Args:
         current_implementation_context: Active PDCA cycle context
         coverage_focus_modules: Modules to analyze for coverage gaps
-        
+
     Returns:
         Enhanced implementation context with coverage-driven tasks
-        
+
     Coverage integration approach:
         1. Run coverage analysis for specified modules
         2. Identify critical gaps requiring test creation/improvement
@@ -289,7 +289,7 @@ def integrate_coverage_analysis_with_pdca_cycles(
         4. Prioritize coverage tasks by system criticality
         5. Integrate coverage tasks into existing PDCA framework
         6. Balance test quality fixes vs coverage enhancement
-        
+
     CoverUp-style methodology:
         - Focus on critical system components with low coverage
         - Prioritize uncovered integration points
@@ -305,20 +305,20 @@ def optimize_pdca_cycles_for_solo_programmer_efficiency(
 ) -> Dict[str, any]:
     """
     Resource optimization for solo programmer productivity
-    
+
     Optimizes PDCA cycle execution for individual developer constraints:
     - Time management and session length optimization
     - Context switching minimization through batching
     - Energy management and optimal task sequencing
     - Productivity pattern recognition and adaptation
-    
+
     Args:
         implementation_plan: Current PDCA cycle implementation plan
         resource_constraints: Developer time, energy, focus constraints
-        
+
     Returns:
         Optimized implementation plan for solo programmer efficiency
-        
+
     Solo programmer optimizations:
         1. Batch compatible fixes to minimize context switching
         2. Sequence tasks by complexity and energy requirements
@@ -326,7 +326,7 @@ def optimize_pdca_cycles_for_solo_programmer_efficiency(
         4. Prioritize high-impact/low-effort combinations
         5. Build momentum with quick wins before complex tasks
         6. Plan break timing and energy management
-        
+
     Efficiency strategies:
         - Start sessions with momentum-building quick wins
         - Group similar task types to maintain focus
@@ -418,7 +418,7 @@ save_comprehensive_session_state_for_resumption(
 
 enhanced_context = integrate_coverage_analysis_with_pdca_cycles(
     current_implementation_context,
-    ['emuses.model_registry', 'emuses.analysis', 'emuses.security']
+    ['mypackage.core', 'mypackage.utils', 'mypackage.api']
 )
 ```
 

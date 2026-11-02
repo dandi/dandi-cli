@@ -39,7 +39,7 @@ echo "## Direct References:" >> impact_analysis.md
 grep -r "$target_function" --include="*.py" . >> impact_analysis.md
 
 # Check import dependencies
-echo "## Import Dependencies:" >> impact_analysis.md  
+echo "## Import Dependencies:" >> impact_analysis.md
 grep -r "from.*import.*$target_function\|import.*$target_function" --include="*.py" . >> impact_analysis.md
 
 # Identify calling patterns
@@ -65,17 +65,8 @@ grep -r "$target_function" docs/API_REFERENCE.md docs/**/api*.md 2>/dev/null >> 
 # Map critical system interactions
 echo "## Integration Points:" >> impact_analysis.md
 
-# Statistical analysis pipeline interactions
-grep -r "$target_function" emuses/**/statistical*.py emuses/**/analysis*.py 2>/dev/null >> impact_analysis.md
-
-# Model registry interactions
-grep -r "$target_function" emuses/**/model_registry*.py emuses/**/registry*.py 2>/dev/null >> impact_analysis.md
-
-# Multi-user service compatibility  
-grep -r "$target_function" emuses/**/service*.py emuses/**/multi_user*.py 2>/dev/null >> impact_analysis.md
-
-# CLI and API endpoints
-grep -r "$target_function" emuses/cli/*.py emuses/api/*.py 2>/dev/null >> impact_analysis.md
+# Find all modules that reference the target function
+grep -r "$target_function" --include="*.py" . 2>/dev/null >> impact_analysis.md
 ```
 
 **4. Test Impact Prediction**:
@@ -146,25 +137,13 @@ echo "git reset --hard $(git rev-parse HEAD)" >> impact_analysis.md
 **Immediate Validation** (run after each change):
 ```bash
 # Test affected categories immediately
-pytest $(grep -l "$target_function" tests/**/*.py 2>/dev/null) -x --tb=short
-
-# Quick integration smoke test
-python scripts/dev_test_runner.py
-
-# Verify documentation examples still work
-python -c "exec(open('docs/examples/validate_examples.py').read())" 2>/dev/null || echo "No example validation script"
+pytest $(grep -l "$target_function" dandi/tests/*.py 2>/dev/null) -x --tb=short
 ```
 
 **Comprehensive Validation** (before committing):
 ```bash
-# Full category testing for affected areas
-affected_categories=$(grep -r "$target_function" tests/ --include="*.py" | cut -d'/' -f2 | sort -u | tr '\n' ' ')
-for category in $affected_categories; do
-    pytest tests/$category/ -q --tb=short
-done
-
-# Cross-integration validation
-pytest tests/integration/ -k "$target_function" -v --tb=short 2>/dev/null || echo "No integration tests found"
+# Full test suite validation
+python -m pytest dandi -q --tb=short
 ```
 
 ### ⚠️ **Emergency Rollback Procedure**
@@ -188,30 +167,23 @@ echo "Recovery: Baseline restored, ready for alternative approach" >> impact_ana
 
 #### Intelligent Chunking Strategy (Timeout Prevention)
 
-**Proven Chunk Sizing for Different Test Categories**:
+**Chunk Sizing for Different Test Categories**:
 
 ```bash
-# Security tests (typically fast, stable execution)
-pytest tests/security/ -v --tb=short 2>&1 | tee security_results.txt | grep -E "(PASSED|FAILED|SKIPPED|ERROR|warnings|collected)" | tail -n 15
+# Fast unit tests (no Docker needed)
+python -m pytest dandi/tests/test_utils.py dandi/tests/test_metadata.py -v --tb=short 2>&1 | tee unit_results.txt | tail -n 15
 
-# Model registry (large category - requires chunking)
-pytest tests/model_registry/test_local*.py tests/model_registry/test_api*.py tests/model_registry/test_database*.py -v --tb=short 2>&1 | tee registry_chunk1.txt | tail -n 10
+# CLI tests
+python -m pytest dandi/tests/test_command.py -v --tb=short 2>&1 | tee cli_results.txt | tail -n 15
 
-pytest tests/model_registry/test_advanced*.py tests/model_registry/test_analytics*.py tests/model_registry/test_benchmarking*.py -v --tb=short 2>&1 | tee registry_chunk2.txt | tail -n 10
+# Operation tests (may need Docker for some)
+python -m pytest dandi/tests/test_download.py dandi/tests/test_upload.py -v --tb=short 2>&1 | tee operations_results.txt | tail -n 15
 
-# Integration tests (complex, potentially slow)
-pytest tests/integration/test_unified*.py tests/integration/test_cross*.py -v --tb=short 2>&1 | tee integration_chunk1.txt | tail -n 10
+# Move/organize tests
+python -m pytest dandi/tests/test_move.py dandi/tests/test_organize.py -v --tb=short 2>&1 | tee move_results.txt | tail -n 15
 
-# Performance tests (timeout-prone)
-pytest tests/performance/ -v --tb=short 2>&1 | tee performance_results.txt | grep -E "(PASSED|FAILED|SKIPPED|ERROR)" | tail -n 10
-
-# Tools and CLI (mixed complexity)
-pytest tests/tools/ -v --tb=short 2>&1 | tee tools_results.txt | grep -E "(PASSED|FAILED|SKIPPED|ERROR)" | tail -n 10
-
-pytest tests/enhanced-cli-typer/test_cli_integration.py tests/enhanced-cli-typer/test_service_client.py -v --tb=short 2>&1 | tee cli_chunk1.txt | tail -n 10
-
-# Multi-user service (complex setup requirements)
-pytest tests/multi-user-service/test_auth*.py tests/multi-user-service/test_workspace*.py -v --tb=short 2>&1 | tee multiuser_chunk1.txt | tail -n 10
+# Full suite (uses tox for reproducibility)
+tox -e py3 2>&1 | tee full_results.txt | tail -n 50
 ```
 
 **Dynamic Chunk Size Guidelines**:
@@ -246,12 +218,11 @@ with open('test_collection_baseline.txt') as f:
 echo "# Test Execution Baseline - $(date)" > test_execution_baseline.md
 
 # Execute and track each category
-for category in security model_registry integration performance tools multi-user-service enhanced-cli-typer; do
+for category in unit cli operations move; do
     echo "## $category Category Results" >> test_execution_baseline.md
-    if [ -f "${category}_results.txt" ] || ls ${category}_chunk*.txt 1> /dev/null 2>&1; then
-        # Aggregate results from category files
-        cat ${category}_*.txt 2>/dev/null | grep -E "(PASSED|FAILED|SKIPPED|ERROR)" | tail -n 5 >> test_execution_baseline.md
-        cat ${category}_*.txt 2>/dev/null | grep "===.*===" | tail -n 1 >> test_execution_baseline.md
+    if [ -f "${category}_results.txt" ]; then
+        grep -E "(PASSED|FAILED|SKIPPED|ERROR)" "${category}_results.txt" | tail -n 5 >> test_execution_baseline.md
+        grep "===.*===" "${category}_results.txt" | tail -n 1 >> test_execution_baseline.md
     else
         echo "Category not executed" >> test_execution_baseline.md
     fi
@@ -275,7 +246,7 @@ python -c "
 import re
 with open('comprehensive_test_output.txt') as f:
     content = f.read()
-    
+
 # Extract final summary lines that show totals
 summary_lines = [line for line in content.split('\n') if '=====' in line and ('passed' in line or 'failed' in line)]
 
@@ -289,7 +260,7 @@ for line in summary_lines:
     failed = re.findall(r'(\d+) failed', line)
     skipped = re.findall(r'(\d+) skipped', line)
     warnings = re.findall(r'(\d+) warning', line)
-    
+
     if passed: total_passed += int(passed[0])
     if failed: total_failed += int(failed[0])
     if skipped: total_skipped += int(skipped[0])
@@ -340,7 +311,7 @@ echo "## Next Phase: Ready for analysis framework (04b)" >> test_context_summary
 
 **Readiness for Next Phase**:
 - [ ] `test_execution_baseline.md` contains category results
-- [ ] `test_health_metrics.md` shows overall statistics  
+- [ ] `test_health_metrics.md` shows overall statistics
 - [ ] `comprehensive_test_output.txt` available for pattern analysis
 - [ ] Context preserved for analysis phase (04b)
 

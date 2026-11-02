@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+from importlib.metadata import version
+import json
 from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
+import sys
+from typing import Any
 from unittest.mock import ANY
 
 from dandischema.models import get_schema_version
 import numpy as np
+from packaging.version import Version
 import pytest
 import zarr
 
 from .fixtures import SampleDandiset
+from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, zarr_format_of
 from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
@@ -21,6 +27,7 @@ from ..files import (
     DandisetMetadataFile,
     GenericAsset,
     GenericBIDSAsset,
+    ImageAsset,
     NWBAsset,
     NWBBIDSAsset,
     VideoAsset,
@@ -29,6 +36,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..validate._types import Validator
 
 lgr = get_logger()
 
@@ -41,6 +49,41 @@ def mkpaths(root: Path, *paths: str) -> None:
             pp.mkdir()
         else:
             pp.touch()
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "name", ["missing.nwb", "missing.txt", "missing.zarr", ".missing"]
+)
+@pytest.mark.parametrize("allow_all", [False, True])
+def test_find_dandi_files_missing_path(
+    tmp_path: Path, name: str, allow_all: bool
+) -> None:
+    existing = tmp_path / "existing.nwb"
+    existing.touch()
+    missing = tmp_path / name
+    discovery = find_dandi_files(
+        existing, missing, dandiset_path=tmp_path, allow_all=allow_all
+    )
+    with pytest.raises(FileNotFoundError) as exc:
+        next(discovery)
+    assert exc.value.filename == str(missing)
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(os.name == "nt", reason="Creating symlinks requires Windows privileges")
+def test_find_dandi_files_broken_symlink(tmp_path: Path) -> None:
+    link = tmp_path / "unfetched.nwb"
+    link.symlink_to(tmp_path / "absent.nwb")
+    assets = list(find_dandi_files(link))
+    assert len(assets) == 1
+    assert isinstance(assets[0], NWBAsset)
+    assert assets[0].filepath == link
+
+
+@pytest.mark.ai_generated
+def test_find_dandi_files_empty_directory(tmp_path: Path) -> None:
+    assert list(find_dandi_files(tmp_path, dandiset_path=tmp_path)) == []
 
 
 def test_find_dandi_files(tmp_path: Path) -> None:
@@ -59,6 +102,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         "subdir/cleesh.txt",
         "empty.zarr/",
         "glarch.mp4",
+        "quux.png",
         ".ignored",
         ".ignored.dir/ignored.nwb",
     )
@@ -69,6 +113,9 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     assert files == [
         VideoAsset(
             filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
+        ),
+        ImageAsset(
+            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
         ),
         ZarrAsset(
             filepath=tmp_path / "sample01.zarr",
@@ -106,6 +153,9 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         GenericAsset(filepath=tmp_path / "foo", path="foo", dandiset_path=tmp_path),
         VideoAsset(
             filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
+        ),
+        ImageAsset(
+            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
         ),
         ZarrAsset(
             filepath=tmp_path / "sample01.zarr",
@@ -150,6 +200,9 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         VideoAsset(
             filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
         ),
+        ImageAsset(
+            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
+        ),
         ZarrAsset(
             filepath=tmp_path / "sample01.zarr",
             path="sample01.zarr",
@@ -179,6 +232,7 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         dandiset_metadata_file,
         "foo.txt",
         "bar.nwb",
+        "bids1/.bidsignore",
         "bids1/dataset_description.json",
         "bids1/file.txt",
         "bids1/subdir/quux.nwb",
@@ -196,6 +250,12 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
 
     assert files == [
         NWBAsset(filepath=tmp_path / "bar.nwb", path="bar.nwb", dandiset_path=tmp_path),
+        GenericBIDSAsset(
+            filepath=tmp_path / "bids1" / ".bidsignore",
+            path="bids1/.bidsignore",
+            dandiset_path=tmp_path,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+        ),
         BIDSDatasetDescriptionAsset(
             filepath=tmp_path / "bids1" / "dataset_description.json",
             path="bids1/dataset_description.json",
@@ -246,9 +306,15 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         ),
     ]
 
-    bidsdd = files[1]
+    bidsdd = files[2]
     assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
+        GenericBIDSAsset(
+            filepath=tmp_path / "bids1" / ".bidsignore",
+            path="bids1/.bidsignore",
+            dandiset_path=tmp_path,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+        ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids1" / "file.txt",
             path="bids1/file.txt",
@@ -271,7 +337,7 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     for asset in bidsdd.dataset_files:
         assert asset.bids_dataset_description is bidsdd
 
-    bidsdd = files[5]
+    bidsdd = files[6]
     assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
         GenericBIDSAsset(
@@ -391,9 +457,71 @@ def test_validate_bogus(tmp_path):
     # check for two different patterns.
 
 
+@pytest.mark.ai_generated
+def test_validate_nwb_records_nwbinspector_version(simple4_nwb: Path) -> None:
+    errors = dandi_file(simple4_nwb).get_validation_errors()
+    nwbi_errors = [e for e in errors if e.origin.validator is Validator.nwbinspector]
+    # simple4_nwb has a data orientation best practice violation
+    assert nwbi_errors
+    assert {e.origin.validator_version for e in nwbi_errors} == {
+        str(Version(version("nwbinspector")))
+    }
+
+
+# Run in a fresh interpreter so that the module-level version cache starts out
+# in its initial state, as it does for `dandi validate`.
+GET_NWBI_VERSION_SCRIPT = """\
+import json
+import sys
+
+import etelemetry
+
+from dandi.files.bases import _get_nwb_inspector_version
+
+lookups = []
+
+
+def get_project(repo, **kwargs):
+    lookups.append(repo)
+    return json.loads(sys.argv[1])
+
+
+etelemetry.get_project = get_project
+versions = [str(_get_nwb_inspector_version()) for _ in range(2)]
+print(json.dumps({"versions": versions, "lookups": lookups}))
+"""
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "project,outdated_warnings",
+    [
+        # What etelemetry.get_project() returns when NO_ET is set
+        (None, 0),
+        ({"version": "9999.0.0"}, 1),
+    ],
+)
+def test_get_nwb_inspector_version_cached(
+    project: dict[str, Any] | None, outdated_warnings: int
+) -> None:
+    r = subprocess.run(
+        [sys.executable, "-c", GET_NWBI_VERSION_SCRIPT, json.dumps(project)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    result = json.loads(r.stdout.splitlines()[-1])
+    assert result["versions"] == [str(Version(version("nwbinspector")))] * 2
+    assert result["lookups"] == ["NeurodataWithoutBorders/nwbinspector"]
+    assert r.stderr.count("please use the latest release") == outdated_warnings
+    assert "Failed to retrieve" not in r.stderr
+
+
 def test_upload_zarr(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
+    root_meta = layout["root_meta"]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
     asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
@@ -409,33 +537,23 @@ def test_upload_zarr(new_dandiset, tmp_path):
     assert md["description"] == "A modified Zarr"
 
     entries = sorted(asset.iterfiles(), key=attrgetter("parts"))
-    assert [str(e) for e in entries] == [
-        ".zgroup",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
+    assert [str(e) for e in entries] == layout["files"]
 
     entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
-    assert [str(e) for e in entries] == [
-        ".zgroup",
-        "arr_0",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
-    assert (zf.filetree / ".zgroup").exists()
-    assert (zf.filetree / ".zgroup").is_file()
-    assert not (zf.filetree / ".zgroup").is_dir()
+    assert [str(e) for e in entries] == layout["files_and_dirs"]
+    # The root group metadata file is ``.zgroup`` in V2 and ``zarr.json`` in
+    # V3; either way it must be a real file at the Zarr root.
+    assert (zf.filetree / root_meta).exists()
+    assert (zf.filetree / root_meta).is_file()
+    assert not (zf.filetree / root_meta).is_dir()
     assert (zf.filetree / "arr_0").exists()
     assert not (zf.filetree / "arr_0").is_file()
     assert (zf.filetree / "arr_0").is_dir()
     assert not (zf.filetree / "0").exists()
     assert not (zf.filetree / "0").is_file()
     assert not (zf.filetree / "0").is_dir()
+    # ``arr_0/.zgroup`` never exists: in V2 ``arr_0`` is an array (uses
+    # ``.zarray``); in V3 ``.zgroup`` is not used at all.
     assert not (zf.filetree / "arr_0" / ".zgroup").exists()
     assert not (zf.filetree / "arr_0" / ".zgroup").is_file()
     assert not (zf.filetree / "arr_0" / ".zgroup").is_dir()
@@ -447,29 +565,62 @@ def test_upload_zarr(new_dandiset, tmp_path):
     assert not (zf.filetree / "arr_2" / "0").is_dir()
 
 
+# V2 (``.zgroup`` / ``.zarray``) and V3 (``zarr.json``, ``c/<chunk>`` layout,
+# different default compressor) Zarr serialisations have different on-disk
+# byte layouts and therefore different digests. Key expected values on the
+# format that was *actually* produced rather than on ``zarr.__version__``:
+# zarr-python 3.x can still write V2 via ``zarr_format=2``.
+_ZARR_PROPERTIES_EXPECTED = {
+    "2": {
+        "total_size": 1516,
+        "total_digest": "4313ab36412db2981c3ed391b38604d6-5--1516",
+        "entries": [
+            (".zgroup", 24, "e20297935e73dd0154104d4ea53040ab"),
+            ("arr_0", 746, "51c74ec257069ce3a555bdddeb50230a-2--746"),
+            ("arr_0/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
+            ("arr_0/0", 431, "ed4e934a474f1d2096846c6248f18c00"),
+            ("arr_1", 746, "7b99a0ad9bd8bb3331657e54755b1a31-2--746"),
+            ("arr_1/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
+            ("arr_1/0", 431, "fba4dee03a51bde314e9713b00284a93"),
+        ],
+    },
+    "3": {
+        "total_size": 3935,
+        "total_digest": "00157f091c9a6295e89eb3c4c2efaeff-5--3935",
+        "entries": [
+            ("arr_0", 2192, "ae16256ae750e4303674ccf1e23fa3c6-2--2192"),
+            ("arr_0/c", 1573, "93912a45f2107a08090f7b283297d662-1--1573"),
+            ("arr_0/c/0", 1573, "6c237f8d2d4a41bc1e26e31518dafd9e"),
+            ("arr_0/zarr.json", 619, "850fae056c97aa9c76df0a52411f4086"),
+            ("arr_1", 1677, "debc9ca4b2184a6ef1a3d6fcf7d79fd9-2--1677"),
+            ("arr_1/c", 1058, "2642f5d2df2cddf469313abd9910b371-1--1058"),
+            ("arr_1/c/0", 1058, "084d662af7251a807649fb48edc36e95"),
+            ("arr_1/zarr.json", 619, "850fae056c97aa9c76df0a52411f4086"),
+            ("zarr.json", 66, "457126c0639af2eba0140851c39c1aad"),
+        ],
+    },
+}
+
+
 def test_zarr_properties(tmp_path: Path) -> None:
-    # This test assumes that the Zarr serialization format never changes
+    # Expected sizes and digests are selected by the Zarr serialisation
+    # format ``zarr.save`` actually produced (V2 vs V3 layouts differ).
     filepath = tmp_path / "example.zarr"
     dt = np.dtype("<i8")
     zarr.save(filepath, np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt))
+    expected = _ZARR_PROPERTIES_EXPECTED[zarr_format_of(filepath)]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
-    assert zf.filetree.size == 1516
-    assert zf.filetree.get_digest().value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    assert zf.filetree.size == expected["total_size"]
+    assert zf.filetree.get_digest().value == expected["total_digest"]
     entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
-    assert [(str(e), e.size, e.get_digest().value) for e in entries] == [
-        (".zgroup", 24, "e20297935e73dd0154104d4ea53040ab"),
-        ("arr_0", 746, "51c74ec257069ce3a555bdddeb50230a-2--746"),
-        ("arr_0/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
-        ("arr_0/0", 431, "ed4e934a474f1d2096846c6248f18c00"),
-        ("arr_1", 746, "7b99a0ad9bd8bb3331657e54755b1a31-2--746"),
-        ("arr_1/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
-        ("arr_1/0", 431, "fba4dee03a51bde314e9713b00284a93"),
+    assert [(str(e), e.size, e.get_digest().value) for e in entries] == expected[
+        "entries"
     ]
-    assert zf.get_digest().value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    assert zf.get_digest().value == expected["total_digest"]
     stat = zf.stat()
-    assert stat.size == 1516
-    assert stat.digest.value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    assert stat.size == expected["total_size"]
+    assert stat.digest.value == expected["total_digest"]
     assert sorted(stat.files, key=attrgetter("parts")) == [
         e for e in entries if e.is_file()
     ]
@@ -480,6 +631,7 @@ def test_upload_zarr_with_excluded_dotfiles(
 ) -> None:
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
     subprocess.run(["git", "init"], cwd=str(filepath), check=True)
     (filepath / ".dandi").mkdir()
     (filepath / ".dandi" / "somefile.txt").write_text("Hello world!\n")
@@ -492,33 +644,20 @@ def test_upload_zarr_with_excluded_dotfiles(
     asset = zf.upload(new_dandiset.dandiset, {})
     assert isinstance(asset, RemoteZarrAsset)
     local_entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
-    assert [str(e) for e in local_entries] == [
-        ".zgroup",
-        "arr_0",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
+    assert [str(e) for e in local_entries] == layout["files_and_dirs"]
     remote_entries = sorted(asset.iterfiles(), key=attrgetter("parts"))
-    assert [str(e) for e in remote_entries] == [
-        ".zgroup",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
+    assert [str(e) for e in remote_entries] == layout["files"]
 
 
 def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    root_meta = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]["root_meta"]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
     asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
     assert isinstance(asset, RemoteZarrAsset)
-    e = asset.get_entry_by_path(".zgroup")
+    e = asset.get_entry_by_path(root_meta)
     r = new_dandiset.client.get(e.download_url, json_resp=False)
     assert r.headers["Content-Type"] == "application/json"
 

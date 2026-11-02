@@ -2,7 +2,6 @@ import os
 from os.path import basename, normcase, splitext
 
 import click
-from packaging.version import Version
 
 SHELLS = ["bash", "zsh", "fish"]
 
@@ -42,11 +41,7 @@ def shell_completion(shell):
             shell = stem
         if shell not in SHELLS:
             raise click.UsageError(f"Unsupported/unrecognized shell {shell!r}")
-    if Version(click.__version__) < Version("8.0.0"):
-        varfmt = "source_{shell}"
-    else:
-        varfmt = "{shell}_source"
-    os.environ["_DANDI_COMPLETE"] = varfmt.format(shell=shell)
+    os.environ["_DANDI_COMPLETE"] = f"{shell}_source"
 
     # Avoid circular import by importing within function:
     from .command import main
