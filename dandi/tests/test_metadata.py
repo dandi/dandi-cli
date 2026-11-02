@@ -35,15 +35,19 @@ import numpy as np
 from pydantic import ByteSize
 import pynwb
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+from pynwb.file import Subject
 import pytest
+from pytest_mock import MockerFixture
 import requests
 from semantic_version import Version
 
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
-from ..consts import metadata_nwb_subject_fields
+from ..consts import dandiset_metadata_file, metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
+from ..files import NWBBIDSAsset, dandi_file, find_bids_dataset_description
+from ..metadata import nwb as metadata_nwb
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
@@ -63,6 +67,12 @@ from ..misctypes import DUMMY_DANDI_ETAG
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
+
+AGE_REFERENCE_TYPES = {
+    "birth": AgeReferenceType.BirthReference,
+    "gestational": AgeReferenceType.GestationalReference,
+    None: AgeReferenceType.BirthReference,
+}
 
 mark_xfail_ontobee = pytest.mark.xfail(
     condition="not config.getoption('--scheduled')",
@@ -118,6 +128,59 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
     assert metadata["subject_id"] == "01"
     # This is a key sourced from NWB only:
     assert metadata["sex"] == "U"
+
+
+@pytest.mark.ai_generated
+def test_bids_nwb_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # Getting the BIDS metadata of an NWB file in a BIDS dataset must not
+    # extract its NWB metadata again (which used to recurse until
+    # RecursionError, running the BIDS validator at every level)
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = get_metadata.__wrapped__(file_path)
+    assert spy.call_count == 0
+    assert metadata["subject_id"] == "01"
+    assert metadata["sex"] == "U"
+
+
+@pytest.mark.ai_generated
+def test_nwb_bids_asset_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # The metadata of an NWBBIDSAsset merges its BIDS and NWB metadata,
+    # extracting the latter (which itself includes BIDS metadata) only once
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    (dpath / dandiset_metadata_file).write_text("identifier: '000027'\n")
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    # (The asset refers to it only weakly)
+    bids_dataset_description = find_bids_dataset_description(file_path)
+    df = dandi_file(file_path, dpath, bids_dataset_description=bids_dataset_description)
+    assert isinstance(df, NWBBIDSAsset)
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = df.get_metadata(digest=DUMMY_DANDI_ETAG, ignore_errors=False)
+    assert spy.call_count == 1
+    assert metadata.wasAttributedTo is not None
+    participant = metadata.wasAttributedTo[0]
+    assert participant.identifier == "01"
+    assert participant.sex is not None
+    assert participant.sex.name == "Unknown"
 
 
 @pytest.mark.parametrize(
@@ -476,6 +539,54 @@ def test_time_extract() -> None:
     assert age.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:BirthReference")
     )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "reference", [ref for ref in AGE_REFERENCE_TYPES.keys() if ref is not None]
+)
+def test_age_reference_roundtrip(tmp_path: Path, reference: str) -> None:
+    path = tmp_path / "age.nwb"
+    nwb = NWBFile("age reference", "age", datetime(2020, 1, 1, tzinfo=tzutc()))
+    nwb.subject = Subject(age="P3W", age__reference=reference)
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    metadata = get_metadata(path)
+    assert metadata["age__reference"] == reference
+    age = extract_age(metadata)
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES[reference])
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+@pytest.mark.parametrize("legacy", [False, True])
+def test_age_reference_legacy(reference: str | None, legacy: bool) -> None:
+    age = extract_age(
+        {"age": "Gestational week 3" if legacy else "P3W", "age__reference": reference}
+    )
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(
+        value=AGE_REFERENCE_TYPES["gestational" if legacy else reference]
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+def test_age_reference_preserves_birth_dates(reference: str | None) -> None:
+    age = extract_age(
+        {
+            "age": "P3W",
+            "age__reference": reference,
+            "date_of_birth": "2020-01-01T00:00:00Z",
+            "session_start_time": "2020-01-03T00:00:00Z",
+        }
+    )
+    assert age is not None
+    assert age.value == "P2D"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES["birth"])
 
 
 def test_time_extract_gest() -> None:

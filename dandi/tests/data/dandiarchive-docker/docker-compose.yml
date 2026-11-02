@@ -75,14 +75,13 @@ services:
         hard: 3000
 
   minio:
-    # MinIO deleted the `minio/minio` Docker Hub repository in September 2026.
-    # Quay still serves the archived community images, but they are frozen:
-    # `latest` there is RELEASE.2025-09-07T16-13-09Z and will never move again,
-    # so pin it explicitly rather than pretend it tracks anything.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    # When run with a TTY, minio prints credentials on startup
-    tty: true
-    command: ["server", "/data"]
+    # MinIO deleted `minio/minio` from Docker Hub on 2026-09-11 and made
+    # `quay.io/minio/minio` require a login on 2026-09-24.  Use the frozen
+    # Bitnami build dandi-archive's CI already runs; it starts the server on
+    # its own (data under /bitnami/minio/data), so no `command` is needed.
+    # See https://github.com/dandi/dandi-infrastructure/issues/289 for
+    # hosting a copy of our own.
+    image: bitnamilegacy/minio:latest
     ports:
       - "127.0.0.1:9000:9000"
     environment:

@@ -766,42 +766,53 @@ def _check_required_fields(
     return errors
 
 
-_current_nwbinspector_version: str = ""
+_current_nwbinspector_version: Version | None = None
+_nwbinspector_version_lock = Lock()
 
 
-def _get_nwb_inspector_version():
+def _get_nwb_inspector_version() -> Version:
     # Avoid heavy import by importing within function:
     from nwbinspector.utils import get_package_version
 
     global _current_nwbinspector_version
-    if _current_nwbinspector_version is not None:
-        return _current_nwbinspector_version
-    _current_nwbinspector_version = get_package_version(name="nwbinspector")
-    # Ensure latest version of NWB Inspector is installed and used client-side
-    try:
-        from etelemetry import get_project
+    # Assets may be validated concurrently (e.g. by `dandi upload`), so lock to
+    # look up the version (and warn if it is outdated) only once per process
+    with _nwbinspector_version_lock:
+        if _current_nwbinspector_version is not None:
+            return _current_nwbinspector_version
+        _current_nwbinspector_version = get_package_version(name="nwbinspector")
+        # Ensure latest version of NWB Inspector is installed and used client-side
+        try:
+            max_version = _get_latest_nwb_inspector_version()
+            if max_version is not None and _current_nwbinspector_version < max_version:
+                lgr.warning(
+                    "NWB Inspector version %s is installed - please "
+                    "use the latest release of the NWB Inspector (%s) "
+                    "when performing `dandi validate`. To update, run "
+                    "`pip install -U nwbinspector` if you installed it with `pip`.",
+                    _current_nwbinspector_version,
+                    max_version,
+                )
 
-        max_version = Version(
-            get_project(repo="NeurodataWithoutBorders/nwbinspector")["version"]
-        )
-
-        if _current_nwbinspector_version < max_version:
+        except Exception as e:  # In case of no internet connection or other error
             lgr.warning(
-                "NWB Inspector version %s is installed - please "
-                "use the latest release of the NWB Inspector (%s) "
-                "when performing `dandi validate`. To update, run "
-                "`pip install -U nwbinspector` if you installed it with `pip`.",
-                _current_nwbinspector_version,
-                max_version,
+                "Failed to retrieve NWB Inspector version due to %s: %s",
+                type(e).__name__,
+                str(e),
             )
+        return _current_nwbinspector_version
 
-    except Exception as e:  # In case of no internet connection or other error
-        lgr.warning(
-            "Failed to retrieve NWB Inspector version due to %s: %s",
-            type(e).__name__,
-            str(e),
-        )
-    return _current_nwbinspector_version
+
+def _get_latest_nwb_inspector_version() -> Version | None:
+    """
+    Return the latest released version of NWB Inspector according to
+    etelemetry, or `None` if etelemetry checks are disabled via ``NO_ET``
+    """
+    from etelemetry import get_project
+
+    if (project := get_project(repo="NeurodataWithoutBorders/nwbinspector")) is None:
+        return None
+    return Version(project["version"])
 
 
 def _pydantic_errors_to_validation_results(

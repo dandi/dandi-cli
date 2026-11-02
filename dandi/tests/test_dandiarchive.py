@@ -12,12 +12,14 @@ from dandi.dandiarchive import (
     AssetIDURL,
     AssetItemURL,
     AssetPathPrefixURL,
+    AssetZarrEntryURL,
     BaseAssetIDURL,
     DandisetURL,
     ParsedDandiURL,
     follow_redirect,
     multiasset_target,
     parse_dandi_url,
+    split_zarr_location,
 )
 from dandi.exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from dandi.tests.skip import mark
@@ -267,6 +269,36 @@ from .fixtures import DandiAPI, SampleDandiset
                 path="path/",
             ),
         ),
+        # Zarr entry URLs — location crosses a zarr boundary
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0/0",
+            ),
+        ),
+        (
+            "dandi://dandi/000108@draft/sub-1/file.ngff/scale0/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id="draft",
+                asset_path="sub-1/file.ngff",
+                zarr_subpath="scale0/0/0",
+            ),
+        ),
+        (  # plain .zarr URL without subpath should stay AssetItemURL
+            "dandi://dandi/000108/sub-1/file.ome.zarr",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/file.ome.zarr",
+            ),
+        ),
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
@@ -353,6 +385,28 @@ from .fixtures import DandiAPI, SampleDandiset
 )
 def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
     assert parse_dandi_url(url) == parsed_url
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "location,expected",
+    [
+        # Crosses zarr boundary
+        ("sub-1/file.ome.zarr/0/0/0", ("sub-1/file.ome.zarr", "0/0/0")),
+        ("file.zarr/scale0/data", ("file.zarr", "scale0/data")),
+        ("sub-1/file.ngff/0/0", ("sub-1/file.ngff", "0/0")),
+        # No zarr extension
+        ("sub-1/file.nwb", None),
+        ("some/path/file.txt", None),
+        # Zarr without subpath — no split
+        ("sub-1/file.ome.zarr", None),
+        ("file.zarr", None),
+        # Deeply nested subpath
+        ("a/b.zarr/c/d/e/f", ("a/b.zarr", "c/d/e/f")),
+    ],
+)
+def test_split_zarr_location(location: str, expected: tuple[str, str] | None) -> None:
+    assert split_zarr_location(location) == expected
 
 
 @pytest.mark.parametrize(

@@ -6,16 +6,28 @@ import os
 from pathlib import Path
 import re
 import sys
+from types import SimpleNamespace
 
 import anys
+import click
 from click.testing import CliRunner
 from dandischema.models import ID_PATTERN
 import pytest
+import responses
 
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
 
-from ..cmd_service_scripts import service_scripts
+from .. import cmd_service_scripts
+from ..cmd_service_scripts import (
+    DOI_CSL_ACCEPT,
+    DOI_REGEX,
+    check_doi_fields,
+    example_doi,
+    fetch_doi_citation_metadata,
+    normalize_doi,
+    service_scripts,
+)
 
 DATA_DIR = Path(__file__).with_name("data")
 
@@ -142,3 +154,225 @@ def test_update_dandiset_from_doi(
     else:
         expected["citation"] = citation
     assert metadata == expected
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "given",
+    [
+        "10.48324/dandi.001827/0.260505.1322",
+        "  10.48324/dandi.001827/0.260505.1322  ",
+        "doi:10.48324/dandi.001827/0.260505.1322",
+        "DOI:10.48324/dandi.001827/0.260505.1322",
+        "https://doi.org/10.48324/dandi.001827/0.260505.1322",
+        "http://doi.org/10.48324/dandi.001827/0.260505.1322",
+        "https://dx.doi.org/10.48324/dandi.001827/0.260505.1322",
+        "doi.org/10.48324/dandi.001827/0.260505.1322",
+    ],
+)
+def test_normalize_doi(given: str) -> None:
+    assert normalize_doi(given) == "10.48324/dandi.001827/0.260505.1322"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "given",
+    [
+        "",
+        "not a doi",
+        "https://doi.org/",
+        "https://example.com/10.1234/foo",
+        "10.1/too-short-prefix",
+        "10.123/too-short-prefix",
+    ],
+)
+def test_normalize_doi_rejects_non_doi(given: str) -> None:
+    with pytest.raises(ValueError, match="does not look like a DOI"):
+        normalize_doi(given)
+
+
+@pytest.mark.ai_generated
+def test_example_doi_default_is_a_dandi_doi(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An unvendored instance has no DOI prefix of its own
+    monkeypatch.setattr(
+        cmd_service_scripts,
+        "get_instance_config",
+        lambda: SimpleNamespace(instance_name="DANDI-ADHOC", doi_prefix=None),
+    )
+    assert example_doi() == "10.48324/dandi.001827/0.260505.1322"
+    assert DOI_REGEX.fullmatch(example_doi())
+
+
+@pytest.mark.ai_generated
+def test_example_doi_uses_instance_doi_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        cmd_service_scripts,
+        "get_instance_config",
+        lambda: SimpleNamespace(instance_name="LINC", doi_prefix="10.80507"),
+    )
+    assert example_doi() == "10.80507/linc.000001/0.240101.1234"
+    assert DOI_REGEX.fullmatch(example_doi())
+    with pytest.raises(
+        ValueError, match=re.escape("'10.80507/linc.000001/0.240101.1234'")
+    ):
+        normalize_doi("not a doi")
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        # The DOI Handbook allows the registrant to subdivide the prefix.
+        ("10.1000.10/123", "10.1000.10/123"),
+        ("https://doi.org/10.1000.10/123", "10.1000.10/123"),
+        ("10.1000.10.5/123", "10.1000.10.5/123"),
+        # A resolver URL copied from a browser can carry a query string or
+        # fragment.  Those belong to the URL, not to the DOI.
+        ("https://doi.org/10.1234/foo?locatt=mode:legacy", "10.1234/foo"),
+        ("https://doi.org/10.1234/foo#section", "10.1234/foo"),
+        ("http://dx.doi.org/10.1234/foo?x=1#y", "10.1234/foo"),
+        # A bare or doi:-prefixed DOI keeps them, since they are legal in a DOI.
+        ("10.1234/foo?bar", "10.1234/foo?bar"),
+        ("doi:10.1234/foo#bar", "10.1234/foo#bar"),
+    ],
+)
+def test_normalize_doi_prefix_and_url_suffix(given: str, expected: str) -> None:
+    assert normalize_doi(given) == expected
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "fields,record,missing",
+    [
+        ({"contributor"}, {"title": "T"}, "author"),
+        ({"relatedResource"}, {"author": []}, "title"),
+        ({"contributor", "relatedResource"}, {}, "author"),
+    ],
+)
+def test_check_doi_fields_missing(fields: set[str], record: dict, missing: str) -> None:
+    with pytest.raises(click.ClickException, match=re.escape(repr(missing))):
+        check_doi_fields("10.1234/foo", record, fields)
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "fields,record",
+    [
+        # Only the requested fields are required.
+        ({"name"}, {}),
+        ({"description"}, {}),
+        ({"contributor"}, {"author": []}),
+        ({"contributor", "relatedResource"}, {"author": [], "title": "T"}),
+    ],
+)
+def test_check_doi_fields_ok(fields: set[str], record: dict) -> None:
+    check_doi_fields("10.1234/foo", record, fields)
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_404_from_agency() -> None:
+    # doi.org 302s a registered DOI to its registration agency, which can 404
+    # even though the DOI exists.  That must not be reported as unregistered.
+    doi = "10.1234/registered-but-no-csl"
+    responses.add(
+        responses.GET,
+        f"https://doi.org/{doi}",
+        status=302,
+        headers={"Location": "https://data.crossref.org/nope"},
+    )
+    responses.add(responses.GET, "https://data.crossref.org/nope", status=404)
+    with pytest.raises(click.ClickException) as excinfo:
+        fetch_doi_citation_metadata(doi)
+    msg = str(excinfo.value)
+    assert "is registered but no citation metadata" in msg
+    # assert the whole redirect target, not a bare hostname substring, which
+    # CodeQL flags as incomplete URL sanitization
+    assert "https://data.crossref.org/nope" in msg
+    assert "not registered" not in msg
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_404_from_resolver() -> None:
+    # A 404 straight from doi.org does mean the DOI is not registered.
+    doi = "10.1234/does-not-exist"
+    responses.add(responses.GET, f"https://doi.org/{doi}", status=404)
+    with pytest.raises(click.ClickException, match="is not registered"):
+        fetch_doi_citation_metadata(doi)
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_non_json() -> None:
+    # doi.org falls back to redirecting to the landing page when the
+    # registration agency cannot serve CSL JSON, so we get HTML with a 200.
+    # See https://github.com/dandi/dandi-cli/issues/1855
+    doi = "10.48324/dandi.001827/0.260505.1322"
+    responses.add(
+        responses.GET,
+        f"https://doi.org/{doi}",
+        body="<!DOCTYPE html><html><body>Dandiset 001827</body></html>",
+        status=200,
+        content_type="text/html; charset=utf-8",
+    )
+    with pytest.raises(click.ClickException) as excinfo:
+        fetch_doi_citation_metadata(doi)
+    message = str(excinfo.value)
+    assert doi in message
+    assert "did not resolve to citation metadata" in message
+    assert "text/html" in message
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_not_found() -> None:
+    doi = "10.48324/dandi.999999/0.000000.0000"
+    responses.add(
+        responses.GET,
+        f"https://doi.org/{doi}",
+        body="DOI Not Found",
+        status=404,
+        content_type="text/plain",
+    )
+    with pytest.raises(click.ClickException) as excinfo:
+        fetch_doi_citation_metadata(doi)
+    assert "is not registered" in str(excinfo.value)
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_ok() -> None:
+    doi = "10.1101/2020.01.17.909838"
+    responses.add(
+        responses.GET,
+        f"https://doi.org/{doi}",
+        json={"title": "A paper", "author": []},
+        status=200,
+    )
+    assert fetch_doi_citation_metadata(doi) == {"title": "A paper", "author": []}
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_requests_csl_json() -> None:
+    # The CSL Accept header used to be set on the session only, where
+    # `RESTFullAPIClient.request()` overrode it with "application/json" while
+    # building a JSON request.  See https://github.com/dandi/dandi-cli/issues/1855
+    doi = "10.1101/2020.01.17.909838"
+    responses.add(
+        responses.GET, f"https://doi.org/{doi}", json={"title": "A paper"}, status=200
+    )
+    fetch_doi_citation_metadata(doi)
+    assert responses.calls[0].request.headers["Accept"] == DOI_CSL_ACCEPT
+
+
+@pytest.mark.ai_generated
+def test_update_dandiset_from_doi_bad_doi() -> None:
+    r = CliRunner().invoke(
+        service_scripts,
+        ["update-dandiset-from-doi", "-d", "000001", "not-a-doi"],
+    )
+    assert r.exit_code == 2
+    assert "does not look like a DOI" in r.output
+    assert "Traceback" not in r.output
