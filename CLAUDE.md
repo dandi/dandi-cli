@@ -17,6 +17,9 @@ pull requests.  It contains the authoritative project conventions including:
 
 Do NOT guess or assume conventions — read the file.
 
+Additional developer documentation (testing and contributing guides) is in the Sphinx
+docs under [`docs/source/development/`](./docs/source/development/).
+
 ## LLM-Assisted Development (LAD) Framework
 
 The [`.lad/`](./.lad/) directory contains the
@@ -44,3 +47,20 @@ to get issue context without needing GitHub API access:
 
 When working on a bug fix or feature, check `git bug ls` for related issues
 to understand context and prior discussion.
+
+## File Placement Guidelines
+
+**IMPORTANT**: Do not create analysis, baseline, or temporary files in the project root.
+
+Proper file locations:
+- **LAD session artifacts**: `.lad/tmp/` (test baselines, analysis reports, session notes)
+- **Documentation**: `docs/source/` (must be RST format for Sphinx)
+- **Test data**: `dandi/tests/data/`
+- **Development notes**: `.lad/tmp/notes/` or personal notes outside the repo
+- **Temporary scratch files**: Use system temp dir or `.lad/tmp/scratchpad/`
+
+Examples of files that should NOT be in project root:
+- ❌ `test_execution_baseline.md` → ✅ `.lad/tmp/test_execution_baseline.md`
+- ❌ `analysis_report.md` → ✅ `.lad/tmp/analysis_report.md`
+- ❌ `session_notes.txt` → ✅ `.lad/tmp/notes/session_notes.txt`
+- ❌ `TESTING_GUIDE.md` → ✅ `docs/source/development/testing.rst` (converted to RST)
