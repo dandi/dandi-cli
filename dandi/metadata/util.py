@@ -292,6 +292,7 @@ def timedelta2duration(delta: timedelta) -> str:
 SEX_NAMES_BY_IRI = {
     "http://purl.obolibrary.org/obo/PATO_0000384": "Male",
     "http://purl.obolibrary.org/obo/PATO_0000383": "Female",
+    "http://purl.obolibrary.org/obo/PATO_0001340": "Hermaphrodite",
 }
 
 
@@ -306,6 +307,9 @@ def extract_sex(metadata: dict) -> models.SexType | None:
         elif value in ["f", "female"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000383"
             value = "Female"
+        elif value == "hermaphrodite":
+            value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
+            value = "Hermaphrodite"
         elif value in ["unknown", "u"]:
             value_id = None
             value = "Unknown"

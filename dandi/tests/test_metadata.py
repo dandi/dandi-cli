@@ -921,11 +921,21 @@ def test_species_unknown_iri_lookup_fails(monkeypatch: pytest.MonkeyPatch) -> No
             "http://purl.obolibrary.org/obo/PATO_0000383",
             "Female",
         ),
-        # unknown IRI: kept as is (not lowercased) and used as the name
+        (
+            "Hermaphrodite",
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "Hermaphrodite",
+        ),
         (
             "http://purl.obolibrary.org/obo/PATO_0001340",
             "http://purl.obolibrary.org/obo/PATO_0001340",
-            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "Hermaphrodite",
+        ),
+        # unknown IRI: kept as is (not lowercased) and used as the name
+        (
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+            "http://purl.obolibrary.org/obo/PATO_0001827",
         ),
     ],
 )
