@@ -13,8 +13,8 @@ server supports it::
     else:
         ...  # prior implementation
 
-so that all such conditionals can be found, reviewed, and removed once all
-known instances support the feature.  Setting
+so that all such conditionals can be found, reviewed, and removed once no
+known instance needs the prior implementation.  Setting
 :envvar:`DANDI_DEVEL_DISABLE_SERVER_FEATURES` to a comma-separated list of
 CODENAMEs makes dandi-cli use the prior implementation even where the server
 supports the feature.
@@ -98,10 +98,6 @@ class FeatureSupport:
     how: Literal["disabled", "version", "sensed", "recorded"]
 
 
-def _has_allowed_schema_versions(client: APIClient) -> bool:
-    return "allowed_schema_versions" in client.server_info
-
-
 def _content_type(r: requests.Response) -> str:
     return r.headers.get("Content-Type", "").partition(";")[0].strip().lower()
 
@@ -156,23 +152,6 @@ def _routes_bulk_delete(client: APIClient) -> bool:
 SERVER_FEATURES: dict[str, ServerFeature] = {
     f.codename: f
     for f in [
-        ServerFeature(
-            codename="ALLOWED_SCHEMA_VERSIONS",
-            description=(
-                "``/api/info/`` lists, as ``allowed_schema_versions``, the"
-                " schema versions the server accepts in metadata.  Without it,"
-                " `DandiAPIClient.check_schema_version()` uses"
-                " ``dandischema.consts.ALLOWED_INPUT_SCHEMAS`` of the installed"
-                " dandischema instead."
-            ),
-            refs=(
-                "https://github.com/dandi/dandi-archive/issues/2624",
-                "https://github.com/dandi/dandi-archive/pull/2625",
-                "https://github.com/dandi/dandi-cli/pull/1732",
-            ),
-            sense=_has_allowed_schema_versions,
-            released_version="0.19.0",
-        ),
         ServerFeature(
             codename="BULK_DELETE",
             description=(

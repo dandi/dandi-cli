@@ -253,14 +253,25 @@ other instances may lag behind, or run forks of, dandi-archive.
 
 **Support for a new dandi-archive feature must be backward compatible** with
 prior versions of dandi-archive, in particular those currently deployed by the
-DANDI and EMBER instances.  A new dandi-cli release must keep working against
-all of them, and use the new feature only where the server provides it.  This
-way dandi-cli can be released before the feature is released or deployed by
-dandi-archive, and tested against sandbox instances that already have it.  We
-do not need synchronized releases of dandi-cli and dandi-archive, or
-synchronized deployments across all instances: those are fragile and need
+DANDI, EMBER and LINC instances.  A new dandi-cli release must keep working
+against all of them, and use the new feature only where the server provides
+it.  This way dandi-cli can be released before the feature is released or
+deployed by dandi-archive, and tested against sandbox instances that already
+have it.  We do not need synchronized releases of dandi-cli and dandi-archive,
+or synchronized deployments across all instances: those are fragile and need
 orchestration.  Do not ask instances that lack the feature to reject the new
 client via `cli-minimal-version` or `cli-bad-versions` in `/api/info/`.
+
+LINC runs a fork of dandi-archive 0.3.115 (`lincbrain/linc-archive`) with
+schema version 0.6.9, far behind the others, and is still in use.  To see
+what the instances deploy:
+
+    for h in api.dandiarchive.org api.sandbox.dandiarchive.org \
+             api-dandi.emberarchive.org api-dandi.sandbox.emberarchive.org \
+             api.lincbrain.org staging-api.lincbrain.org; do
+        echo "$h: $(curl -s https://$h/api/info/ \
+            | jq -c '{version, schema_version, allowed_schema_versions}')"
+    done
 
 Register the feature as a `ServerFeature` in `SERVER_FEATURES` in
 `dandi/server_features.py`, under a short uppercase CODENAME (e.g.
@@ -274,7 +285,9 @@ implementation.  The registry decides once per server (per `DandiAPIClient`):
    `base_version` on top of which the feature is developed rules out servers
    reporting it or an earlier release.  Development versions (e.g. of sandbox
    instances) and versions of forks, which cannot be compared with
-   dandi-archive's (e.g. LINC reports `0.0.post6586+g39387b8`), do not decide.
+   dandi-archive's (e.g. EMBER reports `0.0.post1.dev7927+g9e4606812` and LINC
+   `0.0.post6586+g39387b8`), do not decide, so this works only for DANDI's own
+   instances.
 2. **By sensing**, with the feature's `sense` function, which must not modify
    anything on the server.  For example, `routes_endpoint()` tells whether the
    server has an API endpoint.  Choose a signal that cannot be mistaken for
@@ -287,6 +300,11 @@ Setting `DANDI_DEVEL_DISABLE_SERVER_FEATURES` (see below) makes dandi-cli use
 the prior implementation even where the server supports the feature.  Never
 decide by the instance name or URL.  In addition:
 
+- In the registry entry (its `description` and `refs`), or in a comment at a
+  conditional outside the registry, refer to the dandi-archive issue/PR it
+  accommodates and say when the fallback can be removed (e.g. "once LINC signs
+  the header for embargoed Zarrs, as dandi-archive >= 0.12.14 does"), so that
+  it can be found, reviewed, and removed later.
 - Log use of the fallback at DEBUG or INFO level, not as a warning or error;
   users cannot do anything about it.
 - Test both code paths.  Integration tests run against the latest
@@ -294,15 +312,16 @@ decide by the instance name or URL.  In addition:
   test the prior behavior with mocked responses (`responses`) or with
   `DANDI_DEVEL_DISABLE_SERVER_FEATURES`, and skip integration tests needing the
   feature if the server does not support it.
-- Remove the fallback, and the feature from the registry, once all known
-  instances support it.  The weekly "Survey server features" workflow
-  (`.github/workflows/server-features.yml`) checks which known instances
-  support which registered features, and fails once all support one.
+- Remove the fallback, and the feature from the registry, once no known
+  instance needs it: all support the feature, or those that do not cannot
+  reach the code (e.g. a server whose schema version is older than the
+  client's never needs `allowed_schema_versions`).  The weekly "Survey server
+  features" workflow (`.github/workflows/server-features.yml`) checks which
+  known instances support which registered features, and fails once all
+  support one.
 
 Registered features:
 
-- `ALLOWED_SCHEMA_VERSIONS`: `check_schema_version()` in `dandi/dandiapi.py`
-  uses the schema versions which the server accepts, if it lists them.
 - `BULK_DELETE`: the bulk asset deletion endpoint from
   [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920),
   which [dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960) is to

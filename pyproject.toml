@@ -70,7 +70,9 @@ dependencies = [
     # Floor raised: dandischema 0.12 / nwbinspector 0.7 require modern pynwb.
     "pynwb >= 3.1.0",
     "numcodecs >= 0.11.0",
-    "nwbinspector >= 0.7.0",
+    # Floor raised: earlier releases require hdmf-zarr, whose releases for
+    # Python 3.11 either cap zarr < 3 or break with zarr 3.
+    "nwbinspector >= 0.7.2",
     "pyout >= 0.7.3",
     "python-dateutil >= 2.9.0",
     # Floor raised: urllib3 2.x requires requests >= 2.30.

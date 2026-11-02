@@ -7,7 +7,6 @@ import re
 from typing import Any
 from unittest.mock import Mock
 
-import dandischema.consts
 from packaging.version import Version
 import pytest
 from pytest_mock import MockerFixture
@@ -18,7 +17,6 @@ from .fixtures import DandiAPI
 from .. import server_features
 from ..consts import known_instances
 from ..dandiapi import DandiAPIClient
-from ..exceptions import SchemaVersionError
 from ..server_features import (
     DISABLE_ENV_VAR,
     SERVER_FEATURES,
@@ -273,36 +271,6 @@ def test_routes_endpoint_same_answer_for_any_path() -> None:
 
 
 @pytest.mark.ai_generated
-@pytest.mark.parametrize("disable", [False, True])
-@responses.activate
-def test_check_schema_version_uses_allowed_schema_versions(
-    monkeypatch: pytest.MonkeyPatch, disable: bool
-) -> None:
-    # A client schema version which the server accepts, but which the
-    # installed dandischema does not list as an allowed input
-    client_schema = "0.5.0"
-    assert client_schema not in dandischema.consts.ALLOWED_INPUT_SCHEMAS
-    if disable:
-        monkeypatch.setenv(DISABLE_ENV_VAR, "ALLOWED_SCHEMA_VERSIONS")
-    else:
-        monkeypatch.delenv(DISABLE_ENV_VAR, raising=False)
-    _mock_server_info(
-        version="1.1.1.dev3+g1234567",
-        schema_version="0.7.0",
-        allowed_schema_versions=[client_schema, "0.7.0"],
-    )
-    client = DandiAPIClient(API_URL)
-    if disable:
-        with pytest.raises(SchemaVersionError, match="not among any of the allowed"):
-            client.check_schema_version(client_schema)
-    else:
-        client.check_schema_version(client_schema)
-        assert client.server_features.resolve(
-            "ALLOWED_SCHEMA_VERSIONS"
-        ) == FeatureSupport(True, "sensed")
-
-
-@pytest.mark.ai_generated
 @pytest.mark.parametrize("codename", sorted(SERVER_FEATURES))
 def test_registry_entry(codename: str) -> None:
     feature = SERVER_FEATURES[codename]
@@ -324,7 +292,6 @@ def test_registry_entry(codename: str) -> None:
 @pytest.mark.ai_generated
 def test_local_archive(local_dandi_api: DandiAPI) -> None:
     client = local_dandi_api.client
-    assert client.server_features.supports("ALLOWED_SCHEMA_VERSIONS")
     # The probe tells an existing endpoint from a missing one on dandi-archive
     assert routes_endpoint(client, "/dandisets/000000/versions/draft/assets/paths/")
     assert not routes_endpoint(
