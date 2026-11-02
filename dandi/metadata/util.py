@@ -845,6 +845,12 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "technique": "current clamp technique",
         "approach": "electrophysiological approach",
     },
+    "IZeroClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "IZeroClampSeries",
+        "technique": "current clamp technique",
+        "approach": "electrophysiological approach",
+    },
     "VoltageClampSeries": {
         "module": "icephys",
         "neurodata_type": "VoltageClampSeries",
@@ -884,6 +890,12 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "PlaneSegmentation": {
         "module": "ophys",
         "neurodata_type": "PlaneSegmentation",
+        "technique": None,
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "RoiResponseSeries": {
+        "module": "ophys",
+        "neurodata_type": "RoiResponseSeries",
         "technique": None,
         "approach": "microscopy approach; cell population imaging",
     },

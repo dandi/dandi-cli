@@ -13,6 +13,7 @@ from typing import Any
 import anys
 import click
 import dandischema
+from dandischema.consts import ALLOWED_INPUT_SCHEMAS
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 from packaging.version import Version as _PackagingVersion
 import pytest
@@ -348,6 +349,8 @@ def test_check_schema_version(
 ) -> None:
     server_info = {
         "schema_version": server_schema_version,
+        # as dandi-archive reports it
+        "allowed_schema_versions": ALLOWED_INPUT_SCHEMAS,
         "version": "0.0.0",
         "services": {
             "api": {"url": "https://test.nil/api"},
@@ -389,6 +392,38 @@ def _mock_server_info(schema_version: str) -> None:
     info = _server_info(schema_version)
     responses.add(responses.GET, "https://test.nil/server-info", json=info)
     responses.add(responses.GET, "https://test.nil/api/info/", json=info)
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "allowed_schema_versions,local_schema_version,should_raise",
+    [
+        (["9.9.8", "9.9.9"], "9.9.8", False),
+        # In the client's own ALLOWED_INPUT_SCHEMAS, but not allowed by the server
+        (["9.9.8", "9.9.9"], "0.6.9", True),
+        # A server not reporting the field (dandi-archive < 0.19.0) allows none
+        (None, "9.9.8", True),
+    ],
+)
+@responses.activate
+def test_check_schema_version_allowed_by_server(
+    allowed_schema_versions: list[str] | None,
+    local_schema_version: str,
+    should_raise: bool,
+) -> None:
+    info = _server_info("9.9.9")
+    if allowed_schema_versions is not None:
+        info["allowed_schema_versions"] = allowed_schema_versions
+    responses.add(responses.GET, "https://test.nil/server-info", json=info)
+    responses.add(responses.GET, "https://test.nil/api/info/", json=info)
+    client = DandiAPIClient("https://test.nil/api")
+    if should_raise:
+        with pytest.raises(
+            SchemaVersionError, match="not among any of the allowed upgradable"
+        ):
+            client.check_schema_version(local_schema_version)
+    else:
+        client.check_schema_version(local_schema_version)
 
 
 @pytest.mark.ai_generated
