@@ -128,7 +128,7 @@ test = [
 # (datalad/datalad-fuse#131) instead: PyPI rejects distributions with direct URL
 # dependencies.
 datalad = [
-    "datalad-fuse[remfile] @ git+https://github.com/datalad/datalad-fuse@b4dbee656eeb8ed54b1396c8d7e5c8b369b64a4a",
+    "datalad-fuse[remfile] @ git+https://github.com/datalad/datalad-fuse@e480cd8d521b3576f4e3c9bfb35be526435aa61e",
 ]
 tools = [
     "boto3",
