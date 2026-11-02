@@ -1173,6 +1173,15 @@ def test_species_record_matching_methods() -> None:
                 "variableMeasured": ["CurrentClampStimulusSeries"],
             },
         ),
+        pytest.param(
+            ["IZeroClampSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["current clamp technique"],
+                "variableMeasured": ["IZeroClampSeries"],
+            },
+            marks=pytest.mark.ai_generated,
+        ),
         (
             ["VoltageClampSeries"],
             {
@@ -1220,6 +1229,15 @@ def test_species_record_matching_methods() -> None:
                 "measurementTechnique": None,
                 "variableMeasured": ["PlaneSegmentation"],
             },
+        ),
+        pytest.param(
+            ["RoiResponseSeries"],
+            {
+                "approach": ["microscopy approach; cell population imaging"],
+                "measurementTechnique": None,
+                "variableMeasured": ["RoiResponseSeries"],
+            },
+            marks=pytest.mark.ai_generated,
         ),
         (
             ["Position"],
@@ -1326,11 +1344,11 @@ def test_species_record_matching_methods() -> None:
             },
         ),
         (
-            ["OptogeneticStimulusSIte"],
+            ["OptogeneticStimulusSite"],
             {
                 "approach": ["optogenetic approach"],
                 "measurementTechnique": None,
-                "variableMeasured": ["OptogeneticStimulusSIte"],
+                "variableMeasured": ["OptogeneticStimulusSite"],
             },
         ),
         (
