@@ -10,6 +10,7 @@ pull requests.  It contains the authoritative project conventions including:
 - Build/test commands and CI/CD overview
 - Codebase architecture, directory layout, key classes, and design patterns
 - Code style rules (formatting, imports, type annotations, docstrings)
+- Backward compatibility rules for supporting new dandi-archive features
 - Testing requirements, including the **mandatory `@pytest.mark.ai_generated` marker on any test
   written with AI assistance**
 - PR labeling and release workflow (intuit/auto)
