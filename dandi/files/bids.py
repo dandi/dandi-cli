@@ -4,7 +4,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 import json
-import os.path
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -47,17 +46,13 @@ def _load_dataset_description(filepath: Path) -> dict[str, Any] | None:
 def is_bids_dataset_description(filepath: Path) -> bool:
     """
     Whether there is a :file:`dataset_description.json` file at ``filepath``
-    marking a BIDS dataset
+    marking a BIDS dataset, i.e., a JSON object with a ``"BIDSVersion"`` field
 
-    It does, unless it is a JSON object without a ``"BIDSVersion"`` field.  A
-    file that cannot be read or parsed (e.g., a broken symlink or invalid JSON)
-    still marks a, likely invalid, BIDS dataset, so that the BIDS validator gets
-    to report on it.
+    The field may still be invalid (e.g., empty), for the BIDS validator to
+    report on.
     """
-    if not os.path.lexists(filepath):
-        return False
     content = _load_dataset_description(filepath)
-    return content is None or "BIDSVersion" in content
+    return content is not None and "BIDSVersion" in content
 
 
 @dataclass

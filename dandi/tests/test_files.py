@@ -80,7 +80,9 @@ def test_find_dandi_files_missing_path(
 
 
 @pytest.mark.ai_generated
-@pytest.mark.skipif(os.name == "nt", reason="Creating symlinks requires Windows privileges")
+@pytest.mark.skipif(
+    os.name == "nt", reason="Creating symlinks requires Windows privileges"
+)
 def test_find_dandi_files_broken_symlink(tmp_path: Path) -> None:
     link = tmp_path / "unfetched.nwb"
     link.symlink_to(tmp_path / "absent.nwb")
@@ -251,6 +253,10 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         "bids2/subbids/dataset_description.json",
         "bids2/subbids/data.json",
     )
+    for ds in ("bids1", "bids2"):
+        (tmp_path / ds / "dataset_description.json").write_text(
+            '{"Name": "test", "BIDSVersion": "1.9.0"}'
+        )
 
     files = sorted(
         find_dandi_files(tmp_path, dandiset_path=tmp_path, allow_all=False),
@@ -768,12 +774,11 @@ def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> Non
         # Invalid but declared BIDS datasets
         ('{"Name": "x", "BIDSVersion": ""}', True, None),
         ('{"Name": "x", "BIDSVersion": 1.9}', True, None),
-        # Cannot tell, so left to the BIDS validator to report on
-        ("", True, None),
-        ("[]", True, None),
-        (None, True, None),  # broken symlink, e.g., to absent annexed content
-        # Not a BIDS dataset
+        # Not BIDS datasets
         ('{"Name": "x"}', False, None),
+        ("", False, None),
+        ("[]", False, None),
+        (None, False, None),  # broken symlink, e.g., to absent annexed content
     ],
 )
 def test_bids_dataset_description_bids_version(
@@ -814,7 +819,7 @@ def test_bids_dataset_description_bids_version(
         assert bidsdd is None
         assert types["dataset_description.json"] is GenericAsset
         assert types["sub-01/sub-01.nwb"] is NWBAsset
-        assert '"BIDSVersion" field; not treating' in caplog.text
+        assert 'with a "BIDSVersion" field; not treating' in caplog.text
         # and not BIDS without allow_all either
         assert file_types() == {"sub-01/sub-01.nwb": NWBAsset}
 

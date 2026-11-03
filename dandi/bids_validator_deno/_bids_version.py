@@ -6,7 +6,7 @@ validates against, not the version of BIDS; see
 https://github.com/bids-standard/bids-validator/issues/10#issuecomment-2848121538.
 Until it does, the BIDS version is looked up in the mapping that bids-schema
 publishes (https://github.com/bids-standard/bids-schema/issues/20): first in the
-copy bundled as ``schema_to_bids.json`` next to this module (refresh it from
+copy bundled as :file:`dandi/data/bids_schema_to_bids.json` (refresh it from
 `SCHEMA_TO_BIDS_URL`), then, for schema versions newer than that copy, in the
 published one.
 """
@@ -29,7 +29,9 @@ SCHEMA_TO_BIDS_URL = (
     "versions/schema_to_bids.json"
 )
 
-_BUNDLED_SCHEMA_TO_BIDS = Path(__file__).with_name("schema_to_bids.json")
+_BUNDLED_SCHEMA_TO_BIDS = (
+    Path(__file__).resolve().parent.parent / "data" / "bids_schema_to_bids.json"
+)
 
 
 def get_bids_version(schema_version: str | None) -> str | None:

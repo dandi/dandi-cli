@@ -162,7 +162,8 @@ def find_dandi_files(
             df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
             if type(df) is GenericAsset and p.name == BIDS_DATASET_DESCRIPTION:
                 lgr.warning(
-                    '%s: No "BIDSVersion" field; not treating %s as a BIDS dataset',
+                    '%s: Not a JSON object with a "BIDSVersion" field; not treating %s as'
+                    " a BIDS dataset",
                     p,
                     p.parent,
                 )
@@ -235,9 +236,7 @@ def find_bids_dataset_description(
     for d in (dirpath, *dirpath.parents):
         bids_marker = d / BIDS_DATASET_DESCRIPTION
         dandi_end = d / dandiset_metadata_file
-        if (
-            bids_marker.is_file() or bids_marker.is_symlink()
-        ) and is_bids_dataset_description(bids_marker):
+        if is_bids_dataset_description(bids_marker):
             f = dandi_file(bids_marker, dandiset_path)
             assert isinstance(f, BIDSDatasetDescriptionAsset)
             topmost = f
