@@ -60,6 +60,7 @@ class Validator(StrEnum):
     hed_python_validator = "hed-python-validator"
     nwbinspector = auto()
     pynwb = auto()
+    # not used as of https://github.com/dandi/dandi-cli/pull/1971
     tensorstore = auto()
     zarr = auto()
     zarr_metadata = "zarr-metadata"
