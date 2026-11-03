@@ -311,6 +311,17 @@ def _is_c_elegans(species: Any) -> bool:
 
 def extract_sex(metadata: dict) -> models.SexType | None:
     value = metadata.get("sex", None)
+    c_elegans_sex = metadata.get("c_elegans_sex")
+    is_c_elegans = _is_c_elegans(metadata.get("species"))
+    if (
+        isinstance(c_elegans_sex, str)
+        and c_elegans_sex.strip().lower() in ("xx", "xo")
+        and (value is None or value.strip().lower() in ("", "o", "other"))
+    ):
+        # CElegansSubject of ndx-subjects records the sex there and fixes
+        # `sex` to "O"
+        value = c_elegans_sex
+        is_c_elegans = True
     if value is not None and value != "":
         value_orig = value.strip()
         value = value_orig.lower()
@@ -323,7 +334,7 @@ def extract_sex(metadata: dict) -> models.SexType | None:
         elif value == "hermaphrodite":
             value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
             value = "Hermaphrodite"
-        elif value in ["xx", "xo"] and _is_c_elegans(metadata.get("species")):
+        elif value in ["xx", "xo"] and is_c_elegans:
             # nwbinspector requires XX (hermaphrodite) or XO (male) for C. elegans
             if value == "xx":
                 value_id = "http://purl.obolibrary.org/obo/PATO_0001340"

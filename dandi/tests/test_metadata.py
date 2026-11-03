@@ -1228,6 +1228,39 @@ def test_extract_sex_c_elegans(
 
 
 @pytest.mark.ai_generated
+@pytest.mark.parametrize("sex", ["O", "other", None])
+@pytest.mark.parametrize(
+    "c_elegans_sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_ndx_subjects_c_elegans(
+    sex: str | None, c_elegans_sex: str, identifier: str, name: str
+) -> None:
+    # CElegansSubject of ndx-subjects fixes `sex` to "O" and records the
+    # actual sex in `c_elegans_sex`
+    rec = extract_sex(
+        {
+            "sex": sex,
+            "c_elegans_sex": c_elegans_sex,
+            "species": "Caenorhabditis elegans",
+        }
+    )
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+def test_extract_sex_c_elegans_sex_does_not_override_explicit_sex() -> None:
+    rec = extract_sex({"sex": "M", "c_elegans_sex": "XX"})
+    assert rec is not None
+    assert rec.name == "Male"
+
+
+@pytest.mark.ai_generated
 @pytest.mark.parametrize("species", [None, "Mus musculus", "Drosophila melanogaster"])
 @pytest.mark.parametrize("sex", ["XX", "XO"])
 def test_extract_sex_chromosomal_other_species(species: str | None, sex: str) -> None:
