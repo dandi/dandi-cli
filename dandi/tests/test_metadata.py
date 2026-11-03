@@ -1199,6 +1199,46 @@ def test_extract_sex(sex: str, identifier: str | None, name: str) -> None:
     assert rec.name == name
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "species",
+    [
+        "Caenorhabditis elegans",
+        "C. elegans",
+        "Caenorhabditis elegans - Roundworm",
+        "http://purl.obolibrary.org/obo/NCBITaxon_6239",
+    ],
+)
+@pytest.mark.parametrize(
+    "sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("XO", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_c_elegans(
+    species: str, sex: str, identifier: str, name: str
+) -> None:
+    # nwbinspector requires these chromosomal codes for C. elegans
+    rec = extract_sex({"sex": sex, "species": species})
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("species", [None, "Mus musculus", "Drosophila melanogaster"])
+@pytest.mark.parametrize("sex", ["XX", "XO"])
+def test_extract_sex_chromosomal_other_species(species: str | None, sex: str) -> None:
+    # outside of C. elegans, XX/XO do not unambiguously designate a sex
+    metadata = {"sex": sex}
+    if species is not None:
+        metadata["species"] = species
+    with pytest.raises(ValueError, match="Cannot interpret sex field"):
+        extract_sex(metadata)
+
+
 @pytest.mark.parametrize(
     "species",
     [

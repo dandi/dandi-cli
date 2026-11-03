@@ -297,6 +297,18 @@ SEX_NAMES_BY_IRI = {
 }
 
 
+def _is_c_elegans(species: Any) -> bool:
+    """Whether NWB ``subject.species`` designates *Caenorhabditis elegans*"""
+    if not isinstance(species, str):
+        return False
+    species = species.strip().lower()
+    return (
+        species in ("c. elegans", "caenorhabditis elegans")
+        or species.startswith("caenorhabditis elegans ")
+        or species.endswith("/ncbitaxon_6239")
+    )
+
+
 def extract_sex(metadata: dict) -> models.SexType | None:
     value = metadata.get("sex", None)
     if value is not None and value != "":
@@ -311,6 +323,14 @@ def extract_sex(metadata: dict) -> models.SexType | None:
         elif value == "hermaphrodite":
             value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
             value = "Hermaphrodite"
+        elif value in ["xx", "xo"] and _is_c_elegans(metadata.get("species")):
+            # nwbinspector requires XX (hermaphrodite) or XO (male) for C. elegans
+            if value == "xx":
+                value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
+                value = "Hermaphrodite"
+            else:
+                value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
+                value = "Male"
         elif value in ["unknown", "u"]:
             value_id = None
             value = "Unknown"
