@@ -819,9 +819,11 @@ def test_bids_dataset_description_bids_version(
         assert bidsdd is None
         assert types["dataset_description.json"] is GenericAsset
         assert types["sub-01/sub-01.nwb"] is NWBAsset
-        assert 'with a "BIDSVersion" field; not treating' in caplog.text
-        # and not BIDS without allow_all either
+        # with allow_all, all files are found regardless, so no warning
+        assert "BIDSVersion" not in caplog.text
+        # and not BIDS without allow_all either, so non-NWB files are skipped
         assert file_types() == {"sub-01/sub-01.nwb": NWBAsset}
+        assert 'Found no "BIDSVersion" field; not treating' in caplog.text
 
 
 @pytest.mark.ai_generated

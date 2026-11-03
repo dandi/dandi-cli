@@ -50,6 +50,17 @@ def is_bids_dataset_description(filepath: Path) -> bool:
 
     The field may still be invalid (e.g., empty), for the BIDS validator to
     report on.
+
+    Parameters
+    ----------
+    filepath : Path
+        The path to the :file:`dataset_description.json` file
+
+    Returns
+    -------
+    bool
+        `False` also if the file does not exist or cannot be read (e.g., a
+        symlink to annexed content which is not present)
     """
     content = _load_dataset_description(filepath)
     return content is not None and "BIDSVersion" in content

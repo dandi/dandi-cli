@@ -160,10 +160,14 @@ def find_dandi_files(
                     yield df
         else:
             df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
-            if type(df) is GenericAsset and p.name == BIDS_DATASET_DESCRIPTION:
+            if (
+                type(df) is GenericAsset
+                and p.name == BIDS_DATASET_DESCRIPTION
+                and not allow_all
+            ):
                 lgr.warning(
-                    '%s: Not a JSON object with a "BIDSVersion" field; not treating %s as'
-                    " a BIDS dataset",
+                    '%s: Found no "BIDSVersion" field; not treating %s as a BIDS'
+                    " dataset",
                     p,
                     p.parent,
                 )
@@ -227,9 +231,10 @@ def find_bids_dataset_description(
     """
     .. versionadded:: 0.46.0
 
-    Look for the topmost :file:`dataset_description.json` file in the directory
-    ``dirpath`` and each of its parents, stopping when a :file:`dandiset.yaml`
-    file is found or ``dandiset_path`` is reached.
+    Look for the topmost :file:`dataset_description.json` file marking a BIDS
+    dataset (see `~dandi.files.bids.is_bids_dataset_description()`) in the
+    directory ``dirpath`` and each of its parents, stopping when a
+    :file:`dandiset.yaml` file is found or ``dandiset_path`` is reached.
     """
     topmost: BIDSDatasetDescriptionAsset | None = None
     dirpath = Path(dirpath)

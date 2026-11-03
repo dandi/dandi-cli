@@ -11,38 +11,6 @@
     "bids_version_released": "1.7.0",
     "bids_version_exact": "1.7.0+686-g912056c61"
   },
-  "0.10.0": {
-    "bids_version_released": "1.9.0",
-    "bids_version_exact": "1.9.0+193-gc2995f243"
-  },
-  "0.11.0": {
-    "bids_version_released": "1.9.0",
-    "bids_version_exact": "1.9.0+224-g2887f8bae"
-  },
-  "0.11.1": {
-    "bids_version_released": "1.9.0",
-    "bids_version_exact": "1.9.0+410-g3e7d4c822"
-  },
-  "0.11.2": {
-    "bids_version_released": "1.9.0",
-    "bids_version_exact": "1.9.0+442-g48df1f1e8"
-  },
-  "0.11.3": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0"
-  },
-  "0.11.3.post1": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+5-g9b18594b9"
-  },
-  "0.11.3.post2": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+13-gb0fee6cda"
-  },
-  "0.11.3.post3": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+18-g063f55e10"
-  },
   "0.3.0": {
     "bids_version_released": "1.7.0",
     "bids_version_exact": "1.7.0+474-gb59550c3d"
@@ -87,6 +55,38 @@
     "bids_version_released": "1.9.0",
     "bids_version_exact": "1.9.0+153-g6b7141ecd"
   },
+  "0.10.0": {
+    "bids_version_released": "1.9.0",
+    "bids_version_exact": "1.9.0+193-gc2995f243"
+  },
+  "0.11.0": {
+    "bids_version_released": "1.9.0",
+    "bids_version_exact": "1.9.0+224-g2887f8bae"
+  },
+  "0.11.1": {
+    "bids_version_released": "1.9.0",
+    "bids_version_exact": "1.9.0+410-g3e7d4c822"
+  },
+  "0.11.2": {
+    "bids_version_released": "1.9.0",
+    "bids_version_exact": "1.9.0+442-g48df1f1e8"
+  },
+  "0.11.3": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0"
+  },
+  "0.11.3.post1": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+5-g9b18594b9"
+  },
+  "0.11.3.post2": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+13-gb0fee6cda"
+  },
+  "0.11.3.post3": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+18-g063f55e10"
+  },
   "1.0.0": {
     "bids_version_released": "1.10.0",
     "bids_version_exact": "1.10.0+23-gb1c040051"
@@ -94,26 +94,6 @@
   "1.0.1": {
     "bids_version_released": "1.10.0",
     "bids_version_exact": "1.10.0+30-g79b1cb971"
-  },
-  "1.0.10": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+99-g58d3d53a7"
-  },
-  "1.0.11": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+114-g33189c79c"
-  },
-  "1.0.12": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+118-g6013293b3"
-  },
-  "1.0.13": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+123-gcd2d19481"
-  },
-  "1.0.14": {
-    "bids_version_released": "1.10.0",
-    "bids_version_exact": "1.10.0+130-g7fdf9ed20"
   },
   "1.0.2": {
     "bids_version_released": "1.10.0",
@@ -146,6 +126,26 @@
   "1.0.9": {
     "bids_version_released": "1.10.0",
     "bids_version_exact": "1.10.0+93-ge1c7f3249"
+  },
+  "1.0.10": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+99-g58d3d53a7"
+  },
+  "1.0.11": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+114-g33189c79c"
+  },
+  "1.0.12": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+118-g6013293b3"
+  },
+  "1.0.13": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+123-gcd2d19481"
+  },
+  "1.0.14": {
+    "bids_version_released": "1.10.0",
+    "bids_version_exact": "1.10.0+130-g7fdf9ed20"
   },
   "1.1.0": {
     "bids_version_released": "1.10.1",
@@ -210,5 +210,9 @@
   "2.0.0": {
     "bids_version_released": "1.11.2",
     "bids_version_exact": "1.11.2"
+  },
+  "2.0.1": {
+    "bids_version_released": "1.11.2",
+    "bids_version_exact": "1.11.2+6-g14d8b687d"
   }
 }
