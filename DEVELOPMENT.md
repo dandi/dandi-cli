@@ -1,5 +1,7 @@
 # DANDI Client Development
 
+> **Note**: For comprehensive developer documentation including testing guides and contribution workflows, see `docs/source/development/` (built Sphinx docs) or the [online documentation](https://dandi.readthedocs.io/).
+
 ## Development environment
 
 ### Using hatch
@@ -253,23 +255,35 @@ other instances may lag behind, or run forks of, dandi-archive.
 
 **Support for a new dandi-archive feature must be backward compatible** with
 prior versions of dandi-archive, in particular those currently deployed by the
-DANDI and EMBER instances.  A new dandi-cli release must keep working against
-all of them, and use the new feature only where the server provides it.  This
-way dandi-cli can be released before the feature is released or deployed by
-dandi-archive, and tested against sandbox instances that already have it.  We
-do not need synchronized releases of dandi-cli and dandi-archive, or
-synchronized deployments across all instances: those are fragile and need
+DANDI, EMBER and LINC instances.  A new dandi-cli release must keep working
+against all of them, and use the new feature only where the server provides
+it.  This way dandi-cli can be released before the feature is released or
+deployed by dandi-archive, and tested against sandbox instances that already
+have it.  We do not need synchronized releases of dandi-cli and dandi-archive,
+or synchronized deployments across all instances: those are fragile and need
 orchestration.  Do not ask instances that lack the feature to reject the new
 client via `cli-minimal-version` or `cli-bad-versions` in `/api/info/`.
+
+LINC runs a fork of dandi-archive 0.3.115 (`lincbrain/linc-archive`) with
+schema version 0.6.9, far behind the others, and is still in use.  To see
+what the instances deploy:
+
+    for h in api.dandiarchive.org api.sandbox.dandiarchive.org \
+             api-dandi.emberarchive.org api-dandi.sandbox.emberarchive.org \
+             api.lincbrain.org staging-api.lincbrain.org; do
+        echo "$h: $(curl -s https://$h/api/info/ \
+            | jq -c '{version, schema_version, allowed_schema_versions}')"
+    done
 
 Decide, per server, whether the feature is available, either:
 
 1. **By server version**, if the dandi-archive release that added the feature
    is known: compare it with `DandiAPIClient.server_info["version"]` (the
    `version` field of `/api/info/`).  Forks may report versions that cannot be
-   compared with dandi-archive's (e.g. LINC reported `0.0.post6586+g39387b8`),
-   so a version check works only for instances deploying dandi-archive
-   releases.
+   compared with dandi-archive's (e.g. EMBER reports
+   `0.0.post1.dev7927+g9e4606812` and LINC `0.0.post6586+g39387b8`), so a
+   version check works only for instances deploying dandi-archive releases,
+   i.e. only DANDI's.
 2. **By sensing** the feature, which is the most likely case while it is
    available only on a sandbox instance or in a fork.  Probe the server once,
    or detect support from the response to the first use, remember the result
@@ -281,16 +295,19 @@ Decide, per server, whether the feature is available, either:
 Never decide by the instance name or URL.  In addition:
 
 - In a comment at the conditional, refer to the dandi-archive issue/PR it
-  accommodates and say when the fallback can be removed (e.g. "once LINC and
-  EMBER update their API to match dandi-archive >= 0.12.14"), so that it can
-  be found, reviewed, and removed later.
+  accommodates and say when the fallback can be removed (e.g. "once LINC signs
+  the header for embargoed Zarrs, as dandi-archive >= 0.12.14 does"), so that
+  it can be found, reviewed, and removed later.
 - Log use of the fallback at DEBUG or INFO level, not as a warning or error;
   users cannot do anything about it.
 - Test both code paths.  Integration tests run against the latest
   `dandiarchive/dandiarchive-api` Docker image (dandi-archive `master`), so
   test the prior behavior with mocked responses (`responses`), and skip
   integration tests needing the feature if the server does not support it.
-- Remove the fallback once all known instances support the feature.
+- Remove the fallback once no known instance needs it: all support the
+  feature, or those that do not cannot reach the code (e.g. a server whose
+  schema version is older than the client's never needs
+  `allowed_schema_versions`).
 
 Examples in the code (links are to the 0.81.0 release):
 
@@ -546,3 +563,19 @@ organized by label.  `auto` recognizes the following PR labels:
 - `tests` — for changes to tests
 - `dependencies` — for updates to dependency versions
 - `performance` — for performance improvements
+
+## Developer Documentation
+
+For additional developer resources, see the Sphinx documentation in `docs/source/development/`:
+
+- **Testing Guide** (`docs/source/development/testing.rst`) - Comprehensive testing practices, patterns, and Docker setup
+- **Contributing Guide** (`docs/source/development/contributing.rst`) - Quick reference for contribution workflow
+
+To build the documentation locally:
+```bash
+cd docs
+make html
+open build/html/index.html  # or xdg-open on Linux
+```
+
+Or view online at [dandi.readthedocs.io](https://dandi.readthedocs.io/)

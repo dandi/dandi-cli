@@ -118,7 +118,11 @@ def download(
         # if no paths provided etc, we will download dandiset path
         # we are at, BUT since we are not git -- we do not even know
         # on which instance it exists!  Thus ATM we would do nothing but crash
-        raise NotImplementedError("No URLs were provided.  Cannot download anything")
+        raise NotImplementedError(
+            "No URLs were provided. Cannot download anything. "
+            "Provide a DANDI URL (e.g., 'dandi download DANDI:000027') "
+            "or use '--download' with a dandiset URL."
+        )
 
     parsed_urls = [parse_dandi_url(u, glob=path_type is PathType.GLOB) for u in urls]
 
@@ -1213,11 +1217,7 @@ def _check_attempts_and_sleep(
         lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
         return 0
     if exc.response is not None:
-        if exc.response.status_code not in (
-            400,  # Bad Request, but happened with girder:
-            # https://github.com/dandi/dandi-cli/issues/87
-            *RETRY_STATUSES,
-        ):
+        if exc.response.status_code not in RETRY_STATUSES:
             lgr.debug(
                 "%s - download failed due to response %d: %s",
                 path,
