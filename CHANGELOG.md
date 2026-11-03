@@ -1,3 +1,53 @@
+# 0.82.0 (Tue Nov 03 2026)
+
+#### 🚀 Enhancement
+
+- feat: extract brain area anatomy from NWB location fields [#1807](https://github.com/dandi/dandi-cli/pull/1807) ([@bendichter](https://github.com/bendichter) [@yarikoptic](https://github.com/yarikoptic) bdichter@Benjamins-Mac-mini.local)
+- Add `IZeroClampSeries` and `RoiResponseSeries` to the neurodata type map; fix `OptogeneticStimulusSite` typo [#1946](https://github.com/dandi/dandi-cli/pull/1946) ([@bendichter](https://github.com/bendichter))
+- Remove dandi-archive compatibility kludges that no known instance needs [#1973](https://github.com/dandi/dandi-cli/pull/1973) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Preserve NWB subject age-reference metadata [#1931](https://github.com/dandi/dandi-cli/pull/1931) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### 🐛 Bug Fix
+
+- Fix partial Zarr download by URL: per-URL filters, missing subpaths, trailing slashes [#1929](https://github.com/dandi/dandi-cli/pull/1929) ([@claude](https://github.com/claude) [@yarikoptic](https://github.com/yarikoptic))
+- Map C. elegans sex XX/XO to hermaphrodite/male [#1976](https://github.com/dandi/dandi-cli/pull/1976) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Enhance upload/download operation error messages [#1793](https://github.com/dandi/dandi-cli/pull/1793) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Give SexType/SpeciesType built from IRIs a name; allow dandischema 0.15.x [#1949](https://github.com/dandi/dandi-cli/pull/1949) ([@claude](https://github.com/claude) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Reject nonexistent requested paths during asset discovery [#1932](https://github.com/dandi/dandi-cli/pull/1932) ([@AtomicGlance](https://github.com/AtomicGlance) [@yarikoptic](https://github.com/yarikoptic))
+- Raise the nwbinspector floor to 0.7.2 for more flexible dependencies specification as relating to zarrs [#1972](https://github.com/dandi/dandi-cli/pull/1972) ([@h-mayorquin](https://github.com/h-mayorquin))
+- Allow newer versions of `zarr` package [#1968](https://github.com/dandi/dandi-cli/pull/1968) ([@kabilar](https://github.com/kabilar) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+- Record the actual NWB Inspector version in validation results [#1966](https://github.com/dandi/dandi-cli/pull/1966) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Do not recurse when getting the metadata of an NWB file in a BIDS dataset [#1958](https://github.com/dandi/dandi-cli/pull/1958) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- CI: measure coverage in Python subprocesses via `patch = subprocess` [#1953](https://github.com/dandi/dandi-cli/pull/1953) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- CI: start coverage before pytest loads dandi's plugin [#1951](https://github.com/dandi/dandi-cli/pull/1951) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Fix get_metadata return annotation and import order in misctypes [#1950](https://github.com/dandi/dandi-cli/pull/1950) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Drop pynwb < 3.1 compatibility code from pynwb_utils [#1939](https://github.com/dandi/dandi-cli/pull/1939) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- [gh-actions](deps): Bump actions/setup-python from 6 to 7 [#1948](https://github.com/dandi/dandi-cli/pull/1948) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### 📝 Documentation
+
+- Reorganize testing documentation and add file placement guidelines [#1786](https://github.com/dandi/dandi-cli/pull/1786) ([@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- DEVELOPMENT.md: require backward compatible support of new dandi-archive features [#1963](https://github.com/dandi/dandi-cli/pull/1963) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 11
+
+- [@Copilot](https://github.com/Copilot)
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Benjamin Dichter (bdichter@Benjamins-Mac-mini.local)
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.81.0 (Wed Sep 30 2026)
 
 #### 🚀 Enhancement
