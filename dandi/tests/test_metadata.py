@@ -1676,7 +1676,7 @@ def test_species_record_matching_methods() -> None:
             ["OptogeneticStimulusSite"],
             {
                 "approach": ["optogenetic approach"],
-                "measurementTechnique": None,
+                "measurementTechnique": ["surgical technique"],
                 "variableMeasured": ["OptogeneticStimulusSite"],
             },
         ),
@@ -1684,9 +1684,51 @@ def test_species_record_matching_methods() -> None:
             ["OptogeneticSeries"],
             {
                 "approach": ["optogenetic approach"],
-                "measurementTechnique": None,
+                "measurementTechnique": ["optogenetic stimulation technique"],
                 "variableMeasured": ["OptogeneticSeries"],
             },
+        ),
+        (
+            ["PoseEstimationSeries"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation technique"],
+                "variableMeasured": ["PoseEstimationSeries"],
+            },
+        ),
+        (
+            ["PoseEstimation"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation technique"],
+                "variableMeasured": ["PoseEstimation"],
+            },
+        ),
+        (
+            ["PoseTraining"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation training technique"],
+                "variableMeasured": ["PoseTraining"],
+            },
+        ),
+        (
+            ["FiberPhotometryResponseSeries"],
+            {
+                "approach": ["fiber photometry approach"],
+                "measurementTechnique": ["fiber photometry technique"],
+                "variableMeasured": ["FiberPhotometryResponseSeries"],
+            },
+        ),
+        pytest.param(
+            # ndx-photometry metadata tables alone should mark the asset
+            ["FibersTable"],
+            {
+                "approach": ["fiber photometry approach"],
+                "measurementTechnique": ["surgical technique"],
+                "variableMeasured": ["FibersTable"],
+            },
+            marks=pytest.mark.ai_generated,
         ),
         (
             # the tricky case of having number of instances of the data type
