@@ -49,7 +49,7 @@ from dandi.validate._types import (
 
 # True when the installed dandischema exposes the per-asset dataStandard field
 # and related StandardsType enhancements (version, extensions) and
-# hed_standard.  All of these ship together in DANDI schema 0.9.0, expected to
+# hed_standard.  All of these ship together in DANDI schema 0.8.1, expected to
 # be released in dandischema 0.15.0.
 # TODO: remove this guard (and all branches that check it) once the minimum
 # required dandischema version is >= 0.15.0.

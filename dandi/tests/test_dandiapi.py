@@ -545,7 +545,7 @@ def test__maybe_downgrade_metadata_falls_through_on_populated_field(
 @responses.activate
 def test__maybe_downgrade_metadata_drops_asset_datastandard(server_schema: str) -> None:
     """
-    Per-asset ``dataStandard`` (added in schema 0.9.0) is dropped, even if
+    Per-asset ``dataStandard`` (added in schema 0.8.1) is dropped, even if
     populated, when uploading to an older server, which would otherwise be
     sent metadata of a schema version it cannot validate.
     """
