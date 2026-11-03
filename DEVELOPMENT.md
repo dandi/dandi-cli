@@ -424,6 +424,14 @@ New markers must be registered in `pytest_configure()` in
 - `DANDI_TESTS_DJANGO_API_KEY` -- Admin DRF token for the externally-managed
   server pointed to by `DANDI_TESTS_API_URL`; required when the latter is set.
 
+- `DANDI_TESTS_GITREPO_CACHE` -- Directory in which to keep tarballs of the git
+  repositories that tests clone (`bids-examples`, `bids-error-examples`,
+  `nwb_test_data`; see `dandi/tests/gitrepos.py`) across test sessions, so
+  that they are cloned only once and later runs do not need the network for
+  them.  Cached clones are never refreshed: remove the directory to get the
+  current upstream state.  By default, clones are kept for the test session
+  only.  CI keeps this directory in the Actions cache, refreshed daily.
+
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled
 

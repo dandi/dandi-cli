@@ -28,6 +28,7 @@ import pytest
 import requests
 import zarr
 
+from .gitrepos import GitRepoSpec, extract_tarball, get_tarball
 from .skip import skipif
 from .. import get_logger
 from ..cli.cmd_organize import organize
@@ -302,23 +303,51 @@ def organized_nwb_dir4(
 Scope = Literal["session", "package", "module", "class", "function"]
 
 
+def _gitrepo_cache_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Where to keep tarballs of the git repositories cloned for tests
+
+    ``DANDI_TESTS_GITREPO_CACHE``, if set, so that they can be reused across
+    test sessions (CI keeps it in the Actions cache); otherwise a directory
+    used for this test session only.
+    """
+    if cache_dir := os.environ.get("DANDI_TESTS_GITREPO_CACHE"):
+        return Path(cache_dir)
+    return tmp_path_factory.getbasetemp() / "gitrepo-cache"
+
+
 def get_gitrepo_fixture(
     url: str,
     committish: str | None = None,
     scope: Scope = "session",
     make_subdirs_dandisets: bool = False,
+    whitelist: list[str] | None = None,
 ) -> Callable[[pytest.TempPathFactory], Path]:
+    """Make a fixture providing a shallow clone of a git repository
+
+    The repository is cloned only once (see `dandi.tests.gitrepos`), and each
+    instantiation of the fixture unpacks its own copy of that clone.
+
+    Parameters
+    ----------
+    whitelist
+        Top-level directories to check out (sparse checkout); everything if
+        ``None``
+    """
 
     if committish:
         raise NotImplementedError()
 
+    spec = GitRepoSpec(url=url, sparse=tuple(whitelist) if whitelist else None)
+
     @pytest.fixture(scope=scope)
     def fixture(tmp_path_factory: pytest.TempPathFactory) -> Path:
-        skipif.no_network()
         skipif.no_git()
+        cache_dir = _gitrepo_cache_dir(tmp_path_factory)
+        if not (cache_dir / spec.tarball_name).exists():
+            skipif.no_network()
+        tarball = get_tarball(spec, cache_dir)
         path = tmp_path_factory.mktemp("gitrepo")
-        lgr.debug("Cloning %r into %r", url, path)
-        run(["git", "clone", "--depth=1", url, str(path)], check=True)
+        extract_tarball(tarball, path)
         if make_subdirs_dandisets:
             _make_subdirs_dandisets(path)
         return path
@@ -329,38 +358,13 @@ def get_gitrepo_fixture(
 def get_filtered_gitrepo_fixture(
     url: str,
     whitelist: list[str],
-    make_subdirs_dandisets: bool | None = False,
-) -> Callable[[pytest.TempPathFactory], Iterator[Path]]:
-    @pytest.fixture(scope="session")
-    def fixture(
-        tmp_path_factory: pytest.TempPathFactory,
-    ) -> Iterator[Path]:
-        skipif.no_network()
-        skipif.no_git()
-        path = tmp_path_factory.mktemp("gitrepo")
-        lgr.debug("Cloning %r into %r", url, path)
-        run(
-            [
-                "git",
-                "clone",
-                "--depth=1",
-                "--filter=blob:none",
-                "--sparse",
-                url,
-                str(path),
-            ],
-            check=True,
-        )
-        # cwd specification is VERY important, not only to achieve the correct
-        # effects, but also to avoid dropping files from your repository if you
-        # were to run `git sparse-checkout` inside the software repo.
-        run(["git", "sparse-checkout", "init", "--cone"], cwd=str(path), check=True)
-        run(["git", "sparse-checkout", "set"] + whitelist, cwd=str(path), check=True)
-        if make_subdirs_dandisets:
-            _make_subdirs_dandisets(path)
-        yield path
-
-    return fixture
+    make_subdirs_dandisets: bool = False,
+) -> Callable[[pytest.TempPathFactory], Path]:
+    """`get_gitrepo_fixture` checking out only the top-level directories in
+    ``whitelist``"""
+    return get_gitrepo_fixture(
+        url, make_subdirs_dandisets=make_subdirs_dandisets, whitelist=whitelist
+    )
 
 
 def _make_subdirs_dandisets(path: Path) -> None:
@@ -371,7 +375,7 @@ def _make_subdirs_dandisets(path: Path) -> None:
             )
 
 
-nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
+nwb_test_data = get_gitrepo_fixture("https://github.com/dandi-datasets/nwb_test_data")
 bids_examples = get_filtered_gitrepo_fixture(
     url="https://github.com/bids-standard/bids-examples",
     whitelist=BIDS_TESTDATA_SELECTION,

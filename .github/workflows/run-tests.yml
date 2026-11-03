@@ -140,6 +140,25 @@ jobs:
       if: github.event_name == 'schedule'
       run: echo PYTEST_ADDOPTS=--scheduled >> "$GITHUB_ENV"
 
+    # Tests use clones of bids-examples etc., which they keep as tarballs in
+    # DANDI_TESTS_GITREPO_CACHE (see dandi/tests/gitrepos.py).  Keeping those in
+    # the Actions cache spares most jobs from cloning them from GitHub, which
+    # fails on occasion.  The key changes daily so that tests follow upstream
+    # changes within a day; it includes the mode, as not all modes use all of
+    # the repositories.
+    - name: Configure cache of git repositories cloned by tests
+      id: gitrepo-cache-config
+      run: |
+        echo "DANDI_TESTS_GITREPO_CACHE=$RUNNER_TEMP/test-gitrepos" >> "$GITHUB_ENV"
+        echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore cache of git repositories cloned by tests
+      id: gitrepo-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ runner.temp }}/test-gitrepos
+        key: test-gitrepos-${{ runner.os }}-${{ matrix.mode }}-${{ steps.gitrepo-cache-config.outputs.date }}
+
     - name: Run all tests except those involving obolibrary
       if: matrix.mode != 'dandi-api' && matrix.mode != 'obolibrary-only' && matrix.mode != 'lowest-deps'
       # Start coverage before pytest, which loads dandi's pytest plugin (and
@@ -184,6 +203,23 @@ jobs:
         then echo Audit file shorter than expected - only "$lines" lines
              exit 1
         fi
+
+    # Also if tests failed, as long as the repositories were cloned
+    - name: Check for git repositories cloned by tests
+      id: gitrepo-tarballs
+      if: ${{ !cancelled() && steps.gitrepo-cache.outputs.cache-hit != 'true' }}
+      # (Python, not a shell glob, as $RUNNER_TEMP has backslashes on Windows)
+      run: >-
+        python -c 'import os, pathlib;
+        any(pathlib.Path(os.environ["DANDI_TESTS_GITREPO_CACHE"]).glob("*.tar"))
+        and print("found=true")' >> "$GITHUB_OUTPUT"
+
+    - name: Save cache of git repositories cloned by tests
+      if: ${{ !cancelled() && steps.gitrepo-tarballs.outputs.found == 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ runner.temp }}/test-gitrepos
+        key: ${{ steps.gitrepo-cache.outputs.cache-primary-key }}
 
     - name: Dump Docker Compose logs
       if: failure() && startsWith(matrix.os, 'ubuntu')

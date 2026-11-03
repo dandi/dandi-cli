@@ -239,6 +239,18 @@ Arrange-Act-Assert pattern for clarity:
        assert result.minor == 210831
        assert result.patch == 2033
 
+Test Data from Git Repositories
+-------------------------------
+
+Fixtures providing clones of git repositories (``bids_examples``,
+``bids_error_examples``, ``nwb_test_data``) are made with
+``get_gitrepo_fixture()`` in ``dandi/tests/fixtures.py``.  Each repository is
+cloned only once, with retries, and kept as a tarball; every instantiation of
+a fixture unpacks its own copy from it, which takes milliseconds.  Set
+``DANDI_TESTS_GITREPO_CACHE`` to a directory to keep those tarballs across test
+sessions, e.g. to run these tests offline.  To add another repository, prefer
+a sparse checkout of just the directories the tests need (``whitelist``).
+
 
 Common Pitfalls
 ===============
