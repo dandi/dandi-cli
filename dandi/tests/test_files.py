@@ -793,6 +793,28 @@ def test_validate_zarr2_invalid_array_metadata(tmp_path: Path) -> None:
 
 
 @pytest.mark.ai_generated
+def test_validate_zarr3_array_metadata_not_json(tmp_path: Path) -> None:
+    zarr_path = tmp_path / "example.zarr"
+    group = zarr.open_group(zarr_path, mode="w", zarr_format=3)
+    group.create_array("x", shape=(4,), dtype="int8")
+    (zarr_path / "x" / "zarr.json").write_text("not json")
+    assert [r.id for r in dandi_file(zarr_path).get_validation_errors()] == [
+        "zarr.invalid_zarr_json"
+    ]
+
+
+@pytest.mark.ai_generated
+def test_validate_zarr2_array_metadata_not_json(tmp_path: Path) -> None:
+    zarr_path = tmp_path / "example.zarr"
+    group = zarr.open_group(zarr_path, mode="w", zarr_format=2)
+    group.create_array("x", shape=(4,), dtype="int8")
+    (zarr_path / "x" / ".zarray").write_text("not json")
+    assert [r.id for r in dandi_file(zarr_path).get_validation_errors()] == [
+        "zarr.invalid_metadata"
+    ]
+
+
+@pytest.mark.ai_generated
 def test_validate_zarr2_unparseable_consolidated_metadata(tmp_path: Path) -> None:
     # zarr-python 2.x wrote a fill value of 0 for object arrays, which
     # zarr-python 3.x cannot parse.  hdmf-zarr wrote such arrays in NWB files
