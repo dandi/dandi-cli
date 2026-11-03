@@ -122,12 +122,14 @@ test = [
 tools = [
     "boto3",
 ]
-# zarr-python is needed only to validate Zarr assets
+# zarr-python and zarr-metadata are needed only to validate Zarr assets
 zarr = [
     # Reading strings in Zarr format V3 warns before 3.1.1, and the expected
     # digests in the tests assume 3.1.4, which stopped writing
     # `consolidated_metadata: null`.
     "zarr >= 3.1.4, < 4",
+    # 0.x minor releases have removed parts of the API
+    "zarr-metadata >= 0.6.0, < 0.7",
 ]
 all = [
     "dandi[extensions]",

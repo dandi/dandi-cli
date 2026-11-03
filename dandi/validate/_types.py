@@ -62,6 +62,7 @@ class Validator(StrEnum):
     pynwb = auto()
     tensorstore = auto()
     zarr = auto()
+    zarr_metadata = "zarr-metadata"
 
 
 class OriginType(StrEnum):

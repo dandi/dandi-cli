@@ -694,7 +694,10 @@ INVALID_STORES_PATH = "data/zarr3_stores/invalid_stores"
         ),
         # A store with a corrupt zarr.json for an array (missing fields other than
         # `node_type`)
-        ("array_v3_corrupt_zarr_json.zarr", {"zarr.cannot_open"}),
+        (
+            "array_v3_corrupt_zarr_json.zarr",
+            {"zarr.invalid_zarr_json", "zarr.cannot_open"},
+        ),
     ],
 )
 def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> None:
@@ -722,6 +725,36 @@ def test_validate_zarr3_string_array(tmp_path: Path) -> None:
     group = zarr.open_group(zarr_path, mode="w", zarr_format=3)
     group.create_array("identifier", shape=(1,), dtype=str)[:] = ["session"]
     assert dandi_file(zarr_path).get_validation_errors() == []
+
+
+@pytest.mark.ai_generated
+def test_validate_zarr3_attributes_not_an_object(tmp_path: Path) -> None:
+    # zarr-python opens an array whose attributes are a list, which the Zarr
+    # format V3 specification does not allow
+    zarr_path = tmp_path / "example.zarr"
+    zarr.open_array(zarr_path, mode="w", shape=(4,), dtype="int8", zarr_format=3)
+    meta_path = zarr_path / "zarr.json"
+    meta = json.loads(meta_path.read_text())
+    meta["attributes"] = []
+    meta_path.write_text(json.dumps(meta))
+    assert [r.id for r in dandi_file(zarr_path).get_validation_errors()] == [
+        "zarr.invalid_zarr_json"
+    ]
+
+
+@pytest.mark.ai_generated
+def test_validate_zarr2_invalid_array_metadata(tmp_path: Path) -> None:
+    # Opening the root group does not read the metadata of its arrays
+    zarr_path = tmp_path / "example.zarr"
+    group = zarr.open_group(zarr_path, mode="w", zarr_format=2)
+    group.create_array("x", shape=(4,), dtype="int8")
+    meta_path = zarr_path / "x" / ".zarray"
+    meta = json.loads(meta_path.read_text())
+    meta["order"] = "Z"
+    meta_path.write_text(json.dumps(meta))
+    assert [r.id for r in dandi_file(zarr_path).get_validation_errors()] == [
+        "zarr.invalid_metadata"
+    ]
 
 
 @pytest.mark.ai_generated
