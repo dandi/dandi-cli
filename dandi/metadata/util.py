@@ -14,6 +14,7 @@ import requests
 import tenacity
 from yarl import URL
 
+from .brain_areas import locations_to_ccf_mouse_anatomy
 from .. import __version__
 from ..utils import ensure_datetime
 
@@ -288,16 +289,59 @@ def timedelta2duration(delta: timedelta) -> str:
     return s
 
 
+# Names for the sex IRIs which ``extract_sex`` produces itself
+SEX_NAMES_BY_IRI = {
+    "http://purl.obolibrary.org/obo/PATO_0000384": "Male",
+    "http://purl.obolibrary.org/obo/PATO_0000383": "Female",
+    "http://purl.obolibrary.org/obo/PATO_0001340": "Hermaphrodite",
+}
+
+
+def _is_c_elegans(species: Any) -> bool:
+    """Whether NWB ``subject.species`` designates *Caenorhabditis elegans*"""
+    if not isinstance(species, str):
+        return False
+    species = species.strip().lower()
+    return (
+        species in ("c. elegans", "caenorhabditis elegans")
+        or species.startswith("caenorhabditis elegans ")
+        or species.endswith("/ncbitaxon_6239")
+    )
+
+
 def extract_sex(metadata: dict) -> models.SexType | None:
     value = metadata.get("sex", None)
+    c_elegans_sex = metadata.get("c_elegans_sex")
+    is_c_elegans = _is_c_elegans(metadata.get("species"))
+    if (
+        isinstance(c_elegans_sex, str)
+        and c_elegans_sex.strip().lower() in ("xx", "xo")
+        and (value is None or value.strip().lower() in ("", "o", "other"))
+    ):
+        # CElegansSubject of ndx-subjects records the sex there and fixes
+        # `sex` to "O"
+        value = c_elegans_sex
+        is_c_elegans = True
     if value is not None and value != "":
-        value = value.lower()
+        value_orig = value.strip()
+        value = value_orig.lower()
         if value in ["m", "male"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
             value = "Male"
         elif value in ["f", "female"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000383"
             value = "Female"
+        elif value == "hermaphrodite":
+            value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
+            value = "Hermaphrodite"
+        elif value in ["xx", "xo"] and is_c_elegans:
+            # nwbinspector requires XX (hermaphrodite) or XO (male) for C. elegans
+            if value == "xx":
+                value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
+                value = "Hermaphrodite"
+            else:
+                value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
+                value = "Male"
         elif value in ["unknown", "u"]:
             value_id = None
             value = "Unknown"
@@ -305,8 +349,11 @@ def extract_sex(metadata: dict) -> models.SexType | None:
             value_id = None
             value = "Other"
         elif value.startswith("http"):
-            value_id = value
-            value = None
+            value_id = value_orig
+            # dandischema requires a name; fall back to the IRI itself
+            value = {k.lower(): v for k, v in SEX_NAMES_BY_IRI.items()}.get(
+                value, value_id
+            )
         else:
             raise ValueError(f"Cannot interpret sex field: {value}")
         return models.SexType(identifier=value_id, name=value)
@@ -597,7 +644,8 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                         value = " - ".join(
                             [result[key] for key in lookup if key in result]
                         )
-                value_matches.append((value_id, value))
+                # dandischema requires a name; fall back to the IRI itself
+                value_matches.append((value_id, value or value_id))
         else:
             lower_value = value_orig.lower().strip()
             for record in species_map:
@@ -642,6 +690,8 @@ def extract_assay_type(metadata: dict) -> list[models.AssayType] | None:
 
 
 def extract_anatomy(metadata: dict) -> list[models.Anatomy] | None:
+    # Anatomy is now populated via wasDerivedFrom BioSample.
+    # This extractor is kept only as a fallback for the top-level "anatomy" field.
     if "anatomy" in metadata:
         return [models.Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
@@ -678,20 +728,61 @@ def extract_model_list(
 
 def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
     derived_from: list[models.BioSample] | None = None
+    # Track the deepest (tissue-level) BioSample in the chain.
+    # The loop iterates tissue → slice → cell; each new sample wraps the
+    # previous one via wasDerivedFrom, so the first sample created is the
+    # deepest (tissue).  Anatomy is attached there because it describes the
+    # physical origin of the sample.
+    deepest: models.BioSample | None = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
         ("slice_id", "slice"),
         ("cell_id", "cell"),
     ]:
         if metadata.get(field) is not None:
+            sample = models.BioSample(
+                identifier=metadata[field],
+                wasDerivedFrom=derived_from,
+                sampleType=models.SampleType(name=sample_name),
+            )
+            derived_from = [sample]
+            if deepest is None:
+                deepest = sample
+
+    # Compute anatomy from brain locations (mouse only)
+    anatomy = _extract_brain_anatomy(metadata)
+    if anatomy:
+        if deepest is not None:
+            deepest.anatomy = anatomy
+        else:
+            # No tissue/slice/cell IDs but we do have brain locations —
+            # create a synthetic BioSample to carry the anatomy.  The
+            # identifier is a fixed placeholder; it won't collide with
+            # real NWB object IDs (which are UUIDs).
             derived_from = [
                 models.BioSample(
-                    identifier=metadata[field],
-                    wasDerivedFrom=derived_from,
-                    sampleType=models.SampleType(name=sample_name),
+                    identifier="brain-region-sample",
+                    sampleType=models.SampleType(name="tissuesample"),
+                    anatomy=anatomy,
                 )
             ]
+
     return derived_from
+
+
+_MOUSE_URI = NCBITAXON_URI_TEMPLATE.format("10090")
+
+
+def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
+    """Extract brain anatomy from metadata, if the species is mouse."""
+    if not (locations := metadata.get("brain_locations")):
+        return []
+
+    species = extract_species(metadata)
+    if species is None or str(species.identifier) != _MOUSE_URI:
+        return []
+
+    return locations_to_ccf_mouse_anatomy(locations)
 
 
 extract_wasAttributedTo = extract_model_list(

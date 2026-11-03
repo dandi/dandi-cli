@@ -54,8 +54,12 @@ from .consts import (
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance, get_retry_after
+from .zarr_filter import ZarrFilter
 
 lgr = get_logger()
+
+#: `ZARR_EXTENSIONS` in the form `str.endswith()` takes
+_ZARR_SUFFIXES = tuple(ZARR_EXTENSIONS)
 
 
 @dataclass
@@ -200,6 +204,20 @@ class ParsedDandiURL(ABC):
         :meta private:
         """
         ...
+
+    def get_zarr_filter(self) -> list[ZarrFilter]:
+        """
+        Returns the filters restricting which entries within the Zarr assets
+        returned by `get_assets()` should be downloaded.  An empty list means
+        that no restriction is implied by the URL and all entries are to be
+        downloaded.
+
+        Only `AssetZarrEntryURL` — a URL pointing inside a Zarr asset — returns
+        a non-empty list.
+
+        :meta private:
+        """
+        return []
 
     @abstractmethod
     def is_under_download_path(self, path: str) -> bool:
@@ -474,11 +492,36 @@ def split_zarr_location(location: str) -> tuple[str, str] | None:
     """
     parts = [p for p in location.split("/") if p]
     for i, part in enumerate(parts):
-        if any(part.endswith(ext) for ext in ZARR_EXTENSIONS):
+        if part.endswith(_ZARR_SUFFIXES):
             asset_path = "/".join(parts[: i + 1])
             zarr_subpath = "/".join(parts[i + 1 :])
             return (asset_path, zarr_subpath) if zarr_subpath else None
     return None
+
+
+def at_zarr_boundary(location: str) -> bool:
+    """Whether ``location``'s last component ends with a Zarr extension.
+
+    Parameters
+    ----------
+    location : str
+        A POSIX-style path, e.g. ``"sub-1/file.ome.zarr/"``.
+
+    Returns
+    -------
+    bool
+        True if the path ends at a Zarr asset (ignoring a trailing slash).
+
+    Examples
+    --------
+    >>> at_zarr_boundary("sub-1/file.ome.zarr/")
+    True
+    >>> at_zarr_boundary("sub-1/file.ome.zarr/0/0")  # below the boundary
+    False
+    >>> at_zarr_boundary("sub-1/")
+    False
+    """
+    return location.rstrip("/").endswith(_ZARR_SUFFIXES)
 
 
 @dataclass
@@ -489,8 +532,10 @@ class AssetZarrEntryURL(SingleAssetURL):
     produce ``asset_path="sub-1/file.ome.zarr"`` and ``zarr_subpath="0/0/0"``.
     """
 
-    asset_path: str  # e.g., "sub-1/file.ome.zarr"
-    zarr_subpath: str  # e.g., "0/0/0"
+    #: The path of the Zarr asset, e.g. ``"sub-1/file.ome.zarr"``
+    asset_path: str
+    #: The path within the Zarr asset, e.g. ``"0/0/0"``
+    zarr_subpath: str
 
     def get_assets(
         self, client: DandiAPIClient, order: str | None = None, strict: bool = False
@@ -511,6 +556,17 @@ class AssetZarrEntryURL(SingleAssetURL):
                 return
         with _maybe_strict(strict):
             yield dandiset.get_asset_by_path(self.asset_path)
+
+    def get_zarr_filter(self) -> list[ZarrFilter]:
+        """Restrict the download to the entries at or under `zarr_subpath`.
+
+        :meta private:
+        """
+        if not self.zarr_subpath:
+            # `parse_dandi_url()` never produces this, but the class is public
+            # and an empty subpath would otherwise reject every entry.
+            return []
+        return [ZarrFilter("path", self.zarr_subpath)]
 
 
 @dataclass
@@ -905,6 +961,28 @@ class _dandi_url_parser:
                     version_id=version_id,
                     path=location,
                 )
+            elif (zarr_split := split_zarr_location(location)) is not None:
+                # The location crosses a zarr boundary.  This is checked
+                # before the folder case, as a path within a zarr never names
+                # a folder of assets: entries within a zarr are not assets.
+                asset_path, zarr_subpath = zarr_split
+                parsed_url = AssetZarrEntryURL(
+                    instance=instance,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    asset_path=asset_path,
+                    zarr_subpath=zarr_subpath,
+                )
+            elif location.endswith("/") and at_zarr_boundary(location):
+                # `.../x.zarr/` names the zarr asset itself; a folder of
+                # assets by that name could never hold it, as the asset's own
+                # path does not end in a slash.
+                parsed_url = AssetItemURL(
+                    instance=instance,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    path=location.rstrip("/"),
+                )
             elif location.endswith("/"):
                 parsed_url = AssetFolderURL(
                     instance=instance,
@@ -913,24 +991,12 @@ class _dandi_url_parser:
                     path=location,
                 )
             else:
-                # Check if location crosses a zarr boundary
-                zarr_split = split_zarr_location(location)
-                if zarr_split is not None:
-                    asset_path, zarr_subpath = zarr_split
-                    parsed_url = AssetZarrEntryURL(
-                        instance=instance,
-                        dandiset_id=dandiset_id,
-                        version_id=version_id,
-                        asset_path=asset_path,
-                        zarr_subpath=zarr_subpath,
-                    )
-                else:
-                    parsed_url = AssetItemURL(
-                        instance=instance,
-                        dandiset_id=dandiset_id,
-                        version_id=version_id,
-                        path=location,
-                    )
+                parsed_url = AssetItemURL(
+                    instance=instance,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    path=location,
+                )
         elif asset_id:
             if dandiset_id is None:
                 parsed_url = BaseAssetIDURL(instance=instance, asset_id=asset_id)

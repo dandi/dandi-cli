@@ -39,6 +39,8 @@ metadata_nwb_subject_fields = (
     "species",
     "strain",
     "subject_id",
+    # CElegansSubject of ndx-subjects fixes `sex` to "O" and keeps XX/XO here
+    "c_elegans_sex",
 )
 
 metadata_nwb_dandi_fields = ("cell_id", "slice_id", "tissue_sample_id", "probe_ids")

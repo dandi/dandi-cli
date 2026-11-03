@@ -47,10 +47,13 @@ dependencies = [
     "bids-validator-deno >= 2.0.5",
     "click >= 8.2",
     "click-didyoumean >= 0.3.1",
-    # TEMP: until dandi-schema#371 is released; then restore
-    # "dandischema >= 0.12.0, != 0.13.0, < 0.16.0" and make sure the version
-    # checked for _SCHEMA_BAREASSET_HAS_DATASTANDARD in dandi/files/bases.py
-    # is the one of that release.
+    # Exclude 0.13.0: it lacks the downgrade migrations (SIMPLE_DOWNGRADES
+    # entries for releaseNotes / sameAs) that the client relies on to talk
+    # to older Archive servers.  0.14.0 restored them.
+    # TEMP: until dandi-schema#371 is released, instead of
+    # "dandischema >= 0.12.0, != 0.13.0, < 0.16.0"; then restore that and make
+    # sure the version checked for _SCHEMA_BAREASSET_HAS_DATASTANDARD in
+    # dandi/files/bases.py is the one of that release.
     "dandischema @ git+https://github.com/dandi/dandi-schema.git@enh-hed",
     "etelemetry >= 0.2.2",
     "fasteners >= 0.19",
@@ -179,7 +182,7 @@ tag_prefix = ""
 parentdir_prefix = ""
 
 [tool.codespell]
-skip = "_version.py,due.py,versioneer.py,*.vcr.yaml,venv,venvs,pyproject.toml"
+skip = "_version.py,due.py,versioneer.py,*.vcr.yaml,venv,venvs,pyproject.toml,allen_ccf_structures.json"
 # Don't warn about "[l]ist" in the abbrev_prompt() docstring:
 # TE is present in the BIDS schema
 ignore-regex = "(\\[\\w\\]\\w+|ignore \"bu\" strings)"
