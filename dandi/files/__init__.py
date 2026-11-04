@@ -86,9 +86,14 @@ def find_dandi_files(
     they are of a type represented by a `LocalDirectoryAsset` subclass, in
     which case they are not recursed into.
 
-    All requested paths are checked before any files are yielded.  A missing
-    path raises `FileNotFoundError`; a broken symlink is still discovered so
-    that the caller can apply its missing-content policy.
+    All requested paths are checked before any files are yielded.  Because this
+    function is a generator, a missing path raises `FileNotFoundError` when
+    the iterator is first advanced, not when the function is called.  A broken
+    symlink is still discovered so that the caller can apply its
+    missing-content policy.
+
+    .. versionchanged:: 0.82.0
+        Missing requested paths now raise `FileNotFoundError` on iteration.
 
     :param dandiset_path:
         The path to the root of the Dandiset in which the paths are located.
