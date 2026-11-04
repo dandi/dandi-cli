@@ -285,6 +285,8 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
 
         # Extract brain locations for anatomy metadata
         out["brain_locations"] = _get_brain_locations(nwb)
+        # Ontology-linked anatomy from the file's HERD table, if any
+        out["herd_anatomy"] = _get_herd_anatomy(nwb)
 
     return out
 
@@ -470,6 +472,84 @@ def _get_brain_locations(nwb: pynwb.NWBFile) -> list[str]:
                 )
 
     return locations
+
+
+def _get_herd_anatomy(nwb: pynwb.NWBFile) -> list[dict[str, Any]]:
+    """Extract anatomy ontology terms linked in the file's HERD table.
+
+    HERD (``/general/external_resources``) links values in the file to
+    ontology entities.  Every entity whose ID uses an anatomy ontology prefix
+    (see :data:`~dandi.metadata.brain_areas.ANATOMY_ONTOLOGY_PREFIXES`) is
+    collected, whatever object or field it is linked from, except entities
+    linked only from :class:`pynwb.file.Subject` objects: UBERON also holds
+    life-stage terms that may be linked from ``Subject.age``.
+
+    Parameters
+    ----------
+    nwb : pynwb.NWBFile
+        An open NWB file object.
+
+    Returns
+    -------
+    list[dict]
+        One dict per distinct entity, in order of first appearance, with keys
+        ``identifier`` (entity URI, or entity ID when the URI is empty),
+        ``entity_id`` and ``keys`` (the linked values in the file).
+    """
+    from .metadata.brain_areas import ANATOMY_ONTOLOGY_PREFIXES
+
+    herd = getattr(nwb, "external_resources", None)
+    if herd is None:
+        return []
+
+    def rows(table: Any) -> list[tuple]:
+        return [
+            tuple(
+                v.decode("utf-8", errors="replace") if isinstance(v, bytes) else v
+                for v in row
+            )
+            for row in table.data[:]
+        ]
+
+    try:
+        objects = rows(herd.objects)
+        keys = [r[0] for r in rows(herd.keys)]
+        entities = rows(herd.entities)
+        object_keys = rows(herd.object_keys)
+        entity_keys = rows(herd.entity_keys)
+    except Exception:
+        lgr.debug("Failed to read HERD table", exc_info=True)
+        return []
+
+    objects_by_key: dict[int, list[int]] = {}
+    for objects_idx, keys_idx in object_keys:
+        objects_by_key.setdefault(int(keys_idx), []).append(int(objects_idx))
+
+    def linked_from_subject(objects_idx: int) -> bool:
+        _, object_id, object_type = objects[objects_idx][:3]
+        obj = nwb.objects.get(object_id)
+        if obj is None:
+            return bool(object_type == "Subject")
+        return isinstance(obj, pynwb.file.Subject)
+
+    entries: dict[str, dict[str, Any]] = {}
+    for entities_idx, keys_idx in entity_keys:
+        entity_id, entity_uri = entities[int(entities_idx)][:2]
+        entity_id = str(entity_id or "").strip()
+        if entity_id.split(":", 1)[0].upper() not in ANATOMY_ONTOLOGY_PREFIXES:
+            continue
+        linked = objects_by_key.get(int(keys_idx), [])
+        if not linked or all(linked_from_subject(i) for i in linked):
+            continue
+        identifier = str(entity_uri or "").strip() or entity_id
+        entry = entries.setdefault(
+            identifier,
+            {"identifier": identifier, "entity_id": entity_id, "keys": []},
+        )
+        key = str(keys[int(keys_idx)])
+        if key not in entry["keys"]:
+            entry["keys"].append(key)
+    return list(entries.values())
 
 
 def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
