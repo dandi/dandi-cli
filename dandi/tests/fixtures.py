@@ -665,6 +665,28 @@ def sample_dandiset_factory(
 sweep_embargo = pytest.mark.parametrize("embargo", [True, False])
 
 
+def bulk_delete_supported(dandiset: RemoteDandiset) -> bool:
+    """
+    Return whether the server of the given draft Dandiset version supports
+    bulk asset deletion, without deleting anything: a bulk deletion request
+    with no asset IDs is rejected with a 400 by a server with the endpoint,
+    while a server without it responds with a 404.
+    """
+    try:
+        dandiset.client.post(
+            f"{dandiset.version_api_path}assets/bulk-delete/",
+            json={"asset_ids": []},
+            quiet_statuses=[400, 404],
+        )
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 400:
+            return True
+        if e.response is not None and e.response.status_code == 404:
+            return False
+        raise
+    raise AssertionError("Bulk deletion request with no asset IDs succeeded")
+
+
 @pytest.fixture()
 def new_dandiset(
     request: pytest.FixtureRequest, sample_dandiset_factory: SampleDandisetFactory
