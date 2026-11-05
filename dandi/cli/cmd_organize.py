@@ -109,6 +109,14 @@ def organize(
     of "object_id" is added if the aforementioned keys and the list of
     modalities are not sufficient to disambiguate different files.
 
+    Values become BIDS labels: each character other than an ASCII letter, an
+    ASCII digit, or "+" is replaced with "+" (e.g. `subject_id=mouse_01` gives
+    `sub-mouse+01`).  Older versions of dandi replaced some characters with "-"
+    instead; if the Dandiset already contains files named that way for the
+    same value (e.g. `sub-mouse-01`), that name is reused.  Organizing fails if
+    distinct subject IDs, or distinct session (tissue sample, slice, cell) IDs
+    of a subject, would get the same label or labels differing only in case.
+
     You can visit https://dandiarchive.org for a growing collection of
     (re)organized dandisets.
     """

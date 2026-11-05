@@ -12,7 +12,7 @@ according to DANDI's file organization schema. Features include:
 from __future__ import annotations
 
 import binascii
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 from copy import deepcopy
 from enum import StrEnum
@@ -161,7 +161,9 @@ def filter_invalid_metadata_rows(metadata_rows):
 
 
 def create_unique_filenames_from_metadata(
-    metadata: list[dict], required_fields: Sequence[str] | None = None
+    metadata: list[dict],
+    required_fields: Sequence[str] | None = None,
+    existing_labels: dict[str, set[str]] | None = None,
 ) -> list[dict]:
     """Create unique filenames given metadata
 
@@ -171,12 +173,23 @@ def create_unique_filenames_from_metadata(
       List of metadata records
     required_fields: sequence of str, optional
       Names from `dandi_layout_fields` to consider `"required_if_not_empty"`
+    existing_labels: dict, optional
+      Labels already used in the names of files in the Dandiset, per entity, as
+      returned by `get_existing_labels`.  An existing label produced from the
+      same value by an older version of dandi-cli is used instead of a new one,
+      so that files of the same subject (session, ...) keep sharing it.
 
     Returns
     -------
     list of dict
       Adjusted metadata. A copy, which might have removed some metadata fields
       Do not rely on it being the same
+
+    Raises
+    ------
+    OrganizeImpossibleError
+      If distinct values would get the same label or labels differing only in
+      case (see `_assign_labels`), or the file names are not unique
     """
     # need a deepcopy since we will be tuning fields, and there should be no
     # side effects to original metadata
@@ -212,15 +225,13 @@ def create_unique_filenames_from_metadata(
     if not all(m.get("session_id") for m in metadata):
         _populate_session_ids_from_time(metadata)
 
-    # And some initial sanitization
+    # Values of fields like subject_id become BIDS labels, also since those are
+    # used in dandi_path
+    _assign_labels(metadata, existing_labels or {})
+
     for r in metadata:
         # extract File name extension and place them into the records
         r["extension"] = op.splitext(r["path"])[1]
-        # since those might be used in dandi_path
-        for field in "subject_id", "session_id":
-            value = r.get(field, None)
-            if value:
-                r[field] = _sanitize_value(value, field)
 
         # _required_if_not_empty is used in addition to "type" required by
         # _assign_dandi_names.
@@ -462,8 +473,10 @@ def _assign_dandi_names(metadata):
                     continue
                 if isinstance(value, (list, tuple)):
                     value = "+".join(map(str, value))
-                # sanitize value to avoid undesired characters
-                value = _sanitize_value(value, field)
+                # sanitize value to avoid undesired characters, unless it is
+                # a label assigned by _assign_labels already
+                if field not in LABEL_FIELDS:
+                    value = _sanitize_value(value, field)
                 # Format _key-value according to the "schema"
                 formatted_value = field_format.format(value)
                 dandi_filename += formatted_value
@@ -480,16 +493,182 @@ def _get_unique_values(metadata, fields, filter_=False):
     return unique_values
 
 
-def _sanitize_value(value, field):
-    """Replace all "non-compliant" characters with -
+#: Fields of `dandi_layout_fields` whose values become BIDS labels in file
+#: names, and the entities they are used with
+LABEL_FIELDS = {
+    "subject_id": "sub",
+    "session_id": "ses",
+    "tissue_sample_id": "tis",
+    "slice_id": "slice",
+    "cell_id": "cell",
+    "description": "desc",
+    "probe_ids": "probe",
+}
 
-    Of particular importance is _ which we use, as in BIDS, to separate
-    _key-value entries
+#: Label fields for which distinct values must not end up with the same label
+#: (or with labels differing only in case); see `_assign_labels`
+_COLLISION_CHECKED_FIELDS = (
+    "subject_id",
+    "session_id",
+    "tissue_sample_id",
+    "slice_id",
+    "cell_id",
+)
+
+
+def _sanitize_label(value: str) -> str:
+    """Make `value` a BIDS label
+
+    Every character other than an ASCII letter, an ASCII digit or ``+``
+    (allowed in labels since BIDS 1.11.0) is replaced with ``+``, one character
+    at a time, so e.g. ``"-0.4V"`` and ``"0.4V"`` stay distinct.  Of particular
+    importance are ``_`` and ``-``, which separate entities and keys from
+    labels in BIDS file names.
+
+    This is the same as ``dandischema.utils.sanitize_label``.
     """
-    value = re.sub(r"[_*\\/<>:|\"'?%@;,\s]", "-", value)
-    if field != "extension":
-        value = value.replace(".", "-")
-    return value
+    return re.sub(r"[^0-9a-zA-Z+]", "+", value)
+
+
+def _sanitize_value(value: str, field: str) -> str:
+    """Sanitize the value of a field of `dandi_layout_fields` for a file name
+
+    The value becomes a BIDS label (see `_sanitize_label`), except that ``.``
+    is kept in the ``"extension"``.
+    """
+    if field == "extension":
+        return re.sub(r"[^0-9a-zA-Z+.]", "+", value)
+    return _sanitize_label(value)
+
+
+def _legacy_sanitize_label(value: str) -> str:
+    """Sanitize a label the way dandi-cli did before it used BIDS labels
+
+    Some characters were replaced with ``-``, which BIDS does not allow in
+    labels.  Used only to recognize labels in the names of files organized by
+    such versions; see `get_existing_labels`.
+    """
+    return re.sub(r"[_*\\/<>:|\"'?%@;,\s]", "-", value).replace(".", "-")
+
+
+def get_existing_labels(dandiset_path: AnyPath) -> dict[str, set[str]]:
+    """Collect the labels used in the names of organized files in a Dandiset
+
+    Parameters
+    ----------
+    dandiset_path: str or Path
+      The root of the Dandiset
+
+    Returns
+    -------
+    dict
+      Mapping from an entity (e.g. ``"sub"``) to the labels it has in the names
+      of the ``sub-*`` folders, and of the ``.nwb`` files in them
+    """
+    labels: dict[str, set[str]] = defaultdict(set)
+    root = Path(dandiset_path)
+    if not root.is_dir():
+        return labels
+    for subdir in root.glob("sub-*"):
+        if not subdir.is_dir():
+            continue
+        labels["sub"].add(subdir.name[len("sub-") :])
+        for f in subdir.glob("*.nwb"):
+            for part in f.name[: -len(".nwb")].split("_"):
+                if m := re.fullmatch(r"([a-z]+)-(.+)", part):
+                    labels[m[1]].add(m[2])
+    return labels
+
+
+def _assign_labels(metadata: list[dict], existing_labels: dict[str, set[str]]) -> None:
+    """Replace the values of the `LABEL_FIELDS` in the records with BIDS labels
+
+    A value gets the label made by `_sanitize_label`, unless an older version
+    of dandi-cli produced a different label from it which is listed in
+    `existing_labels` (as returned by `get_existing_labels`): then that label
+    is used, so that new files of a subject (session, ...) go along with its
+    files already in the Dandiset.
+
+    Raises
+    ------
+    OrganizeImpossibleError
+      If distinct values of one of the `_COLLISION_CHECKED_FIELDS` would get
+      the same label, or labels differing only in case (which BIDS forbids,
+      and which collide on case-insensitive file systems).  Subject labels must
+      be unique within the Dandiset, other labels within a subject.
+    """
+    # entity -> sanitize_label(existing label) -> existing labels
+    existing_by_key: dict[str, dict[str, set[str]]] = {}
+    for entity, labels in existing_labels.items():
+        existing_by_key[entity] = defaultdict(set)
+        for e in labels:
+            existing_by_key[entity][_sanitize_label(e)].add(e)
+
+    def choose(value: str, entity: str) -> str:
+        label = _sanitize_label(value)
+        existing = existing_labels.get(entity, set())
+        if label in existing:
+            return label
+        if (legacy := _legacy_sanitize_label(value)) in existing:
+            chosen = legacy
+        elif len(matching := existing_by_key.get(entity, {}).get(label, set())) == 1:
+            # e.g. produced by versions that did not replace "," or spaces
+            (chosen,) = matching
+        else:
+            return label
+        lgr.debug(
+            "Using existing label %s-%s for %r instead of %s",
+            entity,
+            chosen,
+            value,
+            label,
+        )
+        return chosen
+
+    # (field, subject label or None) -> label -> values
+    used: dict[tuple[str, str | None], dict[str, set[str]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
+    for r in metadata:
+        # subject_id is the first one, so it is a label already when used below
+        for field, entity in LABEL_FIELDS.items():
+            value = r.get(field, None)
+            if is_undefined(value):
+                continue
+            if isinstance(value, (list, tuple)):
+                r[field] = [choose(str(v), entity) for v in value]
+            else:
+                r[field] = choose(str(value), entity)
+                if field in _COLLISION_CHECKED_FIELDS:
+                    scope = None if field == "subject_id" else r.get("subject_id")
+                    used[(field, scope)][r[field]].add(str(value))
+
+    problems = []
+    for (field, subject), by_label in used.items():
+        where = f" (subject {subject})" if subject is not None else ""
+        for label, values in by_label.items():
+            if len(values) > 1:
+                problems.append(
+                    f"{field}{where}: {', '.join(map(repr, sorted(values)))}"
+                    f" would all get label {label!r}"
+                )
+        by_lower: dict[str, set[str]] = defaultdict(set)
+        for label in by_label:
+            by_lower[label.lower()].add(label)
+        for labels in by_lower.values():
+            if len(labels) > 1:
+                problems.append(
+                    f"{field}{where}: labels {', '.join(map(repr, sorted(labels)))}"
+                    " differ only in case"
+                )
+    if problems:
+        raise OrganizeImpossibleError(
+            "Distinct values would not be distinguishable in file names:\n  "
+            + "\n  ".join(problems)
+            + "\nPlease make these identifiers in your .nwb files distinct "
+            "after replacing each character other than an ASCII letter, digit, "
+            "or '+' with '+', and regardless of case."
+        )
 
 
 def _populate_modalities(metadata):
@@ -980,7 +1159,9 @@ def organize(
         files_mode = detect_link_type(link_test_file, dandiset_path)
 
     metadata = create_unique_filenames_from_metadata(
-        metadata, required_fields=required_fields
+        metadata,
+        required_fields=required_fields,
+        existing_labels=get_existing_labels(dandiset_path),
     )
 
     # update metadata with external_file information:
