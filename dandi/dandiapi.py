@@ -321,8 +321,8 @@ class RESTFullAPIClient:
         if not result.ok:
             msg = f"Error {result.status_code} while sending {method} request to {url}"
             if result.status_code == 409 or result.status_code in quiet_statuses:
-                # 409: Blob exists on server, or assets requested for bulk
-                # deletion are missing; log at DEBUG level
+                # 409: Blob exists on server; log at DEBUG level, as for
+                # statuses the caller expects
                 lgr.debug("%s: %s", msg, result.text)
             else:
                 lgr.error("%s: %s", msg, result.text)
@@ -1058,33 +1058,6 @@ class BulkDeleteResult:
     absent: list[str] = field(default_factory=list)
 
 
-def _get_missing_asset_ids(
-    response: requests.Response | None, asset_ids: list[str]
-) -> set[str]:
-    """
-    Given a 409 response from the bulk asset deletion endpoint and the asset
-    IDs in the request, return the requested IDs that the server reported (in
-    the ``"missing_asset_ids"`` list of the response body) as not belonging to
-    the version
-    """
-    if response is None:
-        return set()
-    try:
-        body = response.json()
-    except ValueError:
-        return set()
-    if not (
-        isinstance(body, dict)
-        and isinstance(reported := body.get("missing_asset_ids"), list)
-    ):
-        return set()
-    reported_ids = [r for r in reported if isinstance(r, str)]
-    # Only trust IDs that were actually in the request, matching them
-    # case-insensitively but returning them as given in the request
-    requested = {aid.lower(): aid for aid in asset_ids}
-    return {requested[r.lower()] for r in reported_ids if r.lower() in requested}
-
-
 class RemoteDandiset:
     """
     Representation of a Dandiset (as of a certain version) retrieved from the
@@ -1701,21 +1674,22 @@ class RemoteDandiset:
         The Dandiset version must be the draft version.  Duplicate assets are
         only deleted once.
 
-        The server deletes either all of the assets in a request or none of
-        them.  If ``skip_missing`` is true, any assets that the server reports
-        as no longer belonging to the version (e.g., because they were deleted
-        concurrently) are removed from the batch, the request for the rest of
-        the batch is resent, and the skipped assets are reported in the
-        batch's `BulkDeleteResult.absent`.  Otherwise, an
-        `~dandi.exceptions.AssetsNotFoundError` is raised; any earlier
-        batches will already have been deleted.
+        The server deletes those assets in a request that belong to the
+        version and ignores the rest, responding with the IDs of the assets it
+        deleted.  Any requested assets that no longer belong to the version
+        (e.g., because they were deleted concurrently) are reported in the
+        batch's `BulkDeleteResult.absent` if ``skip_missing`` is true.
+        Otherwise, an `~dandi.exceptions.AssetsNotFoundError` is raised once
+        the batch has been processed; the other assets in the batch, as well
+        as any earlier batches, will already have been deleted, and the
+        error's ``deleted_asset_ids`` lists those deleted in the batch.
 
         If the server does not support bulk deletion, the assets are instead
         deleted one at a time using the single-asset deletion endpoint, and
         the client remembers this for any further deletions.  In this case,
-        when ``skip_missing`` is false, the assets in a batch before the
-        missing one will already have been deleted when
-        `~dandi.exceptions.AssetsNotFoundError` is raised.
+        when ``skip_missing`` is false, `~dandi.exceptions.AssetsNotFoundError`
+        is raised at the first missing asset, and the assets in the batch after
+        it are not deleted.
 
         :param assets:
             the assets to delete, as `RemoteAsset` instances belonging to this
@@ -1728,8 +1702,8 @@ class RemoteDandiset:
             `RemoteAsset` belongs to a different Dandiset or version; raised
             immediately, before any assets are deleted
         :raises ~dandi.exceptions.AssetsNotFoundError:
-            if ``skip_missing`` is false and the server reports that some
-            assets do not belong to the version
+            if ``skip_missing`` is false and some assets do not belong to the
+            version
         :raises ~dandi.exceptions.NotFoundError:
             if the Dandiset version does not exist on the server
         """
@@ -1763,38 +1737,40 @@ class RemoteDandiset:
     ) -> BulkDeleteResult:
         if self.client._bulk_delete_unsupported:
             return self._delete_assets_individually(asset_ids, skip_missing)
-        absent: list[str] = []
-        remaining = asset_ids
-        # Each retry strictly shrinks `remaining`, as `AssetsNotFoundError` is
-        # only raised for a non-empty subset of the request, so this loop
-        # terminates.
-        while remaining:
-            try:
-                self._bulk_delete_assets(remaining)
-            except BulkDeleteUnsupportedError:
-                lgr.info(
-                    "%s: server does not support bulk asset deletion; deleting"
-                    " assets one at a time",
-                    self,
-                )
-                self.client._bulk_delete_unsupported = True
-                result = self._delete_assets_individually(remaining, skip_missing)
-                result.absent[:0] = absent
-                return result
-            except AssetsNotFoundError as e:
-                if not skip_missing:
-                    raise
-                lgr.debug(
-                    "%s: skipping %d asset(s) that no longer belong to the version: %s",
-                    self,
-                    len(e.missing_asset_ids),
-                    ", ".join(sorted(e.missing_asset_ids)),
-                )
-                absent.extend(aid for aid in remaining if aid in e.missing_asset_ids)
-                remaining = [aid for aid in remaining if aid not in e.missing_asset_ids]
+        try:
+            removed = self._bulk_delete_assets(asset_ids)
+        except BulkDeleteUnsupportedError:
+            lgr.info(
+                "%s: server does not support bulk asset deletion; deleting"
+                " assets one at a time",
+                self,
+            )
+            self.client._bulk_delete_unsupported = True
+            return self._delete_assets_individually(asset_ids, skip_missing)
+        # Match the returned IDs case-insensitively, but report them as given
+        # in the request and in the order of the request
+        removed_lower = {r.lower() for r in removed}
+        result = BulkDeleteResult()
+        for aid in asset_ids:
+            if aid.lower() in removed_lower:
+                result.deleted.append(aid)
             else:
-                break
-        return BulkDeleteResult(deleted=remaining, absent=absent)
+                result.absent.append(aid)
+        if result.absent:
+            if not skip_missing:
+                raise AssetsNotFoundError(
+                    f"{self}: assets not belonging to the version were not"
+                    f" deleted: {', '.join(result.absent)}",
+                    set(result.absent),
+                    deleted_asset_ids=result.deleted,
+                )
+            lgr.debug(
+                "%s: skipped %d asset(s) that no longer belong to the version: %s",
+                self,
+                len(result.absent),
+                ", ".join(result.absent),
+            )
+        return result
 
     def _delete_assets_individually(
         self, asset_ids: list[str], skip_missing: bool
@@ -1814,6 +1790,7 @@ class RemoteDandiset:
                     raise AssetsNotFoundError(
                         f"{self}: asset {aid} does not belong to the version",
                         {aid},
+                        deleted_asset_ids=result.deleted,
                         response=e.response,
                     ) from e
                 lgr.debug(
@@ -1826,18 +1803,19 @@ class RemoteDandiset:
                 result.deleted.append(aid)
         return result
 
-    def _bulk_delete_assets(self, asset_ids: list[str]) -> None:
+    def _bulk_delete_assets(self, asset_ids: list[str]) -> list[str]:
         """
         Send a single request to the bulk asset deletion endpoint for the given
-        (non-empty, deduplicated) asset IDs
+        (non-empty, deduplicated) asset IDs and return the IDs of the assets
+        that the server reports it deleted.  Requested assets that do not
+        belong to the version are ignored by the server and so are left out.
         """
         try:
-            self.client.post(
+            removed = self.client.post(
                 f"{self.version_api_path}assets/bulk-delete/",
                 json={"asset_ids": asset_ids},
                 # A server without the bulk deletion endpoint responds with a
-                # 404, which is handled below.  (Missing assets are reported
-                # with a 409, which is always logged at DEBUG level.)
+                # 404, which is handled below
                 quiet_statuses=[404],
             )
         except HTTP404Error as e:
@@ -1854,20 +1832,12 @@ class RemoteDandiset:
                 f" asset deletion: {e}",
                 response=e.response,
             ) from e
-        except requests.HTTPError as e:
-            if e.response is None or e.response.status_code != 409:
-                raise
-            missing = _get_missing_asset_ids(e.response, asset_ids)
-            if not missing:
-                # The response named none of the requested assets, so there
-                # is nothing to skip
-                raise
-            raise AssetsNotFoundError(
-                f"{self}: {len(missing)} asset(s) do not belong to the"
-                f" version: {', '.join(sorted(missing))}",
-                missing,
-                response=e.response,
-            ) from e
+        if not (isinstance(removed, list) and all(isinstance(r, str) for r in removed)):
+            raise RuntimeError(
+                f"{self}: bulk asset deletion request returned an unexpected"
+                f" response; expected a list of asset IDs, got {removed!r}"
+            )
+        return removed
 
 
 class BaseRemoteAsset(ABC, APIBase):

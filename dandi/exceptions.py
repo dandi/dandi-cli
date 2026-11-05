@@ -92,19 +92,25 @@ class HTTP404Error(requests.HTTPError):
 class AssetsNotFoundError(HTTP404Error):
     """
     An asset deletion request named assets that do not belong to the Dandiset
-    version.  For a bulk deletion request, per the endpoint's all-or-nothing
-    semantics, none of the assets in the request were deleted.
+    version.  Other assets in the request may still have been deleted; see
+    ``deleted_asset_ids``.
     """
 
     def __init__(
         self,
         msg: str,
         missing_asset_ids: set[str],
+        deleted_asset_ids: list[str] | None = None,
         response: requests.Response | None = None,
     ) -> None:
         super().__init__(msg, response=response)
         #: The IDs of the requested assets that do not belong to the version
         self.missing_asset_ids = missing_asset_ids
+        #: The IDs of the other assets in the same batch that were deleted
+        #: before the error was raised
+        self.deleted_asset_ids = (
+            list(deleted_asset_ids) if deleted_asset_ids is not None else []
+        )
 
 
 class BulkDeleteUnsupportedError(HTTP404Error):
