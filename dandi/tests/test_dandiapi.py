@@ -937,6 +937,49 @@ def test_get_asset_with_and_without_metadata(
     assert path_metadata == id_metadata
 
 
+@pytest.mark.ai_generated
+def test_published_asset_versionless_endpoints(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    """
+    An asset left unchanged since a publication belongs to both the draft and
+    the published version.  It must stay reachable via the version-less
+    ``/assets/{asset_id}/...`` endpoints, which ``dandi download`` uses for
+    every blob asset, including those of published versions.
+
+    Guards against server-side regressions such as the one in
+    dandi/dandi-archive#2744, where filtering out orphaned assets via a join
+    on versions made these endpoints fail for assets in multiple versions.
+    """
+    d = text_dandiset.dandiset
+    d.wait_until_valid()
+    dv = d.for_version(d.publish().version)
+    asset_path = "subdir2/coconut.txt"
+    asset_id = d.get_asset_by_path(asset_path).identifier
+    # The very same asset is now shared by the draft and the published version
+    assert dv.get_asset_by_path(asset_path).identifier == asset_id
+
+    client = text_dandiset.client
+    # GET /assets/{asset_id}/info/
+    asset = client.get_asset(asset_id)
+    assert asset.identifier == asset_id
+    assert asset.path == asset_path
+    # GET /assets/{asset_id}/
+    metadata = client.get(f"/assets/{asset_id}/")
+    assert metadata["identifier"] == asset_id
+    assert metadata["path"] == asset_path
+    # GET /assets/{asset_id}/download/
+    by_id = tmp_path / "by-id"
+    by_id.mkdir()
+    download(asset.base_download_url, by_id)
+    assert (by_id / "coconut.txt").read_text() == "Coconut\n"
+    # Downloading the published version goes through the same endpoint
+    by_version = tmp_path / "by-version"
+    by_version.mkdir()
+    download(dv.version_api_url, by_version)
+    assert (by_version / d.identifier / asset_path).read_text() == "Coconut\n"
+
+
 @responses.activate
 def test_retry_logging(caplog: pytest.LogCaptureFixture) -> None:
     responses.add(
