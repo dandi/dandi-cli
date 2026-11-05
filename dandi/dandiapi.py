@@ -1733,8 +1733,15 @@ class RemoteDandiset:
         )
 
     def _delete_asset_batch(
-        self, asset_ids: list[str], skip_missing: bool
+        self, asset_ids: list[str], skip_missing: bool, fallback: bool = True
     ) -> BulkDeleteResult:
+        """
+        Delete a single batch of (deduplicated) assets.  If the server does
+        not support bulk deletion, this is remembered by the client, and then
+        the assets are deleted one at a time if ``fallback`` is true;
+        otherwise, `~dandi.exceptions.BulkDeleteUnsupportedError` is raised
+        so that the caller can delete them one at a time itself.
+        """
         if self.client._bulk_delete_unsupported:
             return self._delete_assets_individually(asset_ids, skip_missing)
         try:
@@ -1746,6 +1753,8 @@ class RemoteDandiset:
                 self,
             )
             self.client._bulk_delete_unsupported = True
+            if not fallback:
+                raise
             return self._delete_assets_individually(asset_ids, skip_missing)
         # Match the returned IDs case-insensitively, but report them as given
         # in the request and in the order of the request

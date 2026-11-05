@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
+import requests
 
 from .fixtures import DandiAPI, SampleDandiset
 from .. import delete as delete_mod
@@ -14,7 +15,7 @@ from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import RemoteDandiset, RESTFullAPIClient
 from ..delete import delete, is_same_url
 from ..download import download
-from ..exceptions import NotFoundError
+from ..exceptions import BulkDeleteUnsupportedError, NotFoundError
 from ..utils import list_paths
 
 
@@ -554,17 +555,19 @@ def test_delete_failed_batch_continues(
     monkeypatch.chdir(text_dandiset.dspath)
     text_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
-    real_delete_assets = RemoteDandiset.delete_assets
+    real_delete_asset_batch = RemoteDandiset._delete_asset_batch
     calls = 0
 
-    def flaky_delete_assets(self: RemoteDandiset, *args: Any, **kwargs: Any) -> Any:
+    def flaky_delete_asset_batch(
+        self: RemoteDandiset, *args: Any, **kwargs: Any
+    ) -> Any:
         nonlocal calls
         calls += 1
         if calls == 1:
             raise RuntimeError("boom")
-        return real_delete_assets(self, *args, **kwargs)
+        return real_delete_asset_batch(self, *args, **kwargs)
 
-    monkeypatch.setattr(RemoteDandiset, "delete_assets", flaky_delete_assets)
+    monkeypatch.setattr(RemoteDandiset, "_delete_asset_batch", flaky_delete_asset_batch)
     # Discard output from setting up the Dandiset
     capsys.readouterr()
     delete(
@@ -584,6 +587,61 @@ def test_delete_failed_batch_continues(
         "file.txt",
         "subdir1/apple.txt",
     ]
+
+
+@pytest.mark.ai_generated
+def test_delete_fallback_reports_per_asset(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    monkeypatch.chdir(text_dandiset.dspath)
+    text_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
+    monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
+    # Simulate a server that does not support bulk deletion
+    bulk_delete = mocker.patch.object(
+        RemoteDandiset,
+        "_bulk_delete_assets",
+        side_effect=BulkDeleteUnsupportedError("no bulk deletion"),
+    )
+    dandiset = text_dandiset.dandiset
+    gone = dandiset.get_asset_by_path("subdir2/banana.txt")
+    failing = dandiset.get_asset_by_path("file.txt")
+    real_delete = RESTFullAPIClient.delete
+
+    def flaky_delete(self: RESTFullAPIClient, path: str, **kwargs: Any) -> Any:
+        if path.endswith(f"/assets/{failing.identifier}/"):
+            raise requests.HTTPError("boom")
+        return real_delete(self, path, **kwargs)
+
+    monkeypatch.setattr(RESTFullAPIClient, "delete", flaky_delete)
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets have been looked up and
+        # before any are deleted, so delete one of them in the meantime
+        dandiset.client.delete(f"{dandiset.version_api_path}assets/{gone.identifier}/")
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    # Discard output from setting up the Dandiset
+    capsys.readouterr()
+    delete(
+        ["file.txt", "subdir1", "subdir2"],
+        dandi_instance=text_dandiset.api.instance_id,
+        devel_debug=True,
+    )
+    # The bulk deletion endpoint is only tried for the first batch
+    assert bulk_delete.call_count == 1
+    records = _debug_records(capsys.readouterr().out)
+    # A failure only affects the asset concerned, even within the first batch
+    assert {p: (r["status"], r.get("message")) for p, r in records.items()} == {
+        "file.txt": ("Error", "HTTPError: boom"),
+        "subdir1/apple.txt": ("Deleted", None),
+        "subdir2/banana.txt": ("Skipped", "already absent"),
+        "subdir2/coconut.txt": ("Deleted", None),
+    }
+    assert [a.path for a in dandiset.get_assets()] == ["file.txt"]
 
 
 @pytest.mark.parametrize(

@@ -28,7 +28,7 @@ from .consts import (
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import BaseAssetIDURL, DandisetURL, ParsedDandiURL, parse_dandi_url
 from .dandiset import Dandiset
-from .exceptions import NotFoundError
+from .exceptions import BulkDeleteUnsupportedError, NotFoundError
 from .support import pyout as pyouts
 from .utils import chunked, get_instance, is_url
 
@@ -201,29 +201,60 @@ class Deleter:
 
         Assets that no longer belong to the Dandiset version by the time they
         are deleted are reported as skipped.  If a batch fails, all of its
-        assets are reported as errors, and processing continues with the next
-        batch.
+        assets are reported as errors (as the server deletes none of them),
+        and processing continues with the next batch.
+
+        If the server does not support bulk deletion, the assets are instead
+        deleted one at a time, one request at a time, with a status `dict`
+        yielded for each asset as soon as it has been processed, and a failure
+        only affecting that asset.
         """
         assert self.dandiset is not None
         assets = sorted(self.remote_assets, key=attrgetter("path"))
         for batch in chunked(assets, BULK_DELETE_BATCH_SIZE):
-            try:
-                result = self.dandiset.delete_assets(batch, skip_missing=True)
-            except Exception as e:
-                msg = f"{type(e).__name__}: {e}"
-                for asset in batch:
-                    yield {"path": asset.path, "status": "Error", "message": msg}
-            else:
-                absent = set(result.absent)
-                for asset in batch:
-                    if asset.identifier in absent:
-                        yield {
-                            "path": asset.path,
-                            "status": "Skipped",
-                            "message": "already absent",
-                        }
-                    else:
-                        yield {"path": asset.path, "status": "Deleted"}
+            if not self.dandiset.client._bulk_delete_unsupported:
+                try:
+                    result = self.dandiset._delete_asset_batch(
+                        [a.identifier for a in batch],
+                        skip_missing=True,
+                        fallback=False,
+                    )
+                except BulkDeleteUnsupportedError:
+                    # The client now remembers this; delete this batch's
+                    # assets one at a time below
+                    pass
+                except Exception as e:
+                    msg = f"{type(e).__name__}: {e}"
+                    for asset in batch:
+                        yield {"path": asset.path, "status": "Error", "message": msg}
+                    continue
+                else:
+                    absent = set(result.absent)
+                    for asset in batch:
+                        yield self._asset_status(asset, asset.identifier in absent)
+                    continue
+            for asset in batch:
+                try:
+                    result = self.dandiset.delete_assets([asset], skip_missing=True)
+                except Exception as e:
+                    yield {
+                        "path": asset.path,
+                        "status": "Error",
+                        "message": f"{type(e).__name__}: {e}",
+                    }
+                else:
+                    yield self._asset_status(asset, bool(result.absent))
+
+    @staticmethod
+    def _asset_status(asset: RemoteAsset, absent: bool) -> dict:
+        if absent:
+            return {
+                "path": asset.path,
+                "status": "Skipped",
+                "message": "already absent",
+            }
+        else:
+            return {"path": asset.path, "status": "Deleted"}
 
 
 def delete(
