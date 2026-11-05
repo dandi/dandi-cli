@@ -19,7 +19,7 @@ import zarr
 
 from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_validate
 
-from .fixtures import SampleDandiset, sweep_embargo
+from .fixtures import SampleDandiset, bulk_delete_supported, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
 from .. import dandiapi
 from ..consts import (
@@ -220,13 +220,23 @@ def test_upload_sync_multiple_batches(
     monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
     for p in ["file.txt", "subdir1/apple.txt", "subdir2/banana.txt"]:
         (text_dandiset.dspath / p).unlink()
+    supported = bulk_delete_supported(text_dandiset.dandiset)
     post_spy = mocker.spy(RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with caplog.at_level(logging.INFO, logger="dandi"):
         text_dandiset.upload(sync=SyncMode.DO)
     bulk_delete_calls = [
         c for c in post_spy.call_args_list if c.args[1].endswith("/bulk-delete/")
     ]
-    assert len(bulk_delete_calls) == 2
+    if supported:
+        # One bulk deletion request per batch
+        assert len(bulk_delete_calls) == 2
+        assert delete_spy.call_count == 0
+    else:
+        # The bulk deletion endpoint is only tried for the first batch, after
+        # which the assets are deleted one at a time
+        assert len(bulk_delete_calls) == 1
+        assert delete_spy.call_count == 3
     assert [a.path for a in text_dandiset.dandiset.get_assets()] == [
         "subdir2/coconut.txt"
     ]

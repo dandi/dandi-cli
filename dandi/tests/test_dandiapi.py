@@ -1498,8 +1498,11 @@ def test_delete_assets_already_deleted_integration(
     coconut = d.get_asset_by_path("subdir2/coconut.txt")
     d.delete_assets([gone])
 
+    # The missing asset comes last so that the other one is deleted whether
+    # or not the server supports bulk deletion: the single-asset fallback
+    # stops at the first missing asset
     with pytest.raises(AssetsNotFoundError) as excinfo:
-        d.delete_assets([gone, banana], skip_missing=False)
+        d.delete_assets([banana, gone], skip_missing=False)
     assert excinfo.value.missing_asset_ids == {gone.identifier}
     # The asset that did belong to the version was deleted regardless
     assert excinfo.value.deleted_asset_ids == [banana.identifier]
@@ -1519,16 +1522,22 @@ def test_remote_asset_delete(
 ) -> None:
     d = text_dandiset.dandiset
     asset = d.get_asset_by_path("file.txt")
+    # The client is shared between tests, so an earlier test may already have
+    # found that the server does not support bulk deletion
+    known_unsupported = d.client._bulk_delete_unsupported
     post_spy = mocker.spy(dandiapi.RESTFullAPIClient, "post")
     delete_spy = mocker.spy(dandiapi.RESTFullAPIClient, "delete")
     asset.delete()
-    # The bulk deletion endpoint is always tried first
-    post_spy.assert_called_once_with(
-        mocker.ANY,
-        f"{d.version_api_path}assets/bulk-delete/",
-        json={"asset_ids": [asset.identifier]},
-        quiet_statuses=[404],
-    )
+    if known_unsupported:
+        post_spy.assert_not_called()
+    else:
+        # Otherwise, the bulk deletion endpoint is tried first
+        post_spy.assert_called_once_with(
+            mocker.ANY,
+            f"{d.version_api_path}assets/bulk-delete/",
+            json={"asset_ids": [asset.identifier]},
+            quiet_statuses=[404],
+        )
     if d.client._bulk_delete_unsupported:
         # The server predates the bulk deletion endpoint, so the asset was
         # deleted with the single-asset deletion endpoint instead

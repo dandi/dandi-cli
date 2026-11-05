@@ -9,13 +9,13 @@ import pytest
 from pytest_mock import MockerFixture
 import requests
 
-from .fixtures import DandiAPI, SampleDandiset
+from .fixtures import DandiAPI, SampleDandiset, bulk_delete_supported
 from .. import delete as delete_mod
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import RemoteDandiset, RESTFullAPIClient
 from ..delete import delete, is_same_url
 from ..download import download
-from ..exceptions import BulkDeleteUnsupportedError, NotFoundError
+from ..exceptions import BulkDeleteUnsupportedError, HTTP404Error, NotFoundError
 from ..utils import list_paths
 
 
@@ -487,7 +487,9 @@ def test_delete_multiple_batches(
     monkeypatch.chdir(text_dandiset.dspath)
     text_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
-    bulk_delete_spy = mocker.spy(RESTFullAPIClient, "post")
+    supported = bulk_delete_supported(text_dandiset.dandiset)
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     # Discard output from setting up the Dandiset
     capsys.readouterr()
     delete(
@@ -496,7 +498,16 @@ def test_delete_multiple_batches(
         devel_debug=True,
         force=True,
     )
-    assert bulk_delete_spy.call_count == 2
+    bulk_calls = [c for c in post_spy.call_args_list if "/bulk-delete/" in c.args[1]]
+    if supported:
+        # One bulk deletion request per batch
+        assert len(bulk_calls) == 2
+        assert delete_spy.call_count == 0
+    else:
+        # The bulk deletion endpoint is only tried for the first batch, after
+        # which the assets are deleted one at a time
+        assert len(bulk_calls) == 1
+        assert delete_spy.call_count == 4
     records = _debug_records(capsys.readouterr().out)
     assert {p: r["status"] for p, r in records.items()} == {
         "file.txt": "Deleted",
@@ -587,6 +598,70 @@ def test_delete_failed_batch_continues(
         "file.txt",
         "subdir1/apple.txt",
     ]
+
+
+@pytest.mark.ai_generated
+def test_delete_bulk_reports_per_asset(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    # Emulate a server with the bulk deletion endpoint, whatever the server
+    # actually is, so that reporting the results of successful bulk deletion
+    # requests is always exercised
+    monkeypatch.chdir(text_dandiset.dspath)
+    text_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
+    monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
+
+    def fake_bulk_delete_assets(
+        self: RemoteDandiset, asset_ids: list[str]
+    ) -> list[str]:
+        # Delete those of the assets that belong to the version and return
+        # their IDs, as the endpoint does
+        removed = []
+        for aid in asset_ids:
+            try:
+                self.client.delete(
+                    f"{self.version_api_path}assets/{aid}/", quiet_statuses=[404]
+                )
+            except HTTP404Error:
+                continue
+            removed.append(aid)
+        return removed
+
+    bulk_delete = mocker.patch.object(
+        RemoteDandiset,
+        "_bulk_delete_assets",
+        autospec=True,
+        side_effect=fake_bulk_delete_assets,
+    )
+    dandiset = text_dandiset.dandiset
+    gone = dandiset.get_asset_by_path("subdir1/apple.txt")
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets have been looked up and
+        # before any are deleted, so delete one of them in the meantime
+        dandiset.client.delete(f"{dandiset.version_api_path}assets/{gone.identifier}/")
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    # Discard output from setting up the Dandiset
+    capsys.readouterr()
+    delete(
+        ["file.txt", "subdir1", "subdir2"],
+        dandi_instance=text_dandiset.api.instance_id,
+        devel_debug=True,
+    )
+    assert bulk_delete.call_count == 2
+    records = _debug_records(capsys.readouterr().out)
+    assert {p: (r["status"], r.get("message")) for p, r in records.items()} == {
+        "file.txt": ("Deleted", None),
+        "subdir1/apple.txt": ("Skipped", "already absent"),
+        "subdir2/banana.txt": ("Deleted", None),
+        "subdir2/coconut.txt": ("Deleted", None),
+    }
+    assert list(dandiset.get_assets()) == []
 
 
 @pytest.mark.ai_generated
