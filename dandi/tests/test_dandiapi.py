@@ -953,7 +953,7 @@ def test_published_asset_versionless_endpoints(
     """
     d = text_dandiset.dandiset
     d.wait_until_valid()
-    dv = d.for_version(d.publish().version)
+    dv = d.publish()
     asset_path = "subdir2/coconut.txt"
     asset_id = d.get_asset_by_path(asset_path).identifier
     # The very same asset is now shared by the draft and the published version
