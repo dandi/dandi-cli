@@ -749,11 +749,15 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
         return sum(p.size for p in self.iterfiles())
 
 
-def _lookup_existing_blob_id(client: RESTFullAPIClient, init_json: dict) -> str | None:
+def _lookup_existing_blob_id(
+    client: RESTFullAPIClient, init_json: dict[str, Any]
+) -> str | None:
     """
     Ask the server to initialize an upload for a blob and return the id of the
     identical blob if the server reports (via a 409 with a ``Location``
-    header) that it already exists, or `None` if there is no such blob.
+    header) that it already exists, or `None` if there is no such blob.  Note
+    that if there is no such blob, the server starts a new upload, which is
+    left uncompleted (and is expected to expire server-side).
     """
     try:
         client.post("/uploads/initialize/", json=init_json)
