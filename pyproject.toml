@@ -53,8 +53,9 @@ dependencies = [
     # TEMP: until dandi-schema#371 is released, instead of
     # "dandischema >= 0.12.0, != 0.13.0, < 0.16.0"; then restore that and make
     # sure the version checked for _SCHEMA_BAREASSET_HAS_DATASTANDARD in
-    # dandi/files/bases.py is the one of that release.
-    "dandischema @ git+https://github.com/dandi/dandi-schema.git@enh-hed",
+    # dandi/files/bases.py is the one of that release.  Pinned to the merge
+    # commit of dandi-schema#371, since its enh-hed branch is deleted.
+    "dandischema @ git+https://github.com/dandi/dandi-schema.git@0eb4d69c50cbd077834144dec0e2a2dd9ddb31b1",
     "etelemetry >= 0.2.2",
     "fasteners >= 0.19",
     "fscacher >= 0.3.0",
