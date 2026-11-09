@@ -3,8 +3,11 @@
 This module provides client classes for communicating with DANDI Archive API
 servers, including asset management, dandiset operations, and authentication.
 
-Start with :class:`DandiAPIClient`; it is the only class intended to be
-instantiated directly.  Everything else is obtained from it:
+Start with :class:`DandiAPIClient`, the main entry point; the other classes
+are normally obtained from it rather than instantiated directly.  Read-only
+operations work without authentication; operations that modify data require
+an API key (see ``DandiAPIClient.authenticate()``).  Full documentation and
+examples are in the "dandi.dandiapi" section of the Sphinx docs.
 
 - :class:`DandiAPIClient`: High-level client for DANDI API operations; yields
   :class:`RemoteDandiset` objects
