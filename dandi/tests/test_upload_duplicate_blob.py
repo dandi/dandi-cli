@@ -17,12 +17,12 @@ PART_URL = "http://storage.test/part1"
 COMPLETE_URL = "http://storage.test/complete"
 
 
-def _http_409(location: str | None = None) -> requests.HTTPError:
+def _http_error(status: int, location: str | None = None) -> requests.HTTPError:
     resp = requests.Response()
-    resp.status_code = 409
+    resp.status_code = status
     if location is not None:
         resp.headers["Location"] = location
-    return requests.HTTPError("409", response=resp)
+    return requests.HTTPError(str(status), response=resp)
 
 
 class FakeClient:
@@ -33,9 +33,10 @@ class FakeClient:
     upload, so validate returns 409 without a blob id.
     """
 
-    def __init__(self, filetag: str, size: int) -> None:
-        self.filetag = filetag
+    def __init__(self, size: int, scenario: str) -> None:
         self.size = size
+        self.scenario = scenario
+        self.init_payloads: list[Any] = []
         self.init_calls = 0
         self.posts: list[str] = []
 
@@ -43,6 +44,7 @@ class FakeClient:
         self.posts.append(path)
         if path == "/uploads/initialize/":
             self.init_calls += 1
+            self.init_payloads.append(kwargs["json"])
             if self.init_calls == 1:
                 return {
                     "upload_id": UPLOAD_ID,
@@ -50,25 +52,45 @@ class FakeClient:
                         {"part_number": 1, "size": self.size, "upload_url": PART_URL}
                     ],
                 }
-            raise _http_409(BLOB_ID)
+            if self.scenario == "no_blob":
+                return {"upload_id": "another", "parts": []}
+            raise _http_error(409, BLOB_ID if self.scenario != "no_location" else None)
         if path == f"/uploads/{UPLOAD_ID}/complete/":
             return {"complete_url": COMPLETE_URL, "body": "<x/>"}
         if path == f"/uploads/{UPLOAD_ID}/validate/":
-            raise _http_409()
+            if self.scenario == "validate_500":
+                raise _http_error(500)
+            raise _http_error(
+                409, BLOB_ID if self.scenario == "validate_location" else None
+            )
         assert path == "/dandisets/000001/versions/draft/assets/"
         assert kwargs["json"]["blob_id"] == BLOB_ID
         return {"asset_id": "a" * 8}
 
 
 @pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "scenario,status,init_calls",
+    [
+        ("lookup", None, 2),
+        ("validate_location", None, 1),
+        ("no_blob", 409, 2),
+        ("no_location", 409, 2),
+        ("validate_500", 500, 1),
+    ],
+)
 @responses.activate
-def test_iter_upload_validate_409_uses_existing_blob(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_iter_upload_validate_409(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scenario: str,
+    status: int | None,
+    init_calls: int,
 ) -> None:
     p = tmp_path / "f.bin"
     p.write_bytes(b"some content")
     etagger = get_dandietag(p)
-    client = FakeClient(etagger.as_str(), p.stat().st_size)
+    client = FakeClient(p.stat().st_size, scenario)
     dandiset = Mock(identifier="000001", client=client)
     dandiset.version_api_path = "/dandisets/000001/versions/draft/"
     responses.add(
@@ -81,6 +103,15 @@ def test_iter_upload_validate_409_uses_existing_blob(
         "dandi.files.bases.RemoteAsset.from_data", lambda ds, data: data
     )
     asset = LocalFileAsset(filepath=p, path="f.bin", dandiset_path=tmp_path)
-    statuses = list(asset.iter_upload(dandiset, {}))
-    assert statuses[-1]["status"] == "done"
-    assert client.init_calls == 2
+    if status is None:
+        statuses = list(asset.iter_upload(dandiset, {}))
+        assert statuses[-1]["status"] == "done"
+    else:
+        with pytest.raises(requests.HTTPError) as excinfo:
+            list(asset.iter_upload(dandiset, {}))
+        # the original validate error must be what propagates
+        assert excinfo.value.response.status_code == status
+        assert f"/uploads/{UPLOAD_ID}/validate/" in client.posts
+    assert client.init_calls == init_calls
+    # any re-initialization must use the very same payload
+    assert all(pl == client.init_payloads[0] for pl in client.init_payloads)

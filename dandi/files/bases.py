@@ -529,29 +529,18 @@ class LocalFileAsset(LocalAsset):
                         if e.response is None or e.response.status_code != 409:
                             raise
                         # An identical blob was uploaded concurrently (e.g.,
-                        # by another job for a file with the same content)
-                        # and the server does not tell us its id here; so
-                        # re-initialize to get its location.
+                        # for another file with the same content), and the
+                        # server does not provide its id here.
                         lgr.debug(
                             "%s: Identical blob was created concurrently;"
                             " looking up its id",
                             asset_path,
                         )
-                        try:
-                            client.post("/uploads/initialize/", json=init_json)
-                        except requests.HTTPError as e2:
-                            if (
-                                e2.response is not None
-                                and e2.response.status_code == 409
-                                and "Location" in e2.response.headers
-                            ):
-                                blob_id = e2.response.headers["Location"]
-                            else:
-                                raise
-                        else:
-                            # No existing blob after all; surface the
-                            # original error
-                            raise e
+                        blob_id = e.response.headers.get(
+                            "Location"
+                        ) or _lookup_existing_blob_id(client, init_json)
+                        if blob_id is None:
+                            raise
                     else:
                         blob_id = resp["blob_id"]
             except Exception:
@@ -758,6 +747,21 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
     def size(self) -> int:
         """The total size of the files in the directory"""
         return sum(p.size for p in self.iterfiles())
+
+
+def _lookup_existing_blob_id(client: RESTFullAPIClient, init_json: dict) -> str | None:
+    """
+    Ask the server to initialize an upload for a blob and return the id of the
+    identical blob if the server reports (via a 409 with a ``Location``
+    header) that it already exists, or `None` if there is no such blob.
+    """
+    try:
+        client.post("/uploads/initialize/", json=init_json)
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 409:
+            return e.response.headers.get("Location")
+        raise
+    return None
 
 
 def _upload_blob_part(
