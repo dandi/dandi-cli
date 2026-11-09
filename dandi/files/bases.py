@@ -439,18 +439,16 @@ class LocalFileAsset(LocalAsset):
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         total_size = pre_upload_size_check(self.filepath)
+        init_json = {
+            "contentSize": total_size,
+            "digest": {
+                "algorithm": "dandi:dandi-etag",
+                "value": filetag,
+            },
+            "dandiset": dandiset.identifier,
+        }
         try:
-            resp = client.post(
-                "/uploads/initialize/",
-                json={
-                    "contentSize": total_size,
-                    "digest": {
-                        "algorithm": "dandi:dandi-etag",
-                        "value": filetag,
-                    },
-                    "dandiset": dandiset.identifier,
-                },
-            )
+            resp = client.post("/uploads/initialize/", json=init_json)
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 409:
                 lgr.debug("%s: Blob already exists on server", asset_path)
@@ -525,8 +523,37 @@ class LocalFileAsset(LocalAsset):
                                 f" client says {filetag}"
                             )
                     # else: Error? Warning?
-                    resp = client.post(f"/uploads/{upload_id}/validate/")
-                    blob_id = resp["blob_id"]
+                    try:
+                        resp = client.post(f"/uploads/{upload_id}/validate/")
+                    except requests.HTTPError as e:
+                        if e.response is None or e.response.status_code != 409:
+                            raise
+                        # An identical blob was uploaded concurrently (e.g.,
+                        # by another job for a file with the same content)
+                        # and the server does not tell us its id here; so
+                        # re-initialize to get its location.
+                        lgr.debug(
+                            "%s: Identical blob was created concurrently;"
+                            " looking up its id",
+                            asset_path,
+                        )
+                        try:
+                            client.post("/uploads/initialize/", json=init_json)
+                        except requests.HTTPError as e2:
+                            if (
+                                e2.response is not None
+                                and e2.response.status_code == 409
+                                and "Location" in e2.response.headers
+                            ):
+                                blob_id = e2.response.headers["Location"]
+                            else:
+                                raise
+                        else:
+                            # No existing blob after all; surface the
+                            # original error
+                            raise e
+                    else:
+                        blob_id = resp["blob_id"]
             except Exception:
                 post_upload_size_check(self.filepath, total_size, True)
                 raise
