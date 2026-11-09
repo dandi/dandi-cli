@@ -43,13 +43,15 @@ def _load_dataset_description(filepath: Path) -> dict[str, Any] | None:
     return content if isinstance(content, dict) else None
 
 
-def is_bids_dataset_description(filepath: Path) -> bool:
+def bids_dataset_description_problem(filepath: Path) -> str | None:
     """
-    Whether there is a :file:`dataset_description.json` file at ``filepath``
-    marking a BIDS dataset, i.e., a JSON object with a ``"BIDSVersion"`` field
+    Why the :file:`dataset_description.json` file at ``filepath`` does not mark
+    a BIDS dataset, if it does not
 
-    The field may still be invalid (e.g., empty), for the BIDS validator to
-    report on.
+    It marks one if it is a JSON object with a ``"BIDSVersion"`` field, which may
+    still be invalid (e.g., empty), or if it is not valid JSON but contains
+    ``"BIDSVersion"`` (e.g., a trailing comma), for the BIDS validator to report
+    on.
 
     Parameters
     ----------
@@ -58,12 +60,29 @@ def is_bids_dataset_description(filepath: Path) -> bool:
 
     Returns
     -------
-    bool
-        `False` also if the file does not exist or cannot be read (e.g., a
-        symlink to annexed content which is not present)
+    str | None
+        `None` if the file marks a BIDS dataset, the reason otherwise, e.g., that
+        it cannot be read (as a symlink to annexed content which is not present)
     """
-    content = _load_dataset_description(filepath)
-    return content is not None and "BIDSVersion" in content
+    try:
+        raw = filepath.read_bytes()
+    except OSError:
+        return "cannot be read"
+    try:
+        content = json.loads(raw.decode("utf-8-sig"))
+    except ValueError:
+        return None if b"BIDSVersion" in raw else 'is not valid JSON with "BIDSVersion"'
+    if isinstance(content, dict) and "BIDSVersion" in content:
+        return None
+    return 'has no "BIDSVersion" field'
+
+
+def is_bids_dataset_description(filepath: Path) -> bool:
+    """
+    Whether there is a :file:`dataset_description.json` file at ``filepath``
+    marking a BIDS dataset; see `bids_dataset_description_problem()`
+    """
+    return bids_dataset_description_problem(filepath) is None
 
 
 @dataclass

@@ -104,6 +104,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     assert target_metadata == metadata
 
 
+@pytest.mark.ai_generated
 def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> None:
     """
     Notes
@@ -129,6 +130,10 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
     assert metadata["subject_id"] == "01"
     # This is a key sourced from NWB only:
     assert metadata["sex"] == "U"
+    # The BIDS version the dataset declares
+    # (https://github.com/dandi/dandi-cli/issues/1961)
+    declared = json.loads((dpath / "dataset_description.json").read_text())
+    assert metadata["bids_version"] == declared["BIDSVersion"]
 
 
 @pytest.mark.ai_generated

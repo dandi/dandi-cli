@@ -6,9 +6,12 @@ validates against, not the version of BIDS; see
 https://github.com/bids-standard/bids-validator/issues/10#issuecomment-2848121538.
 Until it does, the BIDS version is looked up in the mapping that bids-schema
 publishes (https://github.com/bids-standard/bids-schema/issues/20): first in the
-copy bundled as :file:`dandi/data/bids_schema_to_bids.json` (refresh it from
-`SCHEMA_TO_BIDS_URL`), then, for schema versions newer than that copy, in the
-published one.
+copy bundled as :file:`dandi/data/bids_schema_to_bids.json`, then, for schema
+versions not in that copy (e.g., newer ones), in the published one.
+
+To refresh the bundled copy, download `SCHEMA_TO_BIDS_URL` over it::
+
+    curl -fsSL -o dandi/data/bids_schema_to_bids.json "$SCHEMA_TO_BIDS_URL"
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from __future__ import annotations
 from functools import cache
 import json
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import requests
@@ -33,6 +37,9 @@ _BUNDLED_SCHEMA_TO_BIDS = (
     Path(__file__).resolve().parent.parent / "data" / "bids_schema_to_bids.json"
 )
 
+# So that concurrent validations fetch the published mapping only once
+_published_mapping_lock = Lock()
+
 
 def get_bids_version(schema_version: str | None) -> str | None:
     """
@@ -46,22 +53,21 @@ def get_bids_version(schema_version: str | None) -> str | None:
     Returns
     -------
     str | None
-        The BIDS version, e.g. ``"1.11.1"``.  For a schema released between BIDS
-        releases, the preceding BIDS release followed by the number of commits
-        since it and the commit of the schema release, e.g.
-        ``"1.11.1+22-ge37e21053"``.  `None` if ``schema_version`` is `None` or
+        The BIDS release, e.g. ``"1.11.1"``; for a schema released between BIDS
+        releases, the preceding one.  `None` if ``schema_version`` is `None` or
         unknown.
     """
     if schema_version is None:
         return None
     if (bids_version := _bundled_mapping().get(schema_version)) is None:
-        bids_version = _published_mapping().get(schema_version)
+        with _published_mapping_lock:
+            bids_version = _published_mapping().get(schema_version)
     return bids_version
 
 
 def _parse_mapping(data: Any) -> dict[str, str]:
     return {
-        schema_version: record["bids_version_exact"]
+        schema_version: record["bids_version_released"]
         for schema_version, record in data.items()
     }
 
@@ -79,7 +85,7 @@ def _published_mapping() -> dict[str, str]:
         return _parse_mapping(r.json())
     except Exception as e:
         # Without it, we just do not know the BIDS version
-        lgr.warning(
+        lgr.info(
             "Failed to obtain mapping of BIDS schema versions to BIDS versions "
             "from %s: %s",
             SCHEMA_TO_BIDS_URL,
