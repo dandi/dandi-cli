@@ -21,7 +21,7 @@ import urllib.parse
 if TYPE_CHECKING:
     from ..upload import ZarrMode
 
-from dandischema.models import BareAsset, DigestType
+from dandischema.models import BareAsset, DigestType, StandardsType, ome_ngff_standard
 from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
@@ -55,7 +55,7 @@ from dandi.utils import (
     pre_upload_size_check,
 )
 
-from .bases import LocalDirectoryAsset
+from .bases import LocalDirectoryAsset, _add_data_standard
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     MissingFileContent,
@@ -466,6 +466,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         metadata = get_default_metadata(self.filepath, digest=digest)
         metadata.encodingFormat = ZARR_MIME_TYPE
         metadata.path = self.path
+        if self.path.endswith(".ome.zarr"):
+            _add_data_standard(metadata, StandardsType(**ome_ngff_standard))
         return metadata
 
     def get_validation_errors(
