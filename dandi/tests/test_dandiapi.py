@@ -1375,6 +1375,31 @@ def test_delete_assets_falls_back_on_404(
 
 @pytest.mark.ai_generated
 @responses.activate
+def test_delete_assets_fallback_logged_once(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Use of the fallback is logged at INFO level (see "Compatibility with
+    # dandi-archive instances" in DEVELOPMENT.md), and only once per client
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    responses.add(responses.GET, VERSION_URL, json={})
+    ids = [str(uuid4()) for _ in range(3)]
+    for aid in ids:
+        responses.add(responses.DELETE, _single_delete_url(aid), status=204)
+    ds = _bulk_delete_dandiset()
+    with caplog.at_level(logging.DEBUG, logger="dandi"):
+        ds.delete_assets(ids)
+    msg = (
+        f"{ds}: server does not support bulk asset deletion; deleting assets one"
+        " at a time"
+    )
+    assert [t for t in caplog.record_tuples if "bulk asset deletion" in t[2]] == [
+        ("dandi", logging.INFO, msg)
+    ]
+
+
+@pytest.mark.ai_generated
+@responses.activate
 def test_delete_assets_404_for_missing_version() -> None:
     responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
     responses.add(responses.GET, VERSION_URL, status=404, json={"detail": "Not found."})
@@ -1482,8 +1507,9 @@ def test_delete_assets_other_errors_not_handled(status: int) -> None:
 @pytest.mark.ai_generated
 @responses.activate
 def test_delete_assets_requires_draft() -> None:
+    # Raised when `iter_delete_assets()` is called, before it is iterated over
     with pytest.raises(ValueError, match="only the draft version"):
-        _bulk_delete_dandiset("0.210831.2033").delete_assets([str(uuid4())])
+        _bulk_delete_dandiset("0.210831.2033").iter_delete_assets([str(uuid4())])
     assert len(_bulk_delete_calls()) == 0
 
 
@@ -1503,8 +1529,10 @@ def test_delete_assets_rejects_asset_from_other_dandiset() -> None:
             "blob": str(uuid4()),
         },
     )
+    # Raised when `iter_delete_assets()` is called, before it is iterated over,
+    # even if valid assets precede the offending one
     with pytest.raises(ValueError, match="belongs to 000002/draft"):
-        ds.delete_assets([str(uuid4()), asset])
+        ds.iter_delete_assets([str(uuid4()), asset])
     assert len(_bulk_delete_calls()) == 0
 
 

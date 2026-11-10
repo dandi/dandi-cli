@@ -422,6 +422,7 @@ def test_delete_within_zarr_refused(mocker: MockerFixture, suffix: str) -> None:
     `AssetZarrEntryURL.get_assets()` yields the Zarr asset itself, so without
     a guard the deletion would take every entry, not the named ones.
     """
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotImplementedError) as excinfo:
         delete(
@@ -431,6 +432,7 @@ def test_delete_within_zarr_refused(mocker: MockerFixture, suffix: str) -> None:
             force=True,
         )
     assert "Cannot delete individual entries within a Zarr asset" in str(excinfo.value)
+    post_spy.assert_not_called()
     delete_spy.assert_not_called()
 
 
@@ -505,6 +507,41 @@ def test_delete_non_draft_assets_not_deleted(
         "subdir2/banana.txt",
         "subdir2/coconut.txt",
     }
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("suffix", ["", "/"])
+def test_delete_zarr_url_at_boundary(
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    zarr_dandiset: SampleDandiset,
+    tmp_path: Path,
+    suffix: str,
+) -> None:
+    """A URL ending *at* a Zarr deletes the asset, with or without a slash.
+
+    The trailing-slash spelling used to fail with `NotFoundError`, since
+    `AssetFolderURL` could never match the asset's own slash-less path.  It now
+    names the asset, like the slash-less spelling always has -- including for
+    the GUI's "browse to this Zarr" URL, whose trailing slash the parser adds.
+    """
+    zarr_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
+    instance = zarr_dandiset.api.instance_id
+    # The asset is deleted with a bulk deletion request, or with a single-asset
+    # deletion request on servers without bulk deletion
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    delete(
+        [f"dandi://{instance}/{zarr_dandiset.dandiset_id}/sample.zarr{suffix}"],
+        dandi_instance=instance,
+        devel_debug=True,
+        force=True,
+    )
+    assert post_spy.called or delete_spy.called
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [
+        tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml"
+    ]
 
 
 def test_delete_no_dandiset(
