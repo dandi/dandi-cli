@@ -580,7 +580,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         :param RemoteAsset replacing:
             If set, replace the given asset, which must have the same path as
             the new asset; if the old asset is a Zarr, the Zarr will be updated
-            & reused for the new asset
+            & reused for the new asset, unless the local Zarr differs from it
+            and it is published and thus immutable, in which case a new Zarr
+            with the same name is created for the new asset
         :returns:
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
@@ -618,11 +620,19 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         " associated with any asset; reusing",
                         asset_path,
                     )
+                    # Published Zarrs are immutable and, on servers which
+                    # allow publishing Dandisets with Zarrs
+                    # (https://github.com/dandi/dandi-archive/pull/3006), any
+                    # number of them may share the name with the one
+                    # unpublished Zarr, which is the one to reuse.  Servers
+                    # without that feature ignore the "published" parameter
+                    # and have at most one Zarr of a given name.
                     (old_zarr,) = client.paginate(
                         "/zarr/",
                         params={
                             "dandiset": dandiset.identifier,
                             "name": asset_path,
+                            "published": "false",
                         },
                     )
                     zarr_id = old_zarr["zarr_id"]
@@ -633,6 +643,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             assert isinstance(zarr_id, str)
             return zarr_id
 
+        # Whether the Zarr of the asset being replaced is used for the upload,
+        # in which case it could turn out to be published, i.e. immutable
+        reusing_zarr = False
         if replacing is not None:
             lgr.debug("%s: Replacing pre-existing asset", asset_path)
             if isinstance(replacing, RemoteZarrAsset):
@@ -640,6 +653,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     "%s: Pre-existing asset is a Zarr; reusing & updating", asset_path
                 )
                 zarr_id = replacing.zarr
+                reusing_zarr = True
             else:
                 lgr.debug(
                     "%s: Pre-existing asset is not a Zarr; minting new Zarr", asset_path
@@ -658,6 +672,41 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
+
+        def replace_published_zarr() -> RemoteZarrAsset | None:
+            """
+            If the Zarr about to be modified is published, mint a new Zarr
+            with the same name, point the asset at it, and return the updated
+            asset.  Return `None` if the Zarr can be modified in place.
+            """
+            nonlocal zarr_id, reusing_zarr
+            if not reusing_zarr:
+                # Freshly minted, or found unpublished by mkzarr()
+                return None
+            reusing_zarr = False
+            if not _is_published_zarr(client, zarr_id):
+                return None
+            if zarr_mode == "patch":
+                raise UploadError(
+                    f"{asset_path}: Zarr {zarr_id} is published and can no"
+                    " longer be modified.  Changes must be uploaded as a new"
+                    " Zarr, which requires the full local copy: rerun without"
+                    " --zarr-mode=patch."
+                )
+            lgr.info(
+                "%s: Zarr %s is published and can no longer be modified;"
+                " uploading as a new Zarr",
+                asset_path,
+                zarr_id,
+            )
+            zarr_id = mkzarr()
+            new_asset = RemoteAsset.from_data(
+                dandiset,
+                client.put(a.api_path, json={"metadata": metadata, "zarr_id": zarr_id}),
+            )
+            assert isinstance(new_asset, RemoteZarrAsset)
+            return new_asset
+
         mismatched = True
         first_run = True
         unchanged = False
@@ -753,6 +802,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     mismatched = False
                     unchanged = True
                     break
+                if (new_asset := replace_published_zarr()) is not None:
+                    a = new_asset
+                    yield {
+                        "status": "producing asset",
+                        "message": "remote Zarr is published; uploading as new",
+                    }
+                    # Start over, now against the new, empty Zarr
+                    continue
                 bytes_add = sum(e.size for e in to_upload.fresh_entries)
                 bytes_modify = sum(it.size for it in to_upload.digested_entries)
                 clauses = []
@@ -776,6 +833,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         status="deleting conflicting remote files",
                     )
             else:
+                if (new_asset := replace_published_zarr()) is not None:
+                    a = new_asset
                 yield {"status": "traversing local Zarr"}
                 for local_entry in self.iterfiles():
                     total_size += local_entry.size
@@ -975,6 +1034,27 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         else:
             lgr.info("%s: Asset successfully uploaded", asset_path)
             yield {"status": "done", "asset": a}
+
+
+def _is_published_zarr(client: RESTFullAPIClient, zarr_id: str) -> bool:
+    """
+    Return whether the Zarr with the given ID is published, and hence can no
+    longer be modified.
+
+    dandi-archive instances which allow publishing Dandisets containing Zarrs
+    (https://github.com/dandi/dandi-archive/pull/3006) report a ``published``
+    flag for each Zarr.  Instances without that feature do not, and all their
+    Zarrs are modifiable.  The absence of the flag need not be accounted for
+    once all supported instances deploy that feature.
+    """
+    published = client.get(f"/zarr/{zarr_id}/").get("published")
+    if published is None:
+        lgr.debug(
+            "Server does not report whether Zarr %s is published;"
+            " assuming it is modifiable",
+            zarr_id,
+        )
+    return bool(published)
 
 
 def _handle_failed_items_and_raise(
