@@ -49,6 +49,7 @@ from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
 from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
+from ..misctypes import _RemFileReader
 from ..utils import list_paths
 
 # These tests exercise the 0.8.0 -> 0.7.0 downgrade wiring, which requires
@@ -1176,6 +1177,30 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
     fp = asset.as_readable().open()
     try:
         assert fp.read() == b"This is test text.\n"
+    finally:
+        fp.close()
+
+
+@pytest.mark.ai_generated
+def test_asset_as_readable_open_hdf5(
+    new_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    # HDF5-based files are read with remfile
+    p = tmp_path / "foo.h5"
+    data = bytes(range(256)) * 1000
+    p.write_bytes(data)
+    d = new_dandiset.dandiset
+    d.upload_raw_asset(p, {"path": "foo.h5"})
+    (asset,) = d.get_assets()
+    assert isinstance(asset, RemoteBlobAsset)
+    fp = asset.as_readable().open()
+    try:
+        assert isinstance(fp, _RemFileReader)
+        assert fp.read(10) == data[:10]
+        fp.seek(-5, 2)
+        assert fp.read() == data[-5:]
+        fp.seek(1000)
+        assert fp.read() == data[1000:]
     finally:
         fp.close()
 

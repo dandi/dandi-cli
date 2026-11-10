@@ -11,11 +11,14 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatchcase
+import io
 import os.path
 from pathlib import Path
-from typing import IO, TypeVar, cast
+from typing import IO, Any, TypeVar, cast
 
 from dandischema.models import DigestType
+import remfile
+import requests
 
 
 @dataclass
@@ -316,17 +319,100 @@ class LocalReadableFile(Readable):
         return self.filepath.name
 
 
+#: Suffixes (compared case-insensitively) of the names of HDF5-based files
+#: (such as NWB), which `RemoteReadableAsset.open()` reads with remfile_
+HDF5_SUFFIXES = (".nwb", ".h5", ".hdf5")
+
+#: Timeouts (connect, read; in seconds) of the HTTP requests made by
+#: `RemoteReadableAsset.open()` for HDF5-based files, so that a stalled
+#: connection fails (and is retried by remfile) instead of hanging forever
+REMFILE_TIMEOUT: tuple[float, float] = (30, 60)
+
+
+class _TimeoutSession(requests.Session):
+    """A `requests.Session` that applies a default timeout to all requests"""
+
+    def __init__(self, timeout: tuple[float, float]) -> None:
+        super().__init__()
+        self.timeout = timeout
+
+    def request(self, *args: Any, **kwargs: Any) -> requests.Response:
+        kwargs.setdefault("timeout", self.timeout)
+        return super().request(*args, **kwargs)
+
+
+class _RemFileReader(io.RawIOBase):
+    """
+    A seekable, read-only binary file object around a `remfile.File`, for
+    consumers (such as h5py) that read with ``readinto()``.  Reads never go
+    past the end of the file, which remfile does not handle.
+    """
+
+    def __init__(self, fp: remfile.File, session: requests.Session) -> None:
+        super().__init__()
+        self._fp = fp
+        self._session = session
+        self._size = int(fp.length)
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def readinto(self, buffer: Any) -> int:
+        view = memoryview(buffer).cast("B")
+        n = min(len(view), max(self._size - self._fp.tell(), 0))
+        if n == 0:
+            return 0
+        data = self._fp.read(n)
+        view[: len(data)] = data
+        return len(data)
+
+    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
+        if whence == io.SEEK_SET:
+            pos = offset
+        elif whence == io.SEEK_CUR:
+            pos = self.tell() + offset
+        elif whence == io.SEEK_END:
+            pos = self._size + offset
+        else:
+            raise ValueError(f"Invalid whence: {whence!r}")
+        if pos < 0:
+            raise ValueError(f"Negative seek position: {pos}")
+        self._fp.seek(pos)
+        return pos
+
+    def tell(self) -> int:
+        return int(self._fp.tell())
+
+    def close(self) -> None:
+        if not self.closed:
+            self._fp.close()
+            self._session.close()
+        super().close()
+
+
 @dataclass
 class RemoteReadableAsset(Readable):
     """
     A concrete implementation of `Readable` for DANDI blob assets on a remote
-    server.  The fsspec_ library must be installed with the ``http`` extra
-    (e.g., ``pip install "fsspec[http]"``) in order for `.open()` to be usable.
+    server.
+
+    `.open()` reads HDF5-based files (such as NWB; see `HDF5_SUFFIXES`) with
+    remfile_, and other files with fsspec_, which must be installed with the
+    ``http`` extra (e.g., ``pip install "fsspec[http]"``) in order for `.open()`
+    to be usable for them.
 
     Instances of this class are obtained by calling
     `BaseRemoteBlobAsset.as_readable()`.
 
+    .. versionchanged:: 0.83.0
+
+        HDF5-based files are read with remfile instead of fsspec
+
     .. _fsspec: http://github.com/fsspec/filesystem_spec
+    .. _remfile: https://github.com/flatironinstitute/remfile
     """
 
     #: The URL that data is read from
@@ -342,6 +428,36 @@ class RemoteReadableAsset(Readable):
     name: str
 
     def open(self) -> IO[bytes]:
+        if self.name.lower().endswith(HDF5_SUFFIXES):
+            return self._open_remfile()
+        else:
+            return self._open_fsspec()
+
+    def _open_remfile(self) -> IO[bytes]:
+        # h5py holds a global lock while it calls the read methods of a file
+        # object.  fsspec reads in a separate thread (running its asyncio event
+        # loop), so if a garbage collection runs in that thread while h5py
+        # waits for a read, and frees h5py objects, their finalizers wait for
+        # h5py's lock, which is never released: a deadlock
+        # (https://github.com/dandi/dandi-cli/issues/1450).  remfile makes its
+        # HTTP requests in the calling thread, where a garbage collection can
+        # take h5py's (reentrant) lock.  It does so only with `_max_threads=1`
+        # (the default; it is passed explicitly in case that ever changes): with
+        # more, it fetches large ranges in a thread pool, which would
+        # reintroduce the deadlock.
+        #
+        # `_size`: the size is known, so remfile does not need to request it
+        # (with a request that would have no timeout).
+        fp = remfile.File(self.url, _size=self.size, _max_threads=1)
+        # remfile does not set timeouts on its requests, so that a stalled
+        # connection would hang forever; its requests (made with its
+        # `session`) time out with this session, and are then retried by
+        # remfile with backoff.
+        fp.session.close()
+        session = fp.session = _TimeoutSession(REMFILE_TIMEOUT)
+        return cast(IO[bytes], _RemFileReader(fp, session))
+
+    def _open_fsspec(self) -> IO[bytes]:
         # Optional dependency:
         from aiohttp import ClientTimeout
         import fsspec

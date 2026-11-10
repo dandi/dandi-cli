@@ -250,9 +250,6 @@ def service_scripts() -> None:
 def reextract_metadata(url: str, diff: bool, when: str) -> None:
     """
     Recompute & update the metadata for NWB assets on a remote server.
-
-    Running this command requires the fsspec library to be installed with the
-    `http` extra (e.g., `pip install "fsspec[http]"`).
     """
     from ..metadata.nwb import nwb2asset  # Avoid heavy import at top level
 
