@@ -189,6 +189,11 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         ----
             This value is not necessarily the version of BIDS used in validation;
             see `get_validation_bids_version()`.
+
+        .. versionchanged:: 0.83.0
+            The declared version, rather than the version of BIDS used in
+            validation, which was always `None` with the deno-compiled BIDS
+            validator
         """
         content = _load_dataset_description(self.filepath) or {}
         v = content.get("BIDSVersion")

@@ -244,6 +244,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.ai_generated
 def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     mkpaths(
         tmp_path,
@@ -776,20 +777,45 @@ def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> Non
 @pytest.mark.parametrize(
     "content, problem, bids_version",
     [
-        ('{"Name": "x", "BIDSVersion": "1.9.0"}', None, "1.9.0"),
-        ('\ufeff{"Name": "x", "BIDSVersion": "1.9.0"}', None, "1.9.0"),
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": "1.9.0"}', None, "1.9.0", id="valid"
+        ),
+        pytest.param(
+            '\ufeff{"Name": "x", "BIDSVersion": "1.9.0"}', None, "1.9.0", id="bom"
+        ),
         # Invalid but declared BIDS datasets, for the BIDS validator to report on
-        ('{"Name": "x", "BIDSVersion": ""}', None, None),
-        ('{"Name": "x", "BIDSVersion": 1.9}', None, None),
-        ('{"Name": "x", "BIDSVersion": "1.9.0",}', None, None),
-        ('{"Name": "\xe9t\xe9", "BIDSVersion": "1.9.0"}'.encode("latin-1"), None, None),
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": ""}', None, None, id="empty-version"
+        ),
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": 1.9}', None, None, id="non-string-version"
+        ),
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": "1.9.0",}', None, None, id="invalid-json"
+        ),
+        pytest.param(
+            '{"Name": "\xe9t\xe9", "BIDSVersion": "1.9.0"}'.encode("latin-1"),
+            None,
+            None,
+            id="latin-1",
+        ),
         # Not BIDS datasets
-        ('{"Name": "x"}', 'has no "BIDSVersion" field', None),
-        ("[]", 'has no "BIDSVersion" field', None),
-        ("", 'is not valid JSON with "BIDSVersion"', None),
-        ('{"Name": "x",}', 'is not valid JSON with "BIDSVersion"', None),
-        # broken symlink, e.g., to annexed content which is not present
-        (None, "cannot be read", None),
+        pytest.param(
+            '{"Name": "x"}', 'has no "BIDSVersion" field', None, id="no-version"
+        ),
+        pytest.param("[]", 'has no "BIDSVersion" field', None, id="list"),
+        pytest.param(
+            '["BIDSVersion"]', 'has no "BIDSVersion" field', None, id="list-with-key"
+        ),
+        pytest.param("", 'is not valid JSON with "BIDSVersion"', None, id="empty"),
+        pytest.param(
+            '{"Name": "x",}',
+            'is not valid JSON with "BIDSVersion"',
+            None,
+            id="invalid-json-no-version",
+        ),
+        # e.g., to annexed content which is not present
+        pytest.param(None, "cannot be read", None, id="broken-symlink"),
     ],
 )
 def test_bids_dataset_description_bids_version(
@@ -802,7 +828,7 @@ def test_bids_dataset_description_bids_version(
 ) -> None:
     ds_path = tmp_path / ds
     dd_path = ds_path / "dataset_description.json"
-    mkpaths(ds_path, "sub-01/sub-01.nwb")
+    mkpaths(ds_path, "sub-01/sub-01.nwb", "sub-01/notes.txt")
     if content is None:
         try:
             dd_path.symlink_to(tmp_path / "absent")
@@ -836,6 +862,12 @@ def test_bids_dataset_description_bids_version(
         assert f"{problem}, so not treating" in caplog.text
         # and not BIDS without allow_all either, so non-NWB files are skipped
         assert file_types() == {"sub-01/sub-01.nwb": NWBAsset}
+        # warned about the marker file only, once per walk
+        warnings = [
+            r.getMessage() for r in caplog.records if "not treating" in r.getMessage()
+        ]
+        assert len(warnings) == 2
+        assert all("dataset_description.json" in w for w in warnings)
 
 
 @pytest.mark.ai_generated

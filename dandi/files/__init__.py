@@ -96,6 +96,12 @@ def find_dandi_files(
     .. versionchanged:: 0.82.0
         Missing requested paths now raise `FileNotFoundError` on iteration.
 
+    .. versionchanged:: 0.83.0
+        A directory is a BIDS dataset only if its :file:`dataset_description.json`
+        declares ``"BIDSVersion"``; see ``is_bids_dataset_description()`` in
+        `dandi.files.bids`.  Otherwise it is regular DANDI layout, and a warning
+        says why.
+
     :param dandiset_path:
         The path to the root of the Dandiset in which the paths are located.
         All paths in ``paths`` must be equal to or subpaths of
@@ -152,11 +158,11 @@ def find_dandi_files(
                     # (ie., it's not a Zarr or any other directory asset type
                     # we may add later), so traverse through it as a regular
                     # directory.
-                    if is_bids_dataset_description(
-                        p / BIDS_DATASET_DESCRIPTION
-                    ) and not any(
+                    if not any(
                         i in p.parents for i in bids_roots
-                    ):  # No nested BIDS
+                    ) and is_bids_dataset_description(  # No nested BIDS
+                        p / BIDS_DATASET_DESCRIPTION
+                    ):
                         bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                         assert isinstance(bids2, BIDSDatasetDescriptionAsset)
                         bidsdd = bids2
@@ -234,9 +240,13 @@ def find_bids_dataset_description(
     .. versionadded:: 0.46.0
 
     Look for the topmost :file:`dataset_description.json` file marking a BIDS
-    dataset (see `~dandi.files.bids.is_bids_dataset_description()`) in the
+    dataset (see ``is_bids_dataset_description()`` in `dandi.files.bids`) in the
     directory ``dirpath`` and each of its parents, stopping when a
     :file:`dandiset.yaml` file is found or ``dandiset_path`` is reached.
+
+    .. versionchanged:: 0.83.0
+        Only a :file:`dataset_description.json` declaring ``"BIDSVersion"``
+        marks a BIDS dataset.
     """
     topmost: BIDSDatasetDescriptionAsset | None = None
     dirpath = Path(dirpath)

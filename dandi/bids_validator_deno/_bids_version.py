@@ -5,8 +5,9 @@ The deno-compiled BIDS validator reports only the version of the BIDS schema it
 validates against, not the version of BIDS; see
 https://github.com/bids-standard/bids-validator/issues/10#issuecomment-2848121538.
 Until it does, the BIDS version is looked up in the mapping that bids-schema
-publishes (https://github.com/bids-standard/bids-schema/issues/20): first in the
-copy bundled as :file:`dandi/data/bids_schema_to_bids.json`, then, for schema
+publishes (https://github.com/bids-standard/bids-schema/issues/20, added in
+https://github.com/bids-standard/bids-schema/pull/21): first in the copy
+bundled as :file:`dandi/data/bids_schema_to_bids.json`, then, for schema
 versions not in that copy (e.g., newer ones), in the published one.
 
 To refresh the bundled copy, download `SCHEMA_TO_BIDS_URL` over it::
