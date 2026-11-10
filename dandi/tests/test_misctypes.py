@@ -11,11 +11,12 @@ import h5py
 from h5py._objects import phil
 import pytest
 from pytest_mock import MockerFixture
+import remfile
 import remfile.RemFile
 import requests
 import responses
 
-from ..misctypes import REMFILE_TIMEOUT, RemoteReadableAsset, _RemFile
+from ..misctypes import RemoteReadableAsset
 from ..pynwb_utils import get_nwb_version
 
 URL = "https://example.com/blobs/abc/def/abcdef"
@@ -58,7 +59,7 @@ def test_remote_readable_asset_hdf5_uses_remfile(
     mocker.patch.object(fsspec, "open", no_fsspec)
     r = RemoteReadableAsset(url=URL, size=len(h5_data), mtime=None, name=name)
     fp: Any = r.open()
-    assert isinstance(fp, _RemFile)
+    assert isinstance(fp, remfile.File)
     with fp:
         with h5py.File(fp, "r") as f:
             assert f.attrs["nwb_version"] == "2.8.0"
@@ -67,7 +68,7 @@ def test_remote_readable_asset_hdf5_uses_remfile(
     assert responses.calls
     for c in responses.calls:
         assert "Range" in c.request.headers
-        assert c.request.req_kwargs["timeout"] == REMFILE_TIMEOUT  # type: ignore[attr-defined]
+        assert c.request.req_kwargs["timeout"] is not None  # type: ignore[attr-defined]
     assert get_nwb_version(r) == "2.8.0"
 
 

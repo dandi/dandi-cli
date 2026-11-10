@@ -75,10 +75,11 @@ dependencies = [
     "nwbinspector >= 0.7.2",
     "pyout >= 0.7.3",
     "python-dateutil >= 2.9.0",
-    # For reading remote HDF5-based files (RemoteReadableAsset.open()).
-    # 0.1.14 checks the HTTP status of responses, so that an error response is
-    # not returned as file data.
-    "remfile >= 0.1.14",
+    # For reading remote HDF5-based files (RemoteReadableAsset.open()).  Needs
+    # request timeouts and use as a context manager, from
+    # https://github.com/magland/remfile/pull/20; until a release has them,
+    # install that branch.  TODO: replace with "remfile >= 0.1.16" once released.
+    "remfile @ git+https://github.com/CodyCBakerPhD/remfile@timeout-and-context-manager",
     # Floor raised: urllib3 2.x requires requests >= 2.30.
     "requests ~= 2.30",
     # Floor raised: modern hdmf/pynwb chain requires >= 0.16.

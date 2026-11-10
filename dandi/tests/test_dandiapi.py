@@ -23,6 +23,7 @@ from dandischema.models import (
 from packaging.version import Version as _PackagingVersion
 import pytest
 from pytest_mock import MockerFixture
+import remfile
 import requests
 import responses
 
@@ -49,7 +50,6 @@ from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
 from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
-from ..misctypes import _RemFile
 from ..utils import list_paths
 
 # These tests exercise the 0.8.0 -> 0.7.0 downgrade wiring, which requires
@@ -1195,7 +1195,7 @@ def test_asset_as_readable_open_hdf5(
     assert isinstance(asset, RemoteBlobAsset)
     fp = asset.as_readable().open()
     try:
-        assert isinstance(fp, _RemFile)
+        assert isinstance(fp, remfile.File)
         assert fp.read(10) == data[:10]
         fp.seek(1000)
         assert fp.read(len(data) - 1000) == data[1000:]
