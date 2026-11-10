@@ -1332,16 +1332,29 @@ def test_delete_assets_matches_returned_ids() -> None:
 
 
 @pytest.mark.ai_generated
+@pytest.mark.parametrize("nmissing", [1, 2])
 @responses.activate
-def test_delete_assets_no_skip_missing() -> None:
-    ids = [str(uuid4()) for _ in range(2)]
-    _add_bulk_delete_response(missing=[ids[1]])
+def test_delete_assets_no_skip_missing(nmissing: int) -> None:
+    ids = [str(uuid4()) for _ in range(3)]
+    missing = ids[1 : 1 + nmissing]
+    _add_bulk_delete_response(missing=missing)
+    ds = _bulk_delete_dandiset()
     with pytest.raises(AssetsNotFoundError) as excinfo:
-        _bulk_delete_dandiset().delete_assets(ids, skip_missing=False)
-    assert excinfo.value.missing_asset_ids == {ids[1]}
+        ds.delete_assets(ids, skip_missing=False)
+    assert excinfo.value.missing_asset_ids == set(missing)
     # The server deletes the assets that do belong to the version regardless
-    assert excinfo.value.deleted_asset_ids == [ids[0]]
+    assert excinfo.value.deleted_asset_ids == [i for i in ids if i not in missing]
     assert len(_bulk_delete_calls()) == 1
+    if nmissing == 1:
+        assert str(excinfo.value) == (
+            f"{ds}: asset {missing[0]} does not belong to the version and was"
+            " not deleted"
+        )
+    else:
+        assert str(excinfo.value) == (
+            f"{ds}: assets not belonging to the version were not deleted:"
+            f" {', '.join(missing)}"
+        )
 
 
 @pytest.mark.ai_generated
@@ -1472,21 +1485,49 @@ def test_delete_assets_fallback_skips_missing(
 @pytest.mark.ai_generated
 @responses.activate
 def test_delete_assets_fallback_no_skip_missing() -> None:
+    # As with bulk deletion, the whole batch is processed before the error is
+    # raised
     responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
     responses.add(responses.GET, VERSION_URL, json={})
-    ids = [str(uuid4()) for _ in range(3)]
-    responses.add(responses.DELETE, _single_delete_url(ids[0]), status=204)
-    responses.add(
-        responses.DELETE,
-        _single_delete_url(ids[1]),
-        status=404,
-        json={"detail": "Not found."},
-    )
+    ids = [str(uuid4()) for _ in range(4)]
+    for aid in ids:
+        responses.add(
+            responses.DELETE,
+            _single_delete_url(aid),
+            status=404 if aid in ids[1:3] else 204,
+            json={"detail": "Not found."} if aid in ids[1:3] else None,
+        )
     with pytest.raises(AssetsNotFoundError) as excinfo:
         _bulk_delete_dandiset().delete_assets(ids, skip_missing=False)
-    assert excinfo.value.missing_asset_ids == {ids[1]}
-    assert excinfo.value.deleted_asset_ids == [ids[0]]
-    assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids[:2]]
+    assert excinfo.value.missing_asset_ids == set(ids[1:3])
+    assert excinfo.value.deleted_asset_ids == [ids[0], ids[3]]
+    assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids]
+    # The version is checked once when bulk deletion fails, and once more for
+    # the first missing asset
+    assert len(_version_calls()) == 2
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_assets_fallback_missing_version() -> None:
+    # Once the client knows that the server lacks bulk deletion, a 404 from
+    # the single-asset endpoint is checked against the version too
+    responses.add(responses.GET, VERSION_URL, status=404, json={"detail": "Not found."})
+    ids = [str(uuid4()) for _ in range(2)]
+    for aid in ids:
+        responses.add(
+            responses.DELETE,
+            _single_delete_url(aid),
+            status=404,
+            json={"detail": "Not found."},
+        )
+    ds = _bulk_delete_dandiset()
+    ds.client._bulk_delete_unsupported = True
+    with pytest.raises(NotFoundError, match="version not found"):
+        ds.delete_assets(ids)
+    assert len(_bulk_delete_calls()) == 0
+    assert _single_delete_urls() == [_single_delete_url(ids[0])]
+    assert len(_version_calls()) == 1
 
 
 @pytest.mark.ai_generated

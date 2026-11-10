@@ -212,8 +212,8 @@ class Deleter:
 
         Assets that no longer belong to the Dandiset version by the time they
         are deleted are reported as skipped.  If a batch fails, all of its
-        assets are reported as errors (as the server deletes none of them),
-        and processing continues with the next batch.
+        assets are reported as errors (as it is not known which of them, if
+        any, were deleted), and processing continues with the next batch.
 
         If the server does not support bulk deletion, the assets are instead
         deleted one at a time, one request at a time, with a status `dict`

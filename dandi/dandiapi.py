@@ -1684,12 +1684,14 @@ class RemoteDandiset:
         as any earlier batches, will already have been deleted, and the
         error's ``deleted_asset_ids`` lists those deleted in the batch.
 
+        If a request is retried after the server has already processed it
+        (e.g., because the response was lost), the assets that it deleted are
+        reported as absent.
+
         If the server does not support bulk deletion, the assets are instead
         deleted one at a time using the single-asset deletion endpoint, and
-        the client remembers this for any further deletions.  In this case,
-        when ``skip_missing`` is false, `~dandi.exceptions.AssetsNotFoundError`
-        is raised at the first missing asset, and the assets in the batch after
-        it are not deleted.
+        the client remembers this for any further deletions.  Missing assets
+        are handled in the same way.
 
         :param assets:
             the assets to delete, as `RemoteAsset` instances belonging to this
@@ -1753,35 +1755,44 @@ class RemoteDandiset:
                 raise BulkDeleteUnsupportedError(
                     f"{self}: server does not support bulk asset deletion"
                 )
-            return self._delete_assets_individually(asset_ids, skip_missing)
-        try:
-            removed = self._bulk_delete_assets(asset_ids)
-        except BulkDeleteUnsupportedError:
-            lgr.info(
-                "%s: server does not support bulk asset deletion; deleting"
-                " assets one at a time",
-                self,
-            )
-            self.client._bulk_delete_unsupported = True
-            if raise_if_unsupported:
-                raise
-            return self._delete_assets_individually(asset_ids, skip_missing)
-        # Match the returned IDs case-insensitively, but report them as given
-        # in the request and in the order of the request
-        removed_lower = {r.lower() for r in removed}
-        result = BulkDeleteResult()
-        for aid in asset_ids:
-            if aid.lower() in removed_lower:
-                result.deleted.append(aid)
+            result = self._delete_assets_individually(asset_ids)
+        else:
+            try:
+                removed = self._bulk_delete_assets(asset_ids)
+            except BulkDeleteUnsupportedError:
+                lgr.info(
+                    "%s: server does not support bulk asset deletion; deleting"
+                    " assets one at a time",
+                    self,
+                )
+                self.client._bulk_delete_unsupported = True
+                if raise_if_unsupported:
+                    raise
+                result = self._delete_assets_individually(asset_ids)
             else:
-                result.absent.append(aid)
+                # Match the returned IDs case-insensitively, but report them
+                # as given in the request and in the order of the request
+                removed_lower = {r.lower() for r in removed}
+                result = BulkDeleteResult()
+                for aid in asset_ids:
+                    if aid.lower() in removed_lower:
+                        result.deleted.append(aid)
+                    else:
+                        result.absent.append(aid)
         if result.absent:
             if not skip_missing:
+                if len(result.absent) == 1:
+                    msg = (
+                        f"{self}: asset {result.absent[0]} does not belong to"
+                        " the version and was not deleted"
+                    )
+                else:
+                    msg = (
+                        f"{self}: assets not belonging to the version were not"
+                        f" deleted: {', '.join(result.absent)}"
+                    )
                 raise AssetsNotFoundError(
-                    f"{self}: assets not belonging to the version were not"
-                    f" deleted: {', '.join(result.absent)}",
-                    set(result.absent),
-                    deleted_asset_ids=result.deleted,
+                    msg, set(result.absent), deleted_asset_ids=result.deleted
                 )
             lgr.debug(
                 "%s: skipped %d asset(s) that no longer belong to the version: %s",
@@ -1791,36 +1802,43 @@ class RemoteDandiset:
             )
         return result
 
-    def _delete_assets_individually(
-        self, asset_ids: list[str], skip_missing: bool
-    ) -> BulkDeleteResult:
+    def _delete_assets_individually(self, asset_ids: list[str]) -> BulkDeleteResult:
         """
         Delete the given assets with one request per asset to the single-asset
-        deletion endpoint, for servers that do not support bulk deletion
+        deletion endpoint, for servers that do not support bulk deletion, and
+        report those for which the server responds with a 404 as absent
+
+        :raises ~dandi.exceptions.NotFoundError:
+            if the Dandiset version does not exist on the server
         """
         result = BulkDeleteResult()
+        version_checked = False
         for aid in asset_ids:
             try:
                 self.client.delete(
                     f"{self.version_api_path}assets/{aid}/", quiet_statuses=[404]
                 )
-            except HTTP404Error as e:
-                if not skip_missing:
-                    raise AssetsNotFoundError(
-                        f"{self}: asset {aid} does not belong to the version",
-                        {aid},
-                        deleted_asset_ids=result.deleted,
-                        response=e.response,
-                    ) from e
-                lgr.debug(
-                    "%s: skipping asset %s that no longer belongs to the version",
-                    self,
-                    aid,
-                )
+            except HTTP404Error:
+                # A 404 could also mean that the Dandiset version does not
+                # exist (e.g., because the Dandiset was deleted since the
+                # fallback was first used), so check for the version, once
+                if not version_checked:
+                    self._check_version_exists()
+                    version_checked = True
                 result.absent.append(aid)
             else:
                 result.deleted.append(aid)
         return result
+
+    def _check_version_exists(self) -> None:
+        """
+        Raise `~dandi.exceptions.NotFoundError` if the Dandiset version does
+        not exist on the server
+        """
+        try:
+            self.client.get(self.version_api_path, quiet_statuses=[404])
+        except HTTP404Error as e:
+            raise NotFoundError(f"{self}: Dandiset version not found") from e
 
     def _bulk_delete_assets(self, asset_ids: list[str]) -> list[str]:
         """
@@ -1849,10 +1867,7 @@ class RemoteDandiset:
             # A 404 could also mean that the Dandiset version does not exist,
             # so check for the version before concluding that the endpoint is
             # missing
-            try:
-                self.client.get(self.version_api_path, quiet_statuses=[404])
-            except HTTP404Error as e2:
-                raise NotFoundError(f"{self}: Dandiset version not found") from e2
+            self._check_version_exists()
             raise BulkDeleteUnsupportedError(
                 f"{self}: bulk asset deletion request returned 404, but the"
                 " Dandiset version exists, so the server does not support bulk"
@@ -2416,6 +2431,8 @@ class RemoteAsset(BaseRemoteAsset):
             if the asset does not belong to the draft version of its Dandiset
         :raises ~dandi.exceptions.AssetsNotFoundError:
             if the asset no longer belongs to the version
+        :raises ~dandi.exceptions.NotFoundError:
+            if the Dandiset version does not exist on the server
         """
         RemoteDandiset(self.client, self.dandiset_id, self.version_id).delete_assets(
             [self], skip_missing=False
