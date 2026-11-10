@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import IO, TypeVar, cast
 
 from dandischema.models import DigestType
-import remfile
 
 from .consts import HDF5_FILE_EXTENSIONS
 
@@ -327,8 +326,8 @@ class RemoteReadableAsset(Readable):
 
     `.open()` reads HDF5-based files (such as NWB; see
     `~dandi.consts.HDF5_FILE_EXTENSIONS`) with remfile_, and other files with
-    fsspec_, which must be installed with the ``http`` extra (e.g., ``pip
-    install "fsspec[http]"``) in order for `.open()` to be usable for them.
+    fsspec_.  These are optional dependencies, installed with the ``extras``
+    extra (``pip install "dandi[extras]"``).
 
     Instances of this class are obtained by calling
     `BaseRemoteBlobAsset.as_readable()`.
@@ -365,6 +364,9 @@ class RemoteReadableAsset(Readable):
             # garbage collection can take h5py's (reentrant) lock, as long as
             # it uses a single thread (its default `_max_threads=1`).  Its
             # requests time out, so that a stalled connection cannot hang.
+            # Optional dependency:
+            import remfile
+
             return cast(IO[bytes], remfile.File(self.url, _size=self.size))
         else:
             return self._open_fsspec()

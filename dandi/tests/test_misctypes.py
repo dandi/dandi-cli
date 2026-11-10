@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import importlib
 import io
 from pathlib import Path
 import re
@@ -11,13 +12,13 @@ import h5py
 from h5py._objects import phil
 import pytest
 from pytest_mock import MockerFixture
-import remfile
-import remfile.RemFile
 import requests
 import responses
 
 from ..misctypes import RemoteReadableAsset
 from ..pynwb_utils import get_nwb_version
+
+remfile = pytest.importorskip("remfile")
 
 URL = "https://example.com/blobs/abc/def/abcdef"
 
@@ -114,7 +115,8 @@ def test_remote_readable_asset_gc_while_reading_hdf5(
     # collection can take the (reentrant) lock: force a garbage collection,
     # freeing h5py objects, in each of its fetches.
     serve(h5_data)
-    get_bytes = remfile.RemFile._get_bytes
+    remfile_module = importlib.import_module("remfile.RemFile")
+    get_bytes = remfile_module._get_bytes
     fetches: list[tuple[bool, bool, int]] = []
 
     def get_bytes_with_gc(*args: Any, **kwargs: Any) -> Any:
@@ -129,7 +131,7 @@ def test_remote_readable_asset_gc_while_reading_hdf5(
         )
         return get_bytes(*args, **kwargs)
 
-    mocker.patch.object(remfile.RemFile, "_get_bytes", get_bytes_with_gc)
+    mocker.patch.object(remfile_module, "_get_bytes", get_bytes_with_gc)
     # Garbage holding h5py objects: a reference cycle with a dataset of a
     # closed file
     p = tmp_path / "garbage.h5"

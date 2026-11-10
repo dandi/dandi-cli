@@ -250,6 +250,9 @@ def service_scripts() -> None:
 def reextract_metadata(url: str, diff: bool, when: str) -> None:
     """
     Recompute & update the metadata for NWB assets on a remote server.
+
+    Running this command requires the remfile library, installed with the
+    `extras` extra (e.g., `pip install "dandi[extras]"`).
     """
     from ..metadata.nwb import nwb2asset  # Avoid heavy import at top level
 

@@ -20,6 +20,11 @@ Recompute & update the metadata for NWB assets on a remote server.
 ``<url>`` must point to a draft Dandiset or one or more assets inside a draft
 Dandiset.  See :ref:`resource_ids` for allowed URL formats.
 
+Running this command requires the remfile_ library, installed with the
+``extras`` extra (e.g., ``pip install "dandi[extras]"``).
+
+.. _remfile: https://github.com/flatironinstitute/remfile
+
 Options
 ^^^^^^^
 

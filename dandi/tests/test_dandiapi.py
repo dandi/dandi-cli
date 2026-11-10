@@ -23,7 +23,6 @@ from dandischema.models import (
 from packaging.version import Version as _PackagingVersion
 import pytest
 from pytest_mock import MockerFixture
-import remfile
 import requests
 import responses
 
@@ -1186,6 +1185,7 @@ def test_asset_as_readable_open_hdf5(
     new_dandiset: SampleDandiset, tmp_path: Path
 ) -> None:
     # HDF5-based files are read with remfile
+    remfile = pytest.importorskip("remfile")
     p = tmp_path / "foo.h5"
     data = bytes(range(256)) * 1000
     p.write_bytes(data)
