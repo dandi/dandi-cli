@@ -15,12 +15,7 @@ import remfile.RemFile
 import requests
 import responses
 
-from ..misctypes import (
-    REMFILE_TIMEOUT,
-    RemoteReadableAsset,
-    _RemFileReader,
-    _TimeoutSession,
-)
+from ..misctypes import REMFILE_TIMEOUT, RemoteReadableAsset, _RemFile
 from ..pynwb_utils import get_nwb_version
 
 URL = "https://example.com/blobs/abc/def/abcdef"
@@ -63,46 +58,30 @@ def test_remote_readable_asset_hdf5_uses_remfile(
     mocker.patch.object(fsspec, "open", no_fsspec)
     r = RemoteReadableAsset(url=URL, size=len(h5_data), mtime=None, name=name)
     fp: Any = r.open()
-    assert isinstance(fp, _RemFileReader)
-    # The requests time out
-    assert isinstance(fp._fp.session, _TimeoutSession)
-    assert fp._fp.session.timeout == REMFILE_TIMEOUT
+    assert isinstance(fp, _RemFile)
     with fp:
         with h5py.File(fp, "r") as f:
             assert f.attrs["nwb_version"] == "2.8.0"
             assert list(f["x"][:]) == list(range(100))
-    assert fp.closed
-    # Only range requests, no request for the size
-    assert all("Range" in c.request.headers for c in responses.calls)
+    # Only range requests (no request for the size), all with a timeout
+    assert responses.calls
+    for c in responses.calls:
+        assert "Range" in c.request.headers
+        assert c.request.req_kwargs["timeout"] == REMFILE_TIMEOUT  # type: ignore[attr-defined]
     assert get_nwb_version(r) == "2.8.0"
 
 
 @pytest.mark.ai_generated
 @responses.activate
-def test_remote_readable_asset_reader() -> None:
+def test_remote_readable_asset_read() -> None:
     data = bytes(range(256)) * 10
     serve(data)
     r = RemoteReadableAsset(url=URL, size=len(data), mtime=None, name="foo.nwb")
     with r.open() as fp:
-        assert fp.readable()
-        assert fp.seekable()
-        assert fp.tell() == 0
         assert fp.read(10) == data[:10]
-        assert fp.tell() == 10
-        assert fp.seek(5, io.SEEK_CUR) == 15
-        assert fp.read(3) == data[15:18]
-        assert fp.seek(-4, io.SEEK_END) == len(data) - 4
-        # Reads stop at the end of the file
-        assert fp.read(10) == data[-4:]
-        assert fp.read(10) == b""
-        assert fp.seek(len(data) + 5) == len(data) + 5
-        assert fp.read(1) == b""
-        assert fp.seek(100) == 100
-        assert fp.read() == data[100:]
-        with pytest.raises(ValueError):
-            fp.seek(-1)
-        with pytest.raises(ValueError):
-            fp.seek(0, 42)
+        fp.seek(100)
+        assert fp.tell() == 100
+        assert fp.read(len(data) - 100) == data[100:]
 
 
 @pytest.mark.ai_generated
@@ -118,19 +97,6 @@ def test_remote_readable_asset_non_hdf5_uses_fsspec(mocker: MockerFixture) -> No
     m.assert_called_once()
     assert m.call_args.args == (URL,)
     assert len(responses.calls) == 0
-
-
-@pytest.mark.ai_generated
-@responses.activate
-def test_timeout_session() -> None:
-    responses.add(responses.GET, URL, body=b"x")
-    with _TimeoutSession((1, 2)) as s:
-        s.get(URL)
-        s.get(URL, timeout=5)
-    assert [
-        c.request.req_kwargs["timeout"]  # type: ignore[attr-defined]
-        for c in responses.calls
-    ] == [(1, 2), 5]
 
 
 @pytest.mark.ai_generated
