@@ -29,10 +29,16 @@ from ..consts import (
     SyncMode,
     dandiset_metadata_file,
 )
-from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset, RESTFullAPIClient
+from ..dandiapi import (
+    AssetType,
+    RemoteBlobAsset,
+    RemoteDandiset,
+    RemoteZarrAsset,
+    RESTFullAPIClient,
+)
 from ..dandiset import Dandiset
 from ..download import download
-from ..exceptions import NotFoundError, UploadError
+from ..exceptions import BulkDeleteUnsupportedError, NotFoundError, UploadError
 from ..files import LocalFileAsset
 from ..files.zarr import ZarrAsset
 from ..pynwb_utils import make_nwb_file
@@ -267,6 +273,48 @@ def test_upload_sync_asset_deleted_concurrently(
         "subdir2/coconut.txt",
     ]
     assert "Deleted 1 asset on server" in caplog.messages
+    assert "Skipped 1 asset already absent from server" in caplog.messages
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+@pytest.mark.ai_generated
+def test_upload_sync_fallback(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    """`upload --sync` deletes assets one at a time on a server without bulk
+    deletion, skipping those already absent"""
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    # Simulate a server that does not support bulk deletion
+    bulk_delete = mocker.patch.object(
+        RemoteDandiset,
+        "_bulk_delete_assets",
+        side_effect=BulkDeleteUnsupportedError("no bulk deletion"),
+    )
+    for p in ["file.txt", "subdir1/apple.txt", "subdir2/banana.txt"]:
+        (text_dandiset.dspath / p).unlink()
+    dandiset = text_dandiset.dandiset
+    gone = dandiset.get_asset_by_path("subdir1/apple.txt")
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets to delete have been
+        # determined, so delete one of them in the meantime
+        dandiset.client.delete(f"{dandiset.version_api_path}assets/{gone.identifier}/")
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    with caplog.at_level(logging.INFO, logger="dandi"):
+        text_dandiset.upload(sync=True)
+    # The bulk deletion endpoint is only tried for the first batch, after which
+    # all assets are deleted one at a time (the spy also records the deletion
+    # in `confirm()`)
+    assert bulk_delete.call_count == 1
+    assert delete_spy.call_count == 4
+    assert [a.path for a in dandiset.get_assets()] == ["subdir2/coconut.txt"]
+    assert "Deleted 2 assets on server" in caplog.messages
     assert "Skipped 1 asset already absent from server" in caplog.messages
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
