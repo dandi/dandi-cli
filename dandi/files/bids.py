@@ -66,8 +66,8 @@ def _load_dataset_description(filepath: Path) -> dict[str, Any] | None:
 
 def bids_dataset_description_problem(filepath: Path) -> str | None:
     """
-    Why the :file:`dataset_description.json` file at ``filepath`` does not mark
-    a BIDS dataset, if it does not
+    Return why the :file:`dataset_description.json` file at ``filepath`` does
+    not mark a BIDS dataset, or `None` if it does
 
     It marks one if it is a JSON object with a ``"BIDSVersion"`` field, which may
     still be invalid (e.g., empty), or if it is not valid JSON but contains
