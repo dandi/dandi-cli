@@ -16,6 +16,7 @@
     "**/dist/**",
     "**/build/**",
     "**/tests/data/**",
+    "**/dandi/data/*.json",
     "**/versioneer.py",
     "**/dandi/_version.py"
   ],
