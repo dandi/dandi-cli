@@ -218,7 +218,10 @@ class Deleter:
         If the server does not support bulk deletion, the assets are instead
         deleted one at a time, one request at a time, with a status `dict`
         yielded for each asset as soon as it has been processed, and a failure
-        only affecting that asset.
+        only affecting that asset.  The assets are deliberately not deleted
+        concurrently, so as not to overload the server with requests, which
+        makes deleting many assets slower than with earlier versions of
+        dandi-cli.
 
         Assets that do not belong to the draft version of the Dandiset are
         never deleted; they are reported as errors before anything is deleted.
@@ -245,6 +248,9 @@ class Deleter:
             else:
                 assets.append(asset)
         for batch in chunked(assets, BULK_DELETE_BATCH_SIZE):
+            # Servers without dandi/dandi-archive#2920 get the per-asset path
+            # below; it can be removed along with the fallback in
+            # `RemoteDandiset._bulk_delete_assets()`
             if not self.dandiset.client._bulk_delete_unsupported:
                 try:
                     result = self.dandiset._delete_asset_batch(

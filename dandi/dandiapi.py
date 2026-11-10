@@ -1742,6 +1742,8 @@ class RemoteDandiset:
         otherwise, `~dandi.exceptions.BulkDeleteUnsupportedError` is raised
         so that the caller can delete them one at a time itself.
         """
+        # Fallback for servers without dandi/dandi-archive#2920; see
+        # `_bulk_delete_assets()` for when it can be removed
         if self.client._bulk_delete_unsupported:
             return self._delete_assets_individually(asset_ids, skip_missing)
         try:
@@ -1828,6 +1830,14 @@ class RemoteDandiset:
                 quiet_statuses=[404],
             )
         except HTTP404Error as e:
+            # The bulk deletion endpoint was added in dandi/dandi-archive#2920
+            # (dandi-archive 1.2.1); servers without it fall back to deleting
+            # assets one at a time.  Remove this fallback (along with
+            # `_delete_assets_individually()`, `BulkDeleteUnsupportedError`,
+            # `DandiAPIClient._bulk_delete_unsupported` and the per-asset path
+            # in `Deleter.process_assets()`) once all known instances,
+            # including EMBER and LINC, deploy it.
+            #
             # A 404 could also mean that the Dandiset version does not exist,
             # so check for the version before concluding that the endpoint is
             # missing

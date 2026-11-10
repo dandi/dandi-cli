@@ -671,6 +671,11 @@ def bulk_delete_supported(dandiset: RemoteDandiset) -> bool:
     bulk asset deletion, without deleting anything: a bulk deletion request
     with no asset IDs is rejected with a 400 by a server with the endpoint,
     while a server without it responds with a 404.
+
+    Tests use this to accept either server's behavior.  Remove it, and the
+    test branches for servers without bulk deletion, when the fallback for
+    servers without dandi/dandi-archive#2920 is removed (see
+    `RemoteDandiset._bulk_delete_assets()`).
     """
     try:
         dandiset.client.post(
