@@ -51,6 +51,7 @@ from ..dandiapi import (
 from ..download import download
 from ..exceptions import (
     AssetsNotFoundError,
+    BulkDeleteUnsupportedError,
     HTTP404Error,
     NotFoundError,
     SchemaVersionError,
@@ -1427,6 +1428,24 @@ def test_delete_assets_fallback_remembered_by_client() -> None:
     assert len(_bulk_delete_calls()) == 1
     assert len(_version_calls()) == 1
     assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids]
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_delete_asset_batch_raise_if_unsupported() -> None:
+    # With `raise_if_unsupported`, nothing is deleted on a server without bulk
+    # deletion, whether that is found out by this call or already known
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
+    responses.add(responses.GET, VERSION_URL, json={})
+    ds = _bulk_delete_dandiset()
+    for _ in range(2):
+        with pytest.raises(BulkDeleteUnsupportedError):
+            ds._delete_asset_batch(
+                [str(uuid4())], skip_missing=True, raise_if_unsupported=True
+            )
+        assert ds.client._bulk_delete_unsupported
+    assert len(_bulk_delete_calls()) == 1
+    assert _single_delete_urls() == []
 
 
 @pytest.mark.ai_generated
