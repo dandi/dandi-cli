@@ -364,7 +364,6 @@ class RemoteReadableAsset(Readable):
             # garbage collection can take h5py's (reentrant) lock, as long as
             # it uses a single thread (its default `_max_threads=1`).  Its
             # requests time out, so that a stalled connection cannot hang.
-            # Optional dependency:
             import remfile
 
             return cast(IO[bytes], remfile.File(self.url, _size=self.size))
