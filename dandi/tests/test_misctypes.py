@@ -113,7 +113,8 @@ def test_remote_readable_asset_non_hdf5_uses_fsspec(mocker: MockerFixture) -> No
     m = mocker.patch.object(fsspec, "open")
     m.return_value.open.return_value = sentinel
     r = RemoteReadableAsset(url=URL, size=4, mtime=None, name="foo.txt")
-    assert r.open() is sentinel
+    fp = r.open()
+    assert fp is sentinel
     m.assert_called_once()
     assert m.call_args.args == (URL,)
     assert len(responses.calls) == 0
