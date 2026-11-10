@@ -1196,3 +1196,22 @@ def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> 
         )
     )
     assert dandi_api_client.api_key_env_var == expected_env_var_name
+
+
+@pytest.mark.ai_generated
+def test_all_public_api() -> None:
+    """``dandi.dandiapi.__all__`` must be defined, resolvable and limited to
+    the documented public API (not leak imports or helper names)."""
+    m = dandiapi
+
+    assert m.__doc__
+    names = set(m.__all__)
+    assert len(names) == len(m.__all__)
+    for n in names:
+        assert hasattr(m, n), n
+    ns: dict = {}
+    exec("from dandi.dandiapi import *", ns)
+    exported = {k for k in ns if k != "__builtins__"}
+    assert exported == names
+    assert {"DandiAPIClient", "RemoteDandiset", "RemoteAsset"} <= names
+    assert not {"APIBase", "RemoteDandisetData", "ZarrEntryServerData"} & names
