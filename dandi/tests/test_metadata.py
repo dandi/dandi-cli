@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timedelta
+from itertools import chain
 import json
 from pathlib import Path
 import shutil
@@ -33,20 +35,27 @@ import numpy as np
 from pydantic import ByteSize
 import pynwb
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+from pynwb.file import Subject
 import pytest
+from pytest_mock import MockerFixture
 import requests
 from semantic_version import Version
 
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
-from ..consts import metadata_nwb_subject_fields
+from ..consts import dandiset_metadata_file, metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
+from ..files import NWBBIDSAsset, dandi_file, find_bids_dataset_description
+from ..metadata import nwb as metadata_nwb
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
+    SPECIES_NAME_SEPARATOR,
+    SpeciesRecord,
     extract_age,
     extract_cellLine,
+    extract_sex,
     extract_species,
     extract_wasDerivedFrom,
     parse_age,
@@ -59,6 +68,12 @@ from ..misctypes import DUMMY_DANDI_ETAG
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
+
+AGE_REFERENCE_TYPES = {
+    "birth": AgeReferenceType.BirthReference,
+    "gestational": AgeReferenceType.GestationalReference,
+    None: AgeReferenceType.BirthReference,
+}
 
 mark_xfail_ontobee = pytest.mark.xfail(
     condition="not config.getoption('--scheduled')",
@@ -89,6 +104,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     assert target_metadata == metadata
 
 
+@pytest.mark.ai_generated
 def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> None:
     """
     Notes
@@ -114,6 +130,63 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
     assert metadata["subject_id"] == "01"
     # This is a key sourced from NWB only:
     assert metadata["sex"] == "U"
+    # The BIDS version the dataset declares
+    # (https://github.com/dandi/dandi-cli/issues/1961)
+    declared = json.loads((dpath / "dataset_description.json").read_text())
+    assert metadata["bids_version"] == declared["BIDSVersion"]
+
+
+@pytest.mark.ai_generated
+def test_bids_nwb_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # Getting the BIDS metadata of an NWB file in a BIDS dataset must not
+    # extract its NWB metadata again (which used to recurse until
+    # RecursionError, running the BIDS validator at every level)
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = get_metadata.__wrapped__(file_path)
+    assert spy.call_count == 0
+    assert metadata["subject_id"] == "01"
+    assert metadata["sex"] == "U"
+
+
+@pytest.mark.ai_generated
+def test_nwb_bids_asset_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # The metadata of an NWBBIDSAsset merges its BIDS and NWB metadata,
+    # extracting the latter (which itself includes BIDS metadata) only once
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    (dpath / dandiset_metadata_file).write_text("identifier: '000027'\n")
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    # (The asset refers to it only weakly)
+    bids_dataset_description = find_bids_dataset_description(file_path)
+    df = dandi_file(file_path, dpath, bids_dataset_description=bids_dataset_description)
+    assert isinstance(df, NWBBIDSAsset)
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = df.get_metadata(digest=DUMMY_DANDI_ETAG, ignore_errors=False)
+    assert spy.call_count == 1
+    assert metadata.wasAttributedTo is not None
+    participant = metadata.wasAttributedTo[0]
+    assert participant.identifier == "01"
+    assert participant.sex is not None
+    assert participant.sex.name == "Unknown"
 
 
 @pytest.mark.parametrize(
@@ -420,11 +493,22 @@ def test_prepare_metadata(filename: str, metadata: dict[str, Any]) -> None:
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
+    # `prepare_metadata()` returns a `BareAsset`, so the top-level `schemaKey`
+    # of `data` is the default of the `schemaKey` field of `BareAsset` of the
+    # installed dandischema: "Asset" historically, but "BareAsset" once
+    # https://github.com/dandi/dandi-schema/pull/419 lands, which pins
+    # `BareAsset.schemaKey` to its own class name.  The JSON files store a
+    # placeholder for this field, so set it to the current default here to keep
+    # the comparison independent of the installed dandischema version.
+    data_as_dict["schemaKey"] = BareAsset.model_fields["schemaKey"].default
     assert data == data_as_dict
+
+    # `data_as_dict` is a BareAsset; the following lines turn it into an Asset
+    # instance so that `validate()` below checks it against the Asset class: set
+    # its `schemaKey`, and add the Asset-only fields `identifier` and (as of
+    # schema-0.5.0, https://github.com/dandi/dandischema/pull/52) `contentUrl`.
+    data_as_dict["schemaKey"] = "Asset"
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    # as of schema-0.5.0 (https://github.com/dandi/dandischema/pull/52)
-    # contentUrl is required, and validate below would map into Asset,
-    # due to schemaKey
     if Version(DANDI_SCHEMA_VERSION) >= Version("0.5.0"):
         data_as_dict["contentUrl"] = ["http://example.com"]
     validate(data_as_dict)
@@ -461,6 +545,54 @@ def test_time_extract() -> None:
     assert age.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:BirthReference")
     )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "reference", [ref for ref in AGE_REFERENCE_TYPES.keys() if ref is not None]
+)
+def test_age_reference_roundtrip(tmp_path: Path, reference: str) -> None:
+    path = tmp_path / "age.nwb"
+    nwb = NWBFile("age reference", "age", datetime(2020, 1, 1, tzinfo=tzutc()))
+    nwb.subject = Subject(age="P3W", age__reference=reference)
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    metadata = get_metadata(path)
+    assert metadata["age__reference"] == reference
+    age = extract_age(metadata)
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES[reference])
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+@pytest.mark.parametrize("legacy", [False, True])
+def test_age_reference_legacy(reference: str | None, legacy: bool) -> None:
+    age = extract_age(
+        {"age": "Gestational week 3" if legacy else "P3W", "age__reference": reference}
+    )
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(
+        value=AGE_REFERENCE_TYPES["gestational" if legacy else reference]
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+def test_age_reference_preserves_birth_dates(reference: str | None) -> None:
+    age = extract_age(
+        {
+            "age": "P3W",
+            "age__reference": reference,
+            "date_of_birth": "2020-01-01T00:00:00Z",
+            "session_start_time": "2020-01-03T00:00:00Z",
+        }
+    )
+    assert age is not None
+    assert age.value == "P2D"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES["birth"])
 
 
 def test_time_extract_gest() -> None:
@@ -508,7 +640,6 @@ def test_session_duration_extraction(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -567,7 +698,6 @@ def test_session_duration_with_trials(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -624,7 +754,6 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -636,6 +765,41 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
         metadata["session_end_time"] - metadata["session_start_time"]
     ).total_seconds()
     assert abs(duration - 245.0) < 1.0  # Allow small floating point errors
+
+
+@pytest.mark.ai_generated
+def test_session_duration_with_scattered_non_spiking_units(tmp_path: Path) -> None:
+    """Test session duration with multiple non-spiking units in Units table."""
+    nwb_path = tmp_path / "test_duration_scattered_nonspiking_units.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session with scattered non-spiking units",
+        identifier="test_scattered_nonspiking_units_123",
+        session_start_time=session_start,
+    )
+
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([10.0, 20.0]))
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([5.0, 250.0]))
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([100.0]))
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    metadata = get_metadata(nwb_path)
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+
+    end_offset = (metadata["session_end_time"] - session_start).total_seconds()
+    assert abs(end_offset - 245.0) < 1.0
+
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - 245.0) < 1.0  # max 250s and min 5s spike times
 
 
 @pytest.mark.ai_generated
@@ -688,7 +852,6 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -951,6 +1114,7 @@ def test_species():
         "Meriones unguiculatus",
         "Meriones Unguiculatus",
         "meriones Unguiculatus",
+        "Meriones unguiculatus - Mongolian gerbil",
     ],
 )
 def test_species_all_possible(species: str) -> None:
@@ -959,21 +1123,303 @@ def test_species_all_possible(species: str) -> None:
     assert species_rec.model_dump(mode="json", exclude_none=True) == {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10047",
         "schemaKey": "SpeciesType",
-        "name": "Meriones unguiculatus",
+        "name": "Meriones unguiculatus - Mongolian gerbil",
     }
 
 
-def test_extract_unknown_species():
+# tricky one since we have multiple rats but only one we want to map
+# as the default "rat"
+@pytest.mark.parametrize(
+    "species",
+    [
+        "rat",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+    ],
+)
+def test_species_rat(species: str) -> None:
+    species_rec = extract_species({"species": species})
+    assert species_rec
+    assert species_rec.model_dump(mode="json", exclude_none=True) == {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        "schemaKey": "SpeciesType",
+        "name": "Rattus norvegicus - Norway rat",
+    }
+
+
+@pytest.mark.ai_generated
+def test_species_unknown_iri_lookup_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An NCBITaxon IRI not in species_map whose label cannot be looked up
+    # still gets a name, as dandischema requires one
+    iri = "http://purl.obolibrary.org/obo/NCBITaxon_999999999"
+
+    def fail(*_args: Any, **_kwargs: Any) -> None:
+        raise ConnectionError("no network")
+
+    monkeypatch.setattr("dandi.metadata.util.parse_purlobourl", fail)
+    species_rec = extract_species({"species": iri})
+    assert species_rec is not None
+    assert str(species_rec.identifier) == iri
+    assert species_rec.name == iri
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "sex,identifier,name",
+    [
+        ("M", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+        ("female", "http://purl.obolibrary.org/obo/PATO_0000383", "Female"),
+        ("U", None, "Unknown"),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0000384",
+            "http://purl.obolibrary.org/obo/PATO_0000384",
+            "Male",
+        ),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0000383",
+            "http://purl.obolibrary.org/obo/PATO_0000383",
+            "Female",
+        ),
+        (
+            "Hermaphrodite",
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "Hermaphrodite",
+        ),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "Hermaphrodite",
+        ),
+        # unknown IRI: kept as is (not lowercased) and used as the name
+        (
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+        ),
+    ],
+)
+def test_extract_sex(sex: str, identifier: str | None, name: str) -> None:
+    rec = extract_sex({"sex": sex})
+    assert rec is not None
+    assert (None if rec.identifier is None else str(rec.identifier)) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "species",
+    [
+        "Caenorhabditis elegans",
+        "C. elegans",
+        "Caenorhabditis elegans - Roundworm",
+        "http://purl.obolibrary.org/obo/NCBITaxon_6239",
+    ],
+)
+@pytest.mark.parametrize(
+    "sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("XO", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_c_elegans(
+    species: str, sex: str, identifier: str, name: str
+) -> None:
+    # nwbinspector requires these chromosomal codes for C. elegans
+    rec = extract_sex({"sex": sex, "species": species})
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("sex", ["O", "other", None])
+@pytest.mark.parametrize(
+    "c_elegans_sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_ndx_subjects_c_elegans(
+    sex: str | None, c_elegans_sex: str, identifier: str, name: str
+) -> None:
+    # CElegansSubject of ndx-subjects fixes `sex` to "O" and records the
+    # actual sex in `c_elegans_sex`
+    rec = extract_sex(
+        {
+            "sex": sex,
+            "c_elegans_sex": c_elegans_sex,
+            "species": "Caenorhabditis elegans",
+        }
+    )
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+def test_extract_sex_c_elegans_sex_does_not_override_explicit_sex() -> None:
+    rec = extract_sex({"sex": "M", "c_elegans_sex": "XX"})
+    assert rec is not None
+    assert rec.name == "Male"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("species", [None, "Mus musculus", "Drosophila melanogaster"])
+@pytest.mark.parametrize("sex", ["XX", "XO"])
+def test_extract_sex_chromosomal_other_species(species: str | None, sex: str) -> None:
+    # outside of C. elegans, XX/XO do not unambiguously designate a sex
+    metadata = {"sex": sex}
+    if species is not None:
+        metadata["species"] = species
+    with pytest.raises(ValueError, match="Cannot interpret sex field"):
+        extract_sex(metadata)
+
+
+@pytest.mark.parametrize(
+    "species",
+    [
+        "mumba-jumba",
+        "rat unknown",
+        "borat",
+        "my wonderful rat in pokadots",
+        "http://example.com/myrat",
+    ],
+)
+def test_species_extract_unknown(species):
     with pytest.raises(ValueError) as excinfo:
-        extract_species({"species": "mumba-jumba"})
-    assert str(excinfo.value).startswith("Cannot interpret species field: mumba-jumba")
+        extract_species({"species": species})
+    assert str(excinfo.value).startswith(f"Cannot interpret species field: {species}")
 
 
-def test_species_map():
-    # all alternative names should be lower case
-    for common_names, *_ in species_map:
-        for key in common_names:
-            assert key.lower() == key
+@pytest.mark.parametrize("record", species_map, ids=lambda r: r.scientific_name)
+def test_species_map(record: SpeciesRecord) -> None:
+    # all alternative names should be in lower case
+    for key in record.common_names:
+        assert key.lower() == key
+    assert SPECIES_NAME_SEPARATOR in record.name
+    # verify that feeding a full "standard" name matches the correct one
+    for species in chain(
+        [record.scientific_name, record.genbank_common_name], record.common_names
+    ):
+        species_rec = extract_species({"species": species})
+        assert species_rec
+        assert str(species_rec.identifier) == record.uri
+        assert species_rec.name == record.name
+
+
+@pytest.mark.ai_generated
+def test_species_map_entries_are_records() -> None:
+    assert species_map
+    for record in species_map:
+        assert isinstance(record, SpeciesRecord)
+        assert isinstance(record.common_names, tuple)
+        # Lock in the eq/hash contract with two distinct but equal instances.
+        # `hash(record) == hash(record)` could only fail by raising, and
+        # `extract_species` de-duplicates `(uri, name)` string tuples rather
+        # than records, so it does not depend on records being hashable.
+        copy = dataclasses.replace(record)
+        assert copy is not record
+        assert copy == record and hash(copy) == hash(record)
+
+
+@pytest.mark.ai_generated
+def test_species_record_name_halves() -> None:
+    record = SpeciesRecord(
+        ("pig-tailed macaque",),
+        None,
+        "9545",
+        "Macaca nemestrina - Pig-tailed macaque",
+    )
+    assert record.scientific_name == "Macaca nemestrina"
+    assert record.genbank_common_name == "Pig-tailed macaque"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        (
+            {"common_names": ("Mouse",)},
+            "Common name 'Mouse' .* must be lower-cased",
+        ),
+        (
+            {"prefix": "Mus"},
+            "Prefix 'Mus' .* must be lower-cased",
+        ),
+        (
+            {"taxon_id": "abc"},
+            "Taxon id 'abc' .* must be numeric",
+        ),
+        (
+            {"taxon_id": ""},
+            "Taxon id '' .* must be numeric",
+        ),
+        (
+            {"name": "Mus musculus"},
+            "must be formatted as",
+        ),
+        # An empty prefix starts every value, so the record would match every
+        # lookup and break every other one.
+        (
+            {"prefix": ""},
+            "Prefix of .* must not be empty",
+        ),
+        (
+            {"common_names": ("",)},
+            "Common name of .* must not be empty",
+        ),
+    ],
+)
+def test_species_record_rejects_malformed_entry(
+    kwargs: dict[str, Any], match: str
+) -> None:
+    good = {
+        "common_names": ("mouse",),
+        "prefix": "mus",
+        "taxon_id": "10090",
+        "name": "Mus musculus - House mouse",
+    }
+    with pytest.raises(ValueError, match=match):
+        SpeciesRecord(**{**good, **kwargs})
+
+
+@pytest.mark.ai_generated
+def test_species_record_rejects_non_tuple_common_names() -> None:
+    """A dropped trailing comma leaves a `str`, which must not be accepted.
+
+    Iterating it yields lower-cased characters, so every other check passes and
+    each letter of the name would match this species while the name itself
+    stops resolving.
+    """
+    with pytest.raises(TypeError, match="must be a tuple, got str"):
+        SpeciesRecord(
+            "mouse",  # type: ignore[arg-type]
+            "mus",
+            "10090",
+            "Mus musculus - House mouse",
+        )
+
+
+@pytest.mark.ai_generated
+def test_species_record_matching_methods() -> None:
+    """The two methods the refactor exists to create, exercised directly."""
+    record = SpeciesRecord(("mouse",), "mus", "10090", "Mus musculus - House mouse")
+
+    assert record.matches_name("mus musculus - house mouse")
+    assert record.matches_name("mus musculus")
+    assert record.matches_name("house mouse")
+    # The prefix branch is deliberately broad, which is worth writing down.
+    assert record.matches_name("mushroom")
+    assert not record.matches_name("rattus norvegicus")
+
+    assert record.matches_common_name("mouse")
+    assert not record.matches_common_name("rat")
+
+    # Both methods normalize, so an un-normalized caller gets the right answer.
+    assert record.matches_name("  Mus Musculus  ")
+    assert record.matches_common_name("  Mouse  ")
 
 
 @pytest.mark.parametrize(
@@ -1061,6 +1507,15 @@ def test_species_map():
                 "variableMeasured": ["CurrentClampStimulusSeries"],
             },
         ),
+        pytest.param(
+            ["IZeroClampSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["current clamp technique"],
+                "variableMeasured": ["IZeroClampSeries"],
+            },
+            marks=pytest.mark.ai_generated,
+        ),
         (
             ["VoltageClampSeries"],
             {
@@ -1108,6 +1563,15 @@ def test_species_map():
                 "measurementTechnique": None,
                 "variableMeasured": ["PlaneSegmentation"],
             },
+        ),
+        pytest.param(
+            ["RoiResponseSeries"],
+            {
+                "approach": ["microscopy approach; cell population imaging"],
+                "measurementTechnique": None,
+                "variableMeasured": ["RoiResponseSeries"],
+            },
+            marks=pytest.mark.ai_generated,
         ),
         (
             ["Position"],
@@ -1214,11 +1678,11 @@ def test_species_map():
             },
         ),
         (
-            ["OptogeneticStimulusSIte"],
+            ["OptogeneticStimulusSite"],
             {
                 "approach": ["optogenetic approach"],
                 "measurementTechnique": None,
-                "variableMeasured": ["OptogeneticStimulusSIte"],
+                "variableMeasured": ["OptogeneticStimulusSite"],
             },
         ),
         (
@@ -1263,7 +1727,6 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
     assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.model_construct(
-        schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[
@@ -1346,7 +1809,6 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
     assert nwb2asset(r, digest=digest) == BareAsset.model_construct(
-        schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[

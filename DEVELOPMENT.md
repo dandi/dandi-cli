@@ -1,6 +1,42 @@
 # DANDI Client Development
 
+> **Note**: For comprehensive developer documentation including testing guides and contribution workflows, see `docs/source/development/` (built Sphinx docs) or the [online documentation](https://dandi.readthedocs.io/).
+
 ## Development environment
+
+### Using hatch
+
+This project's hatch environments use [uv](https://github.com/astral-sh/uv)
+as the installer, which allows for significant improvements in environment
+setup speed. Each environment corresponds to a project
+extra (e.g., `test`, `extras`, `tools`). To enter a shell in an environment:
+
+```
+hatch shell <env-name>
+```
+
+For example, to enter the `test` environment:
+
+```
+hatch shell test
+```
+
+To remove environments so they can be recreated from scratch:
+
+```
+hatch env remove <env-name>  # remove a specific environment
+```
+
+or to remove all environments at once:
+
+```
+hatch env prune
+```
+
+Refer to [hatch's documentation](https://hatch.pypa.io/latest/cli/reference/)
+for full CLI usage.
+
+### Using a virtualenv
 
 Assuming that you have `python3` (and virtualenv) installed, the fastest
 way to establish yourself a development environment (or a sample deployment),
@@ -23,15 +59,35 @@ pre-commit install
 
 ### Running tests locally
 
-You can run all tests locally by running `tox` (you can install `tox` running `pip install tox`):
+With hatch:
+```
+hatch run test:run
+```
+
+To run a specific test:
+```
+hatch run test:run dandi/tests/test_file.py::test_function -v
+```
+
+Alternatively, with `tox` (install via `pip install tox`):
 ```
 tox -e py3
+```
+
+To run a specific test with tox:
+```
+tox -e py3 -- dandi/tests/test_file.py::test_function -v
 ```
 
 In order to check proper linting and typing of your changes
 you can also run `tox` with `lint` and `typing`:
 ```
 tox -e lint,typing
+```
+
+To build documentation:
+```
+tox -e docs
 ```
 
 ### dandi-archive instance
@@ -47,6 +103,284 @@ Relevant `dandi` client commands (such as `upload`) are aware of such an
 instance as `dandi-api-local-docker-tests`.  See the note below on the
 `DANDI_DEVEL` environment variable, which is needed in order to expose the
 development command line options.
+
+Tests that need a running archive instance use the `local_dandi_api`
+docker-compose fixture.  Set `DANDI_TESTS_PULL_DOCKER_COMPOSE=""` to skip
+`docker compose pull` and speed up repeated runs.
+
+## Codebase Architecture
+
+### Directory layout
+
+```
+dandi/
+  cli/              # Click-based CLI commands
+    command.py      # Entry point — Click group with DYMGroup (did-you-mean)
+    base.py         # Shared CLI utilities, decorators, custom param types
+    cmd_*.py        # One file per command (download, upload, organize, …)
+    formatter.py    # Output formatters (JSON, YAML, JSONL, PYOUT)
+  files/            # File-type abstractions
+    bases.py        # DandiFile hierarchy (LocalAsset, NWBAsset, …)
+    bids.py         # BIDS-specific file types (NWBBIDSAsset, …)
+    zarr.py         # Zarr archive handling (ZarrAsset, LocalZarrEntry)
+  metadata/         # Metadata extraction
+    core.py         # Entry points for metadata extraction
+    nwb.py          # NWB-specific extraction via PyNWB
+    util.py         # get_metadata(), field extraction, caching
+  validate/         # Validation engine
+    _types.py       # ValidationResult, Severity, Scope, Standard enums
+    _core.py        # validate() generator, validate_bids()
+    _io.py          # JSON Lines I/O for validation results
+  support/          # Shared utilities
+    digests.py      # Checksum/digest computation (DANDI eTag, Zarr)
+    pyout.py        # Progress display with pyout (LogSafeTabular)
+    iterators.py    # IteratorWithAggregation for progress tracking
+    threaded_walk.py # Parallel directory traversal
+  tests/            # Test suite
+    fixtures.py     # Core test fixtures (NWB files, local API, dandisets)
+    skip.py         # Conditional skip helpers
+    data/           # Test data files
+  consts.py         # Constants: metadata fields, known instances, layout fields
+  dandiapi.py       # API client (RESTFullAPIClient, DandiAPIClient)
+  dandiarchive.py   # URL parsing (ParsedDandiURL, parse_dandi_url())
+  dandiset.py       # Local dandiset representation (dandiset.yaml)
+  download.py       # Download engine with resume/retry support
+  upload.py         # Upload engine with validation
+  organize.py       # File organization by NWB metadata
+  delete.py         # Asset/dandiset deletion
+  move.py           # Asset move/rename (local + remote)
+  exceptions.py     # Custom exceptions (all end with "Error")
+  misctypes.py      # Shared types: Digest, BasePath
+  pynwb_utils.py    # PyNWB helpers for reading/creating NWB files
+  utils.py          # General utilities
+```
+
+### Key design patterns
+
+- **CLI delegation** — CLI commands (`cmd_*.py`) are thin wrappers that
+  delegate to core modules (e.g. `cmd_upload.py` → `upload.upload()`).
+- **File-type hierarchy** — `DandiFile` abstract base with factory function
+  `dandi_file()` and discovery via `find_dandi_files()`.
+- **Enum-based configuration** — Operations use enums for modes
+  (`DownloadExisting`, `FileOperationMode`, `UploadValidation`, …).
+- **Generator-based processing** — Validation, download, and file finding
+  all yield results lazily.
+- **Context managers** — API clients (`DandiAPIClient`) and URL navigation.
+- **Retry logic** — HTTP operations use `tenacity` for exponential backoff.
+- **Lazy imports** — Heavy modules (`pynwb`, `h5py`) are imported at point
+  of use, not at module level.
+
+### Key classes
+
+- `DandiAPIClient` (`dandiapi.py`) — high-level API client; authentication
+  (keyring), pagination, asset management
+- `RESTFullAPIClient` (`dandiapi.py`) — base HTTP client with session
+  management and retry logic
+- `ParsedDandiURL` (`dandiarchive.py`) — abstract base for URL parsing;
+  subclasses `DandisetURL`, `SingleAssetURL`, `AssetItemURL`, `AssetDirURL`
+- `DandiFile` (`files/bases.py`) — abstract base for all file types;
+  subclasses `NWBAsset`, `ZarrAsset`, `GenericAsset`, `VideoAsset`
+- `ValidationResult` (`validate/_types.py`) — Pydantic model: origin,
+  severity, scope, message, paths
+- `Dandiset` (`dandiset.py`) — local dandiset representation wrapping
+  `dandiset.yaml`
+- `DandiInstance` (`consts.py`) — frozen dataclass for known archive instances
+
+## Code style conventions
+
+Most of these are enforced automatically by `pre-commit` hooks (see below).
+
+- **Formatter**: Black (line length 100)
+- **Import sorting**: isort (`profile="black"`, `force_sort_within_sections`,
+  `reverse_relative`)
+- **Linting**: flake8 (`max-line-length=100`, ignore `E203`/`W503`)
+- **Spell checking**: codespell
+- **Type checking**: mypy with pydantic plugin
+- **Type annotations**: Required for new code
+- **Naming**: `CamelCase` for classes, `snake_case` for functions/variables
+- **Exceptions**: Names must end with `Error` (e.g. `UploadError`,
+  `NotFoundError`)
+- **Docstrings**: NumPy style for public APIs
+- **Imports**: stdlib → third-party → local (alphabetical within groups)
+- **Import placement**: Always top-level; never inside functions or methods,
+  unless there is a concrete reason: a circular dependency, or heavy
+  transitive imports (`pynwb`/`h5py`/`nwbinspector`) that would slow down
+  module load for unrelated code paths.  Mark the latter with
+  `# Avoid heavy import by importing within function:`
+- **Walrus operator**: Use `:=` where it simplifies code (e.g. `if (x := expr()):`
+  instead of a separate assign-then-check)
+- **CLI**: Click library with `DYMGroup` (did-you-mean suggestions)
+- **Excluded from formatting**: `_version.py`, `due.py`, `versioneer.py`
+
+### Dataclass and attrs field documentation
+
+Document dataclass/attrs fields using `#:` comments above the field, not
+docstrings below.  This is the format Sphinx autodoc recognizes for attribute
+documentation:
+
+```python
+@dataclass
+class Movement:
+    """A movement/renaming of an asset"""
+
+    #: The asset's original path
+    src: AssetPath
+    #: The asset's destination path
+    dest: AssetPath
+    #: Whether to skip this operation because an asset already exists at the
+    #: destination
+    skip: bool = False
+```
+
+See [dandi.move.Movement on RTD](https://dandi.readthedocs.io/en/latest/modref/generated/dandi.move.html#dandi.move.Movement)
+for a rendered example.
+
+### Pre-commit hooks
+
+The following hooks run on commit (`.pre-commit-config.yaml`):
+
+1. trailing-whitespace, end-of-file-fixer, check-yaml, check-added-large-files
+2. black (code formatting)
+3. isort (import sorting)
+4. codespell (spell checking)
+5. flake8 (linting)
+
+Because black and isort auto-fix files, a commit that triggers fixes will
+fail the first time.  Simply re-run `git commit` — the second attempt should
+succeed.  Investigate further only if it still fails.
+
+## Compatibility with dandi-archive instances
+
+dandi-cli talks to several independently deployed and upgraded dandi-archive
+instances (see `known_instances` in `dandi/consts.py`): DANDI and EMBER, each
+with a production and a sandbox instance, LINC, and any other instance given
+by URL.  Sandbox instances often run a new feature before it is released, and
+other instances may lag behind, or run forks of, dandi-archive.
+
+**Support for a new dandi-archive feature must be backward compatible** with
+prior versions of dandi-archive, in particular those currently deployed by the
+DANDI, EMBER and LINC instances.  A new dandi-cli release must keep working
+against all of them, and use the new feature only where the server provides
+it.  This way dandi-cli can be released before the feature is released or
+deployed by dandi-archive, and tested against sandbox instances that already
+have it.  We do not need synchronized releases of dandi-cli and dandi-archive,
+or synchronized deployments across all instances: those are fragile and need
+orchestration.  Do not ask instances that lack the feature to reject the new
+client via `cli-minimal-version` or `cli-bad-versions` in `/api/info/`.
+
+LINC runs a fork of dandi-archive 0.3.115 (`lincbrain/linc-archive`) with
+schema version 0.6.9, far behind the others, and is still in use.  To see
+what the instances deploy:
+
+    for h in api.dandiarchive.org api.sandbox.dandiarchive.org \
+             api-dandi.emberarchive.org api-dandi.sandbox.emberarchive.org \
+             api.lincbrain.org staging-api.lincbrain.org; do
+        echo "$h: $(curl -s https://$h/api/info/ \
+            | jq -c '{version, schema_version, allowed_schema_versions}')"
+    done
+
+Decide, per server, whether the feature is available, either:
+
+1. **By server version**, if the dandi-archive release that added the feature
+   is known: compare it with `DandiAPIClient.server_info["version"]` (the
+   `version` field of `/api/info/`).  Forks may report versions that cannot be
+   compared with dandi-archive's (e.g. EMBER reports
+   `0.0.post1.dev7927+g9e4606812` and LINC `0.0.post6586+g39387b8`), so a
+   version check works only for instances deploying dandi-archive releases,
+   i.e. only DANDI's.
+2. **By sensing** the feature, which is the most likely case while it is
+   available only on a sandbox instance or in a fork.  Probe the server once,
+   or detect support from the response to the first use, remember the result
+   (on the `DandiAPIClient`), and otherwise use the prior implementation.
+   Choose a signal that cannot be mistaken for another error.  For example, a
+   404 from a new endpoint under a Dandiset version path could also mean that
+   the version does not exist.
+
+Never decide by the instance name or URL.  In addition:
+
+- In a comment at the conditional, refer to the dandi-archive issue/PR it
+  accommodates and say when the fallback can be removed (e.g. "once LINC signs
+  the header for embargoed Zarrs, as dandi-archive >= 0.12.14 does"), so that
+  it can be found, reviewed, and removed later.
+- Log use of the fallback at DEBUG or INFO level, not as a warning or error;
+  users cannot do anything about it.
+- Test both code paths.  Integration tests run against the latest
+  `dandiarchive/dandiarchive-api` Docker image (dandi-archive `master`), so
+  test the prior behavior with mocked responses (`responses`), and skip
+  integration tests needing the feature if the server does not support it.
+- Remove the fallback once no known instance needs it: all support the
+  feature, or those that do not cannot reach the code (e.g. a server whose
+  schema version is older than the client's never needs
+  `allowed_schema_versions`).
+
+Examples in the code (links are to the 0.81.0 release):
+
+- `_get_instance()` in
+  [`dandi/utils.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/utils.py#L596-L601)
+  falls back from `/server-info` to `/api/info/`.
+- `check_schema_version()` in
+  [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L694-L777)
+  uses `allowed_schema_versions` if the server provides it, and
+  `_maybe_downgrade_metadata()` in
+  [`dandi/dandiapi.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/dandiapi.py#L802-L839)
+  downgrades metadata for servers with an older schema.
+- Zarr upload in
+  [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L1011-L1032)
+  sends `x-amz-tagging` only if the presigned URL signs it.
+- `mkzarr()` in
+  [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L603-L612)
+  reuses an existing Zarr on either the old or the new server error message.
+
+Bulk asset deletion
+([dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960), using the
+endpoint from [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920))
+is in progress; it falls back to deleting assets one at a time on servers
+without the endpoint.
+
+## Test infrastructure
+
+### pytest markers
+
+- `@pytest.mark.integration` — tests requiring a running archive instance
+- `@pytest.mark.obolibrary` — tests hitting the OBO ontology library
+- `@pytest.mark.flaky` — known-flaky tests
+- `@pytest.mark.ai_generated` — **mandatory** on any test written with AI
+  assistance
+
+New markers must be registered in `pytest_configure()` in
+`dandi/pytest_plugin.py`.
+
+### Key fixtures (`dandi/tests/fixtures.py`)
+
+- `simple1_nwb_metadata()` / `simple1_nwb()` — session-scoped sample NWB file
+- `local_dandi_api` — Docker-based local DANDI Archive instance
+- `new_dandiset()` — creates a fresh dandiset on the test instance
+- `publish_dandiset()` — publishes a dandiset version
+- `capture_all_logs` — autouse; sets DEBUG level for `dandi` logger
+
+### Test organization
+
+- Tests mirror the module structure: `test_download.py`, `test_upload.py`, etc.
+- Integration tests use the `local_dandi_api` fixture
+- `--dandi-api` flag: run only integration tests
+- `--scheduled` flag: enable configuration for scheduled daily runs
+- VCR (vcrpy) records/replays HTTP interactions; disable with
+  `DANDI_TESTS_NO_VCR`
+
+### pytest configuration (`tox.ini [pytest]`)
+
+- Default timeout: 300 s per test
+- `--tb=short --durations=10`
+- `filterwarnings = error` with specific ignores for known third-party warnings
+
+## CI/CD
+
+- `run-tests.yml` — full test matrix: Python 3.10–3.13 × Ubuntu,
+  macOS (M1 + Intel), Windows
+- `lint.yml` — codespell + flake8
+- `typing.yml` — mypy
+- `docs.yml` — Sphinx build
+- `release.yml` — automated release via `auto` (see below)
 
 ## Environment variables
 
@@ -86,6 +420,13 @@ development command line options.
 - `DANDI_TESTS_PULL_DOCKER_COMPOSE` -- When set to an empty string or `0`, the
   tests will not pull the latest needed Docker images at the start of a run if
   older versions of the images are already present.
+
+- `DANDI_TESTS_API_URL` -- When set, the integration tests will run against this
+  externally-managed dandi-archive API URL instead of starting a local Docker
+  Compose stack.  Requires `DANDI_TESTS_DJANGO_API_KEY` to also be set.
+
+- `DANDI_TESTS_DJANGO_API_KEY` -- Admin DRF token for the externally-managed
+  server pointed to by `DANDI_TESTS_API_URL`; required when the latter is set.
 
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled
@@ -226,3 +567,19 @@ organized by label.  `auto` recognizes the following PR labels:
 - `tests` — for changes to tests
 - `dependencies` — for updates to dependency versions
 - `performance` — for performance improvements
+
+## Developer Documentation
+
+For additional developer resources, see the Sphinx documentation in `docs/source/development/`:
+
+- **Testing Guide** (`docs/source/development/testing.rst`) - Comprehensive testing practices, patterns, and Docker setup
+- **Contributing Guide** (`docs/source/development/contributing.rst`) - Quick reference for contribution workflow
+
+To build the documentation locally:
+```bash
+cd docs
+make html
+open build/html/index.html  # or xdg-open on Linux
+```
+
+Or view online at [dandi.readthedocs.io](https://dandi.readthedocs.io/)

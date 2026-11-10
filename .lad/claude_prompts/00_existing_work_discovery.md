@@ -21,12 +21,12 @@ Search for existing implementations related to the requested feature:
 ### 2. Architecture Mapping
 **Create systematic architecture notes for complex systems:**
 
-```markdown  
+```markdown
 **CREATE ARCHITECTURE NOTES**: `notes/architecture_{{feature}}.md`
 
 ## Component Inventory
 - **Services**: [List discovered services and their roles]
-- **Data Models**: [Key models, schemas, and relationships]  
+- **Data Models**: [Key models, schemas, and relationships]
 - **APIs/Endpoints**: [Existing interfaces and contracts]
 - **Utilities**: [Shared libraries and helper functions]
 
@@ -36,7 +36,7 @@ Search for existing implementations related to the requested feature:
 - **Data Flow**: [How information moves through the system]
 - **Communication Patterns**: [Sync/async, events, direct calls]
 
-## Architectural Patterns  
+## Architectural Patterns
 - **Design Patterns**: [MVC, Repository, Factory, etc. in use]
 - **Data Patterns**: [Database access, caching, validation]
 - **Security Patterns**: [Auth, authorization, data protection]
@@ -122,7 +122,7 @@ Based on the discovery results:
 
 ## Deliverables for Context Planning Phase
 1. **Existing Work Assessment Report** - Save to `docs/{{FEATURE_SLUG}}/existing_work_assessment.md`
-2. **Integration Strategy Decision** - Save to `docs/{{FEATURE_SLUG}}/integration_strategy.md` 
+2. **Integration Strategy Decision** - Save to `docs/{{FEATURE_SLUG}}/integration_strategy.md`
 3. **Architecture Impact Analysis** - Save to `docs/{{FEATURE_SLUG}}/architecture_analysis.md`
 4. **Implementation Approach** - Save to `docs/{{FEATURE_SLUG}}/implementation_approach.md`
 5. **Component Baseline Summary** - Save to `docs/{{FEATURE_SLUG}}/component_baseline.md` (existing components that will be used or extended)
@@ -146,7 +146,7 @@ Document existing components that are relevant to the new feature:
   - **Extension needs**: What might need to be added
 
 ### Infrastructure
-- **Service/Tool**: `ServiceName` 
+- **Service/Tool**: `ServiceName`
   - **Current usage**: How it's used in the system
   - **Integration points**: Where new feature connects
   - **Configuration**: Relevant settings or setup

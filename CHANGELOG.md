@@ -1,3 +1,432 @@
+# 0.82.0 (Tue Nov 03 2026)
+
+#### 🚀 Enhancement
+
+- feat: extract brain area anatomy from NWB location fields [#1807](https://github.com/dandi/dandi-cli/pull/1807) ([@bendichter](https://github.com/bendichter) [@yarikoptic](https://github.com/yarikoptic) bdichter@Benjamins-Mac-mini.local)
+- Add `IZeroClampSeries` and `RoiResponseSeries` to the neurodata type map; fix `OptogeneticStimulusSite` typo [#1946](https://github.com/dandi/dandi-cli/pull/1946) ([@bendichter](https://github.com/bendichter))
+- Remove dandi-archive compatibility kludges that no known instance needs [#1973](https://github.com/dandi/dandi-cli/pull/1973) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Preserve NWB subject age-reference metadata [#1931](https://github.com/dandi/dandi-cli/pull/1931) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### 🐛 Bug Fix
+
+- Fix partial Zarr download by URL: per-URL filters, missing subpaths, trailing slashes [#1929](https://github.com/dandi/dandi-cli/pull/1929) ([@claude](https://github.com/claude) [@yarikoptic](https://github.com/yarikoptic))
+- Map C. elegans sex XX/XO to hermaphrodite/male [#1976](https://github.com/dandi/dandi-cli/pull/1976) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Enhance upload/download operation error messages [#1793](https://github.com/dandi/dandi-cli/pull/1793) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Give SexType/SpeciesType built from IRIs a name; allow dandischema 0.15.x [#1949](https://github.com/dandi/dandi-cli/pull/1949) ([@claude](https://github.com/claude) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Reject nonexistent requested paths during asset discovery [#1932](https://github.com/dandi/dandi-cli/pull/1932) ([@AtomicGlance](https://github.com/AtomicGlance) [@yarikoptic](https://github.com/yarikoptic))
+- Raise the nwbinspector floor to 0.7.2 for more flexible dependencies specification as relating to zarrs [#1972](https://github.com/dandi/dandi-cli/pull/1972) ([@h-mayorquin](https://github.com/h-mayorquin))
+- Allow newer versions of `zarr` package [#1968](https://github.com/dandi/dandi-cli/pull/1968) ([@kabilar](https://github.com/kabilar) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+- Record the actual NWB Inspector version in validation results [#1966](https://github.com/dandi/dandi-cli/pull/1966) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Do not recurse when getting the metadata of an NWB file in a BIDS dataset [#1958](https://github.com/dandi/dandi-cli/pull/1958) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- CI: measure coverage in Python subprocesses via `patch = subprocess` [#1953](https://github.com/dandi/dandi-cli/pull/1953) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- CI: start coverage before pytest loads dandi's plugin [#1951](https://github.com/dandi/dandi-cli/pull/1951) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Fix get_metadata return annotation and import order in misctypes [#1950](https://github.com/dandi/dandi-cli/pull/1950) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Drop pynwb < 3.1 compatibility code from pynwb_utils [#1939](https://github.com/dandi/dandi-cli/pull/1939) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- [gh-actions](deps): Bump actions/setup-python from 6 to 7 [#1948](https://github.com/dandi/dandi-cli/pull/1948) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### 📝 Documentation
+
+- Reorganize testing documentation and add file placement guidelines [#1786](https://github.com/dandi/dandi-cli/pull/1786) ([@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- DEVELOPMENT.md: require backward compatible support of new dandi-archive features [#1963](https://github.com/dandi/dandi-cli/pull/1963) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 11
+
+- [@Copilot](https://github.com/Copilot)
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Benjamin Dichter (bdichter@Benjamins-Mac-mini.local)
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.81.0 (Wed Sep 30 2026)
+
+#### 🚀 Enhancement
+
+- Remove deprecated validate-bids command [#1943](https://github.com/dandi/dandi-cli/pull/1943) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🐛 Bug Fix
+
+- Accept broken symlinks as path arguments of `dandi validate` [#1937](https://github.com/dandi/dandi-cli/pull/1937) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- Run build & twine upload in afterPublish instead of afterRelease [#1945](https://github.com/dandi/dandi-cli/pull/1945) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 📝 Documentation
+
+- Update docs: bring the command-line reference in sync with the CLI [#1934](https://github.com/dandi/dandi-cli/pull/1934) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 3
+
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+---
+
+# 0.80.1 (Sat Sep 26 2026)
+
+#### 🐛 Bug Fix
+
+- Warn when uploads omit unrecognized paths [#1915](https://github.com/dandi/dandi-cli/pull/1915) ([@AtomicGlance](https://github.com/AtomicGlance))
+- Show the released version in the docs instead of "0+untagged" [#1926](https://github.com/dandi/dandi-cli/pull/1926) ([@kabilar](https://github.com/kabilar))
+- Give a descriptive error when a DOI cannot be resolved to citation metadata [#1900](https://github.com/dandi/dandi-cli/pull/1900) ([@adityasingh2400](https://github.com/adityasingh2400) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- BF: run dev-deps testing under 3.12 instead of 3.11 [#1928](https://github.com/dandi/dandi-cli/pull/1928) ([@yarikoptic](https://github.com/yarikoptic))
+- test: run MinIO from `bitnamilegacy/minio`; Quay now requires a login [#1927](https://github.com/dandi/dandi-cli/pull/1927) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 6
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.80.0 (Thu Sep 17 2026)
+
+#### 🚀 Enhancement
+
+- Add support for partial Zarr download and upload [#1816](https://github.com/dandi/dandi-cli/pull/1816) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@claude](https://github.com/claude))
+
+#### 🏠 Internal
+
+- Document import placement and walrus operator conventions [#1923](https://github.com/dandi/dandi-cli/pull/1923) (bdichter@Benjamins-Mac-mini.local [@bendichter](https://github.com/bendichter))
+
+#### Authors: 5
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Benjamin Dichter (bdichter@Benjamins-Mac-mini.local)
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.79.0 (Mon Sep 14 2026)
+
+#### 🚀 Enhancement
+
+- Preserve legacy ndx-pose video references during organize [#1916](https://github.com/dandi/dandi-cli/pull/1916) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### 🐛 Bug Fix
+
+- Say why metadata failed to load and how to see the tracebacks [#1901](https://github.com/dandi/dandi-cli/pull/1901) ([@adityasingh2400](https://github.com/adityasingh2400) [@yarikoptic](https://github.com/yarikoptic))
+- Match media file extensions case-insensitively [#1911](https://github.com/dandi/dandi-cli/pull/1911) ([@h-mayorquin](https://github.com/h-mayorquin) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Pull MinIO from Quay: `minio/minio` was deleted from Docker Hub [#1921](https://github.com/dandi/dandi-cli/pull/1921) ([@AtomicGlance](https://github.com/AtomicGlance) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Fix two recurring CI failures in daily scheduled runs [#1914](https://github.com/dandi/dandi-cli/pull/1914) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 6
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.78.0 (Fri Aug 28 2026)
+
+#### 🚀 Enhancement
+
+- Organize and upload images referenced by NWB files with `ExternalImage` [#1905](https://github.com/dandi/dandi-cli/pull/1905) ([@h-mayorquin](https://github.com/h-mayorquin) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- Tolerate the filesystem's mtime granularity in `download -e refresh` [#1910](https://github.com/dandi/dandi-cli/pull/1910) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Stop using deprecated Click test/version APIs [#1906](https://github.com/dandi/dandi-cli/pull/1906) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Point failed uploads to validation report [#1896](https://github.com/dandi/dandi-cli/pull/1896) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### Authors: 4
+
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+
+---
+
+# 0.77.0 (Sat Aug 08 2026)
+
+#### 🚀 Enhancement
+
+- Make a SpeciesRecord dataclass for species_map records [#1899](https://github.com/dandi/dandi-cli/pull/1899) ([@adityasingh2400](https://github.com/adityasingh2400))
+- Downgrade outgoing metadata to server's schema version on upload [#1898](https://github.com/dandi/dandi-cli/pull/1898) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- docs: expand DEVELOPMENT.md with architecture and testing guide [#1902](https://github.com/dandi/dandi-cli/pull/1902) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- Add py3-lowest tox env and CI mode; tighten dependency lower bounds [#1897](https://github.com/dandi/dandi-cli/pull/1897) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.76.8 (Tue Jul 28 2026)
+
+#### 📝 Documentation
+
+- Document validation caveats of the `get_metadata` methods [#1892](https://github.com/dandi/dandi-cli/pull/1892) ([@candleindark](https://github.com/candleindark))
+
+#### 🧪 Tests
+
+- Build expected metadata with the server's DANDI schema version [#1894](https://github.com/dandi/dandi-cli/pull/1894) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 1
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+
+---
+
+# 0.76.7 (Fri Jul 10 2026)
+
+#### 🐛 Bug Fix
+
+- Set uploaded asset metadata schemaKey to "Asset" [#1886](https://github.com/dandi/dandi-cli/pull/1886) ([@candleindark](https://github.com/candleindark))
+- Drop python 3.10 and simplify for  click 8.2 enum choice [#1890](https://github.com/dandi/dandi-cli/pull/1890) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.76.6 (Tue Jul 07 2026)
+
+#### 🐛 Bug Fix
+
+- New EMBER-DANDI sandbox frontend url [#1885](https://github.com/dandi/dandi-cli/pull/1885) ([@NEStock](https://github.com/NEStock))
+
+#### Authors: 1
+
+- Nicole Tregoning ([@NEStock](https://github.com/NEStock))
+
+---
+
+# 0.76.5 (Thu Jul 02 2026)
+
+#### 🐛 Bug Fix
+
+- Support click >= 8.2.0 [#1883](https://github.com/dandi/dandi-cli/pull/1883) ([@rly](https://github.com/rly) [@yarikoptic](https://github.com/yarikoptic))
+- Only emit "deleting extra files" status when cleanup is needed [#1881](https://github.com/dandi/dandi-cli/pull/1881) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Fix dev-deps CI failures: detect pynwb num_samples support via __docval__ [#1882](https://github.com/dandi/dandi-cli/pull/1882) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/checkout from 6 to 7 [#1880](https://github.com/dandi/dandi-cli/pull/1880) ([@dependabot[bot]](https://github.com/dependabot[bot]) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- [gh-actions](deps): Bump codecov/codecov-action from 6 to 7 [#1879](https://github.com/dandi/dandi-cli/pull/1879) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 5
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Ryan Ly ([@rly](https://github.com/rly))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.76.4 (Fri Jun 05 2026)
+
+#### 🐛 Bug Fix
+
+- Update spike time calculations for scattered non-spiking units [#1871](https://github.com/dandi/dandi-cli/pull/1871) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot))
+
+#### 🔩 Dependency Updates
+
+- Migrate style extra to a PEP 735 dependency group [#1875](https://github.com/dandi/dandi-cli/pull/1875) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 3
+
+- [@Copilot](https://github.com/Copilot)
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+
+---
+
+# 0.76.3 (Tue Jun 02 2026)
+
+#### 🧪 Tests
+
+- Add aiohttp dependency with version constraint [#1872](https://github.com/dandi/dandi-cli/pull/1872) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 1
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+---
+
+# 0.76.2 (Mon Jun 01 2026)
+
+#### 🐛 Bug Fix
+
+- BF: remove duplicated definition for "Macaca radiata" [#1869](https://github.com/dandi/dandi-cli/pull/1869) ([@yarikoptic](https://github.com/yarikoptic))
+- ENH+BF: Format species names consistently in species_map, make matching more stringent for common names, improved testing [#1866](https://github.com/dandi/dandi-cli/pull/1866) ([@yarikoptic](https://github.com/yarikoptic) [@Copilot](https://github.com/Copilot) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 3
+
+- [@Copilot](https://github.com/Copilot)
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.76.1 (Mon Jun 01 2026)
+
+#### 🐛 Bug Fix
+
+- enh: add Macaca radiata (bonnet macaque) to species_map [#1865](https://github.com/dandi/dandi-cli/pull/1865) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.76.0 (Thu May 21 2026)
+
+#### 🚀 Enhancement
+
+- Redesign --sync as optional-value option (ask/do) for download and upload [#1835](https://github.com/dandi/dandi-cli/pull/1835) ([@claude](https://github.com/claude) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Add --missing-file-content option to handle broken symlinks in validate [#1834](https://github.com/dandi/dandi-cli/pull/1834) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🐛 Bug Fix
+
+- feat: add support for Python 3.14 in workflows and classifiers [#1838](https://github.com/dandi/dandi-cli/pull/1838) ([@kevinzunigacuellar](https://github.com/kevinzunigacuellar) [@yarikoptic](https://github.com/yarikoptic))
+- ENH+BF: Zarr upload retry resilience, diagnostics, and explicit timeout [#1827](https://github.com/dandi/dandi-cli/pull/1827) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: Make Zarr validation/digest tests work with zarr-python 2.x and 3.x [#1858](https://github.com/dandi/dandi-cli/pull/1858) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/github-script from 8 to 9 [#1836](https://github.com/dandi/dandi-cli/pull/1836) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Fixup permissions (and pre-commit - spaces at end of lines) on .md files under .lad/ and remove spurious TE from regex in codespell [#1853](https://github.com/dandi/dandi-cli/pull/1853) ([@yarikoptic](https://github.com/yarikoptic))
+- [gh-actions](deps): Bump fsfe/reuse-action from 5 to 6 [#1852](https://github.com/dandi/dandi-cli/pull/1852) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 5
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Kevin Z ([@kevinzunigacuellar](https://github.com/kevinzunigacuellar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.75.1 (Thu Apr 30 2026)
+
+#### 🐛 Bug Fix
+
+- Add support for updated error text upon Zarr name conflicts [#1848](https://github.com/dandi/dandi-cli/pull/1848) ([@brianhelba](https://github.com/brianhelba))
+- BF: Add timeout to follow_redirect HEAD requests; retry on Timeout [#1849](https://github.com/dandi/dandi-cli/pull/1849) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- ENH: Add REUSE specification and checks for compliance [#1844](https://github.com/dandi/dandi-cli/pull/1844) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Allow test server to be provided externally [#1847](https://github.com/dandi/dandi-cli/pull/1847) ([@brianhelba](https://github.com/brianhelba) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Brian Helba ([@brianhelba](https://github.com/brianhelba))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.75.0 (Wed Apr 29 2026)
+
+### Release Notes
+
+#### RF: Derive LocalZarrEntry.filepath from zarr_basepath and parts ([#1843](https://github.com/dandi/dandi-cli/pull/1843))
+
+Refactor `LocalZarrEntry` so `filepath` is derived from `zarr_basepath` and `parts` instead of being stored separately, eliminating the possibility of internal inconsistency between the two representations.
+
+---
+
+#### 🚀 Enhancement
+
+- ENH: Machine-readable validate output with store/reload [#1822](https://github.com/dandi/dandi-cli/pull/1822) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Refactoring of codebase into dandi/validate/ subpackage for larger #1822 [#1830](https://github.com/dandi/dandi-cli/pull/1830) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- RF: Derive LocalZarrEntry.filepath from zarr_basepath and parts [#1843](https://github.com/dandi/dandi-cli/pull/1843) ([@candleindark](https://github.com/candleindark))
+- Fix broken external_file paths when organizing on Windows [#1832](https://github.com/dandi/dandi-cli/pull/1832) ([@h-mayorquin](https://github.com/h-mayorquin))
+- BF: Seek file data to 0 before every retry in request(), not just for retryable status codes [#1824](https://github.com/dandi/dandi-cli/pull/1824) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Bump nwbinspector to ~= 0.7.0 [#1809](https://github.com/dandi/dandi-cli/pull/1809) ([@bendichter](https://github.com/bendichter) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Upload .bidsignore files as part of BIDS datasets [#1819](https://github.com/dandi/dandi-cli/pull/1819) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix test assertions for enhanced move operation error messages [#1802](https://github.com/dandi/dandi-cli/pull/1802) ([@Copilot](https://github.com/Copilot) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Update test assertions for enhanced API error messages [#1801](https://github.com/dandi/dandi-cli/pull/1801) ([@Copilot](https://github.com/Copilot))
+- Fix test assertion mismatch in test_move_not_dandiset [#1800](https://github.com/dandi/dandi-cli/pull/1800) ([@Copilot](https://github.com/Copilot))
+
+#### 🏠 Internal
+
+- Introduce hatch-managed environments [#1831](https://github.com/dandi/dandi-cli/pull/1831) ([@candleindark](https://github.com/candleindark))
+- Remove no-op `DANDI_ALLOW_LOCALHOST_URLS` from test configs [#1829](https://github.com/dandi/dandi-cli/pull/1829) ([@candleindark](https://github.com/candleindark))
+- [gh-actions](deps): Bump codecov/codecov-action from 5 to 6 [#1826](https://github.com/dandi/dandi-cli/pull/1826) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Remove sync git bug workflow for now altogether [#1814](https://github.com/dandi/dandi-cli/pull/1814) ([@yarikoptic](https://github.com/yarikoptic))
+- Configure user.* git vars for git-bug [#1813](https://github.com/dandi/dandi-cli/pull/1813) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix git-bug sync workflow: bridge configure → bridge new [#1810](https://github.com/dandi/dandi-cli/pull/1810) ([@yarikoptic](https://github.com/yarikoptic))
+- Add git-bug distributed issue tracking [#1804](https://github.com/dandi/dandi-cli/pull/1804) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Enhance path validation error messages [#1792](https://github.com/dandi/dandi-cli/pull/1792) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Enhance API client error messages [#1791](https://github.com/dandi/dandi-cli/pull/1791) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 📝 Documentation
+
+- ai: fix up CLAUDE.md as to pytest markers placement [#1812](https://github.com/dandi/dandi-cli/pull/1812) ([@yarikoptic](https://github.com/yarikoptic))
+- Adapt LAD framework to dandi-cli project practices [#1805](https://github.com/dandi/dandi-cli/pull/1805) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Add module docstrings to core API and configuration modules [#1787](https://github.com/dandi/dandi-cli/pull/1787) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Add LLM-Assisted Development (LAD) test quality framework [#1785](https://github.com/dandi/dandi-cli/pull/1785) ([@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Add module docstrings to operation modules [#1788](https://github.com/dandi/dandi-cli/pull/1788) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- BF: Pin rabbitmq image to 4.2-management in test docker-compose [#1841](https://github.com/dandi/dandi-cli/pull/1841) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 8
+
+- [@Copilot](https://github.com/Copilot)
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.74.3 (Sat Feb 14 2026)
 
 #### 🐛 Bug Fix

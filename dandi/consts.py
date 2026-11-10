@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 import os
 
 #: A list of metadata fields which dandi extracts from .nwb files.
@@ -32,12 +32,15 @@ metadata_nwb_file_fields = (
 
 metadata_nwb_subject_fields = (
     "age",
+    "age__reference",
     "date_of_birth",
     "genotype",
     "sex",
     "species",
     "strain",
     "subject_id",
+    # CElegansSubject of ndx-subjects fixes `sex` to "O" and keeps XX/XO here
+    "c_elegans_sex",
 )
 
 metadata_nwb_dandi_fields = ("cell_id", "slice_id", "tissue_sample_id", "probe_ids")
@@ -101,6 +104,11 @@ class EmbargoStatus(Enum):
     EMBARGOED = "EMBARGOED"
 
 
+class SyncMode(StrEnum):
+    ASK = "ask"
+    DO = "do"
+
+
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
@@ -159,7 +167,7 @@ known_instances = {
     ),
     "ember-dandi-sandbox": DandiInstance(
         "ember-dandi-sandbox",
-        "https://apl-setup--ember-dandi-archive.netlify.app",
+        "https://dandi.sandbox.emberarchive.org",
         "https://api-dandi.sandbox.emberarchive.org/api",
     ),
 }
@@ -185,6 +193,10 @@ RETRY_STATUSES = (429, 500, 502, 503, 504)
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
+#: Extensions of the images an `ExternalImage` may point at. NWB restricts `image_format` to
+#: PNG, JPEG and GIF, so nothing else can be referenced by an NWB file in the first place.
+IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif"]
+
 ZARR_EXTENSIONS = [".ngff", ".zarr"]
 
 #: Maximum allowed depth of a Zarr directory tree
@@ -192,6 +204,11 @@ MAX_ZARR_DEPTH = 7
 
 #: MIME type assigned to & used to identify Zarr assets
 ZARR_MIME_TYPE = "application/x-zarr"
+
+#: Maximum file size for a single S3 PUT upload (5 GiB).
+#: S3 rejects single-part PUTs larger than this; such files would need
+#: multipart upload which is not yet supported for zarr chunks.
+S3_MAX_SINGLE_PART_UPLOAD = 5 * 1024**3
 
 #: Maximum number of Zarr directory entries to upload at once
 ZARR_UPLOAD_BATCH_SIZE = 255
@@ -236,5 +253,19 @@ REQUEST_RETRIES = 12
 
 DOWNLOAD_TIMEOUT = 30
 
+#: Per-request timeout (seconds) for HEAD requests issued by
+#: ``follow_redirect`` while resolving a redirect chain.  Without it,
+#: requests hangs indefinitely on a stalled hop (observed on Windows CI).
+REDIRECT_HEAD_TIMEOUT = 30
+
 #: Suffix used for temporary download directories
 DOWNLOAD_SUFFIX = ".dandidownload"
+
+#: Tolerance (in seconds) when comparing an asset's recorded mtime against the
+#: mtime read back from the downloaded file under ``-e refresh``.  That local
+#: mtime is one we set ourselves with ``os.utime()``, so the comparison is
+#: really a filesystem round trip, and not every filesystem stores mtimes at
+#: the resolution ``os.stat()`` reports them at: mounted Windows volumes,
+#: exFAT and some network filesystems truncate, and FAT rounds to a multiple
+#: of two seconds.  See https://github.com/dandi/dandi-cli/issues/1907
+MTIME_TOLERANCE = 2.0

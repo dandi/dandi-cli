@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import nullcontext
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from functools import partial
 from glob import glob
@@ -13,10 +14,12 @@ import os.path
 from pathlib import Path
 import re
 from shutil import rmtree
+from threading import Lock
 import time
+from typing import Any
 from unittest import mock
 
-from dandischema.models import ID_PATTERN
+from dandischema.models import ID_PATTERN, DigestType
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
@@ -25,11 +28,13 @@ from requests.exceptions import HTTPError
 import responses
 import zarr
 
+import dandi.download
+
 from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
-from .test_helpers import assert_dirtrees_eq
-from ..consts import DRAFT, dandiset_metadata_file
-from ..dandiarchive import DandisetURL
+from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, assert_dirtrees_eq, zarr_format_of
+from ..consts import DRAFT, MTIME_TOLERANCE, SyncMode, dandiset_metadata_file
+from ..dandiarchive import DandisetURL, parse_dandi_url
 from ..download import (
     DownloadDirectory,
     Downloader,
@@ -39,11 +44,14 @@ from ..download import (
     ProgressCombiner,
     PYOUTHelper,
     _check_attempts_and_sleep,
+    _download_file,
     download,
 )
 from ..exceptions import NotFoundError
+from ..misctypes import Digest
 from ..support.digests import Digester
 from ..utils import list_paths, yaml_load
+from ..zarr_filter import ZarrFilter, make_zarr_entry_filter
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -168,6 +176,149 @@ def test_download_000027_resume(
         assert digester(str(nwb)) != digests
     else:
         assert digester(str(nwb)) == digests
+
+
+@pytest.fixture()
+def coarse_mtime_fs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[[float], None]]:
+    """Simulate a filesystem that does not store sub-second mtimes
+
+    Yields a callable taking the granularity (in seconds) with which mtimes
+    should be stored; until it is called, mtimes are stored as given.  This is
+    done by patching `os.utime()` to quantize the times it is asked to set,
+    which is what filesystems such as those on mounted Windows volumes, FAT and
+    exFAT effectively do -- real (ext4/XFS/tmpfs) temporary directories store
+    mtimes with nanosecond resolution and so cannot exercise this behavior.
+    """
+    real_utime = os.utime
+    granularity = 0.0
+
+    def quantizing_utime(
+        path: Any, times: Any = None, *, ns: Any = None, **kwargs: Any
+    ) -> None:
+        # `os.utime()` accepts the times either as seconds (`times`) or as
+        # nanoseconds (`ns`, used by e.g. `shutil.copystat()`), never both, so
+        # quantize whichever was given and forward it the same way
+        if granularity:
+            if times is not None:
+                times = tuple(t // granularity * granularity for t in times)
+            if ns is not None:
+                ns_granularity = int(granularity * 1_000_000_000)
+                ns = tuple(n // ns_granularity * ns_granularity for n in ns)
+        if ns is not None:
+            real_utime(path, ns=ns, **kwargs)
+        else:
+            real_utime(path, times, **kwargs)
+
+    def set_granularity(value: float) -> None:
+        nonlocal granularity
+        granularity = value
+
+    monkeypatch.setattr(os, "utime", quantizing_utime)
+    yield set_granularity
+
+
+#: An arbitrary asset mtime with a non-zero sub-second component, i.e. one that
+#: does not survive a round trip through a filesystem storing whole seconds only
+COARSE_MTIME_RECORD = datetime(2026, 8, 22, 15, 21, 21, 651000, tzinfo=timezone.utc)
+
+COARSE_MTIME_CONTENT = b"This is test text.\n"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("granularity", [0.0, 1.0, 2.0])
+def test_download_file_refresh_coarse_mtime_fs(
+    tmp_path: Path, coarse_mtime_fs: Callable[[float], None], granularity: float
+) -> None:
+    """`existing=refresh` must skip an unchanged file no matter how coarsely the
+    filesystem stores the mtime that we ourselves set after downloading it.
+
+    Regression test for https://github.com/dandi/dandi-cli/issues/1907 , where
+    every file of a dandiset was redownloaded on every run whenever the
+    destination did not store sub-second mtimes (a mounted Windows volume,
+    FAT/exFAT, some network filesystems).
+    """
+    coarse_mtime_fs(granularity)
+    path = tmp_path / "file.txt"
+    downloads = 0
+
+    def downloader(start_at: int = 0) -> Iterator[bytes]:
+        nonlocal downloads
+        downloads += 1
+        yield COARSE_MTIME_CONTENT[start_at:]
+
+    def download_it(existing: DownloadExisting) -> list[dict]:
+        return list(
+            _download_file(
+                downloader,
+                path,
+                tmp_path,
+                Lock(),
+                size=len(COARSE_MTIME_CONTENT),
+                mtime=COARSE_MTIME_RECORD,
+                existing=existing,
+            )
+        )
+
+    assert {"status": "setting mtime"} in download_it(DownloadExisting.ERROR)
+    assert path.read_bytes() == COARSE_MTIME_CONTENT
+    assert downloads == 1
+
+    # The refresh pass must not transfer anything at all, however coarsely the
+    # filesystem happened to store the mtime just set
+    downloads = 0
+    assert download_it(DownloadExisting.REFRESH) == [
+        {
+            "status": "skipped",
+            "message": "same time and size",
+            "size": len(COARSE_MTIME_CONTENT),
+        }
+    ]
+    assert downloads == 0
+
+
+@pytest.mark.ai_generated
+def test_download_file_refresh_reports_mtime_mismatch(
+    tmp_path: Path,
+    coarse_mtime_fs: Callable[[float], None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A genuinely out-of-date file is still redownloaded, and the rejected skip
+    reports both timestamps, their delta, and the tolerance applied."""
+    coarse_mtime_fs(1.0)
+    path = tmp_path / "file.txt"
+    path.write_bytes(COARSE_MTIME_CONTENT)
+    # The local copy is an hour older than the record, i.e. out of date by far
+    # more than any filesystem's mtime granularity
+    stale = COARSE_MTIME_RECORD - timedelta(hours=1)
+    os.utime(path, (time.time(), stale.timestamp()))
+
+    def downloader(start_at: int = 0) -> Iterator[bytes]:
+        yield COARSE_MTIME_CONTENT[start_at:]
+
+    statuses = list(
+        _download_file(
+            downloader,
+            path,
+            tmp_path,
+            Lock(),
+            size=len(COARSE_MTIME_CONTENT),
+            mtime=COARSE_MTIME_RECORD,
+            existing=DownloadExisting.REFRESH,
+        )
+    )
+    assert {"status": "downloading"} in statuses
+
+    (msg,) = [
+        r.getMessage() for r in caplog.records if "Redownloading" in r.getMessage()
+    ]
+    assert "same attributes: ['size']" in msg
+    assert f"tolerance: {MTIME_TOLERANCE:g} s" in msg
+    # The record's mtime is reported in full, so that someone reading the log
+    # can see what it was compared against.  The local one is not asserted on:
+    # it is whatever the filesystem stored, which is the point of the test.
+    assert f"record mtime: {COARSE_MTIME_RECORD}" in msg
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -319,6 +470,24 @@ def test_download_sync(
         assert (dspath / "file.txt").exists()
 
 
+@pytest.mark.ai_generated
+def test_download_sync_do(
+    mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
+    dspath = tmp_path / text_dandiset.dandiset_id
+    os.rename(text_dandiset.dspath, dspath)
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt")
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE,
+        sync=SyncMode.DO,
+    )
+    confirm_mock.assert_not_called()
+    assert not (dspath / "file.txt").exists()
+
+
 def test_download_sync_folder(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
@@ -438,6 +607,73 @@ def test_download_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     )
 
 
+def _zarr_download_statuses(
+    dandiset: SampleDandiset,
+    output_dir: Path,
+    existing: DownloadExisting = DownloadExisting.ERROR,
+) -> list[dict]:
+    return list(
+        Downloader(
+            url=DandisetURL(
+                instance=dandiset.api.instance,
+                dandiset_id=dandiset.dandiset.identifier,
+                version_id=dandiset.dandiset.version_id,
+            ),
+            output_dir=output_dir,
+            existing=existing,
+            get_metadata=True,
+            get_assets=True,
+            preserve_tree=False,
+            jobs_per_zarr=None,
+            on_error="raise",
+        ).download_generator()
+    )
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_clean_no_deleting_status(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    # On a fresh, first-time download every local file corresponds to a remote
+    # entry, so nothing is deleted and the "deleting extra files" status must
+    # not be emitted.
+    statuses = _zarr_download_statuses(zarr_dandiset, tmp_path)
+    assert not any(s.get("status") == "deleting extra files" for s in statuses)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_deletes_orphan_files(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    # First download cleanly.
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    zarr_root = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    # Introduce orphaned local files (and a now-extra subdirectory) that do not
+    # correspond to any remote Zarr entry.
+    orphan_file = zarr_root / "orphan.bin"
+    orphan_file.write_bytes(b"not a real zarr entry")
+    orphan_dir = zarr_root / "orphan_dir"
+    orphan_dir.mkdir()
+    (orphan_dir / "nested_orphan.bin").write_bytes(b"also extra")
+    assert orphan_file.exists()
+    assert orphan_dir.exists()
+    # Re-download: cleanup must remove the orphans and announce it.
+    statuses = _zarr_download_statuses(
+        zarr_dandiset, tmp_path, existing=DownloadExisting.OVERWRITE
+    )
+    assert any(s.get("status") == "deleting extra files" for s in statuses)
+    assert not orphan_file.exists()
+    assert not orphan_dir.exists()
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        zarr_root,
+    )
+
+
 def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     dd = tmp_path / zarr_dandiset.dandiset_id
     dd.mkdir()
@@ -460,6 +696,10 @@ def test_download_different_zarr_onto_excluded_dotfiles(
     dd.mkdir()
     zarr_path = dd / "sample.zarr"
     zarr.save(zarr_path, np.eye(5))
+    # `zarr_dandiset` was uploaded with default ``zarr.save`` — its on-disk
+    # layout (and therefore the layout we expect to see after download) is
+    # V2 for zarr-python 2.x, V3 for zarr-python 3.x.
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(zarr_dandiset.dspath / "sample.zarr")]
     (zarr_path / ".git").touch()
     (zarr_path / ".dandi").mkdir()
     (zarr_path / ".dandi" / "somefile.txt").touch()
@@ -472,21 +712,18 @@ def test_download_different_zarr_onto_excluded_dotfiles(
         tmp_path,
         existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
-    assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
+    dotfile_paths = [
         zarr_path / ".dandi",
         zarr_path / ".dandi" / "somefile.txt",
         zarr_path / ".datalad",
         zarr_path / ".git",
         zarr_path / ".gitattributes",
-        zarr_path / ".zgroup",
-        zarr_path / "arr_0",
         zarr_path / "arr_0" / ".gitmodules",
-        zarr_path / "arr_0" / ".zarray",
-        zarr_path / "arr_0" / "0",
-        zarr_path / "arr_1",
-        zarr_path / "arr_1" / ".zarray",
-        zarr_path / "arr_1" / "0",
     ]
+    zarr_paths = [zarr_path / p for p in layout["files_and_dirs"]]
+    assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == sorted(
+        set(dotfile_paths + zarr_paths)
+    )
 
 
 def test_download_different_zarr_delete_dir(
@@ -495,7 +732,16 @@ def test_download_different_zarr_delete_dir(
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
     zarr.save(dspath / "sample.zarr", np.eye(5))
-    assert not any(p.is_dir() for p in (dspath / "sample.zarr").iterdir())
+    # The single-array ``np.eye(5)`` Zarr has a flatter layout than the
+    # two-array Zarr below: in V2 no subdirs at all; in V3 only ``c/``
+    # (the chunk container) rather than ``arr_0/`` and ``arr_1/``. This
+    # is the contrast the test exercises — downloading the smaller Zarr
+    # must delete the extra ``arr_*`` subdirs of the bigger one.
+    initial_subdirs = {p.name for p in (dspath / "sample.zarr").iterdir() if p.is_dir()}
+    if zarr_format_of(dspath / "sample.zarr") == "2":
+        assert initial_subdirs == set()
+    else:
+        assert initial_subdirs == {"c"}
     new_dandiset.upload()
     dd = tmp_path / d.identifier
     dd.mkdir(parents=True, exist_ok=True)
@@ -922,12 +1168,13 @@ def test_download_multiple_urls(
     # end up using the same `new_dandiset`.  Hence, we need to fall back to
     # using `sample_dandiset_factory` here.
     zarr_dandiset = sample_dandiset_factory.mkdandiset("Sample Zarr Dandiset")
-    zarr.save(
-        zarr_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
-    )
+    zarr_local = zarr_dandiset.dspath / "sample.zarr"
+    zarr.save(zarr_local, np.arange(1000), np.arange(1000, 0, -1))
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(zarr_local)]
     zarr_dandiset.upload()
 
     download([text_dandiset.dandiset.api_url, zarr_dandiset.dandiset.api_url], tmp_path)
+    zarr_root = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
     assert list_paths(tmp_path) == [
         tmp_path / text_dandiset.dandiset_id / "dandiset.yaml",
         tmp_path / text_dandiset.dandiset_id / "file.txt",
@@ -935,16 +1182,7 @@ def test_download_multiple_urls(
         tmp_path / text_dandiset.dandiset_id / "subdir2" / "banana.txt",
         tmp_path / text_dandiset.dandiset_id / "subdir2" / "coconut.txt",
         tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml",
-        tmp_path
-        / zarr_dandiset.dandiset_id
-        / tmp_path
-        / zarr_dandiset.dandiset_id
-        / "sample.zarr"
-        / ".zgroup",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / ".zarray",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / "0",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / ".zarray",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / "0",
+        *[zarr_root / p for p in layout["files"]],
     ]
 
 
@@ -1228,6 +1466,24 @@ def test__check_attempts_and_sleep() -> None:
             assert mock_sleep.call_args.args[0] >= 0
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("status_code", [400, 403, 404])
+def test__check_attempts_and_sleep_no_retry(status_code: int) -> None:
+    response = requests.Response()
+    response.status_code = status_code
+    with mock.patch("time.sleep") as mock_sleep:
+        assert (
+            _check_attempts_and_sleep(
+                Path("some/path"),
+                HTTPError(response=response),
+                attempt=1,
+                attempts_allowed=2,
+            )
+            == 0
+        )
+        mock_sleep.assert_not_called()
+
+
 @pytest.mark.parametrize("status_code", [429, 503])
 def test__check_attempts_and_sleep_retries(status_code: int) -> None:
     f = partial(_check_attempts_and_sleep, Path("some/path"))
@@ -1293,3 +1549,381 @@ def test__check_attempts_and_sleep_retries(status_code: int) -> None:
         mock_sleep.assert_called_once()
         # and we do not sleep really
         assert not mock_sleep.call_args.args[0]
+
+
+# ---------- Partial Zarr download tests ----------
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "zarr_filters",
+    [("glob:**/.z*", "glob:**/zarr.json"), ("metadata",)],
+    ids=["glob", "alias"],
+)
+def test_download_zarr_metadata_only(
+    tmp_path: Path, zarr_dandiset: SampleDandiset, zarr_filters: tuple[str, ...]
+) -> None:
+    """Download only the metadata files of a zarr asset.
+
+    Zarr v2 stores metadata in dot-files (``.zarray``/``.zgroup``/``.zattrs``),
+    while Zarr v3 uses ``zarr.json``.  Match both so the test is agnostic to
+    the on-disk format produced by the installed zarr-python.
+    """
+    download(
+        zarr_dandiset.dandiset.version_api_url, tmp_path, zarr_filters=zarr_filters
+    )
+    zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    assert zarr_dir.exists()
+    all_files = list_paths(zarr_dir)
+    assert len(all_files) > 0
+    for f in all_files:
+        assert (
+            f.name.startswith(".z") or f.name == "zarr.json"
+        ), f"Non-metadata file downloaded: {f}"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_filter_no_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Verify local files outside filter scope are NOT deleted during partial download."""
+    dd = tmp_path / zarr_dandiset.dandiset_id
+    dd.mkdir()
+    zarr_dir = dd / "sample.zarr"
+    zarr_dir.mkdir()
+    # Create a pre-existing "extra" file
+    extra = zarr_dir / "extra_local_file.txt"
+    extra.write_text("should not be deleted")
+
+    download(
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("glob:**/.z*",),
+        existing=DownloadExisting.OVERWRITE,
+    )
+    # The extra file should still exist (filter mode skips deletion)
+    assert extra.exists(), "Local file outside filter scope was deleted"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_with_path_filter(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """Download only a specific subtree using path: filter."""
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "a").mkdir()
+    (zf / "a" / "data.bin").write_text("data-a")
+    (zf / "b").mkdir()
+    (zf / "b" / "data.bin").write_text("data-b")
+    new_dandiset.upload(validation="skip")
+
+    download(
+        new_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("path:a",),
+    )
+    zarr_dir = tmp_path / new_dandiset.dandiset_id / "sample.zarr"
+    assert (zarr_dir / "a" / "data.bin").exists()
+    assert not (zarr_dir / "b").exists(), "Files outside path filter were downloaded"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_filter_nonexistent(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """A filter matching nothing should download nothing, without error."""
+    download(
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("path:nonexistent/path",),
+    )
+    zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    if zarr_dir.exists():
+        # Should have no actual data files
+        data_files = [f for f in list_paths(zarr_dir) if not f.name.startswith(".")]
+        assert len(data_files) == 0
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "url,zarr_filters,error",
+    [
+        (
+            "https://dandiarchive.org/dandiset/000027",
+            ("metadata",),
+            "--sync and --zarr cannot be used together",
+        ),
+        (
+            "dandi://dandi/000027/sample.zarr/0/0",
+            (),
+            "--sync cannot be used with a URL pointing inside a Zarr asset",
+        ),
+    ],
+)
+def test_download_zarr_sync_conflict(
+    url: str, zarr_filters: tuple[str, ...], error: str
+) -> None:
+    """A partial zarr download and ``--sync`` are mutually exclusive."""
+    with pytest.raises(ValueError, match=re.escape(error)):
+        download(url, "/tmp/unused", sync=True, zarr_filters=zarr_filters)
+
+
+def _make_downloader(
+    url: str, tmp_path: Path, zarr_filters: Sequence[ZarrFilter] = ()
+) -> Downloader:
+    return Downloader(
+        url=parse_dandi_url(url),
+        output_dir=tmp_path,
+        existing=DownloadExisting.ERROR,
+        get_metadata=True,
+        get_assets=True,
+        preserve_tree=False,
+        jobs_per_zarr=None,
+        on_error="raise",
+        zarr_filters=list(zarr_filters),
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "url,zarr_filters,included,excluded,url_filters",
+    [
+        # A URL inside a zarr restricts that download to its subpath ...
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0",
+            (),
+            ["0/0/.zarray"],
+            ["1/1/.zarray"],
+            [ZarrFilter("path", "0/0")],
+        ),
+        # ... and no other URL in the same invocation is affected
+        ("dandi://dandi/000108/sub-2/other.ome.zarr", (), None, None, []),
+        # ``--zarr`` filters apply to every asset, whatever the URL
+        (
+            "dandi://dandi/000108/sub-2/other.ome.zarr",
+            (ZarrFilter("path", "a"),),
+            ["a/data.bin"],
+            ["b/data.bin"],
+            [],
+        ),
+    ],
+)
+def test_downloader_zarr_filters(
+    tmp_path: Path,
+    url: str,
+    zarr_filters: Sequence[ZarrFilter],
+    included: list[str] | None,
+    excluded: list[str] | None,
+    url_filters: list[ZarrFilter],
+) -> None:
+    """Only the URL's own subpath filters its download; ``--zarr`` filters all.
+
+    ``included``/``excluded`` of `None` means no filtering at all, i.e. the
+    whole zarr is downloaded.  A non-empty ``url_filters`` marks the entries as
+    named by the user, so matching none of them is an error.
+    """
+    dl = _make_downloader(url, tmp_path, zarr_filters)
+    assert dl.url_zarr_filters == url_filters
+    if included is None:
+        assert dl.zarr_entry_filter is None
+    else:
+        assert dl.zarr_entry_filter is not None
+        assert all(dl.zarr_entry_filter(p) for p in included)
+        assert excluded is not None
+        assert not any(dl.zarr_entry_filter(p) for p in excluded)
+
+
+def _upload_zarrs(ds: SampleDandiset, *names_subdirs: tuple[str, str]) -> None:
+    """Upload a zarr per ``(name, subdirs)``, each subdir holding a `data.bin`."""
+    for name, subdirs in names_subdirs:
+        zf = ds.dspath / name
+        zf.mkdir()
+        for sub in subdirs:
+            (zf / sub).mkdir()
+            (zf / sub / "data.bin").write_text(f"data-{sub}")
+    ds.upload(validation="skip")
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "suffix,whole_zarr",
+    [
+        # A subpath fetches only that subtree ...
+        ("/a", False),
+        # ... and a trailing slash below the boundary means the same
+        ("/a/", False),
+        # At the boundary, with or without a slash, the whole zarr is fetched
+        ("", True),
+        ("/", True),
+    ],
+)
+def test_download_zarr_url_subpath(
+    tmp_path: Path, new_dandiset: SampleDandiset, suffix: str, whole_zarr: bool
+) -> None:
+    """A URL inside a zarr fetches that subtree; a trailing slash is ignored."""
+    _upload_zarrs(new_dandiset, ("sample.zarr", "ab"))
+    download(
+        f"dandi://{new_dandiset.api.instance_id}"
+        f"/{new_dandiset.dandiset_id}/sample.zarr{suffix}",
+        tmp_path,
+    )
+    zarr_dir = tmp_path / "sample.zarr"
+    assert (zarr_dir / "a" / "data.bin").read_text() == "data-a"
+    if whole_zarr:
+        assert (zarr_dir / "b" / "data.bin").read_text() == "data-b"
+    else:
+        assert not (zarr_dir / "b").exists()
+
+
+@pytest.mark.ai_generated
+def test_download_url_subpath_of_non_zarr_asset(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """A subpath under a blob that merely *looks* like a Zarr is an error.
+
+    The URL's subpath cannot be honoured, and downloading the whole blob
+    instead would silently give the user something they did not ask for.
+    """
+    (new_dandiset.dspath / "sample.zarr").write_text("This is not a Zarr.\n")
+    new_dandiset.upload(allow_any_path=True)
+    with pytest.raises(RuntimeError, match="1 error while downloading"):
+        download(
+            f"dandi://{new_dandiset.api.instance_id}"
+            f"/{new_dandiset.dandiset_id}/sample.zarr/0/0",
+            tmp_path,
+        )
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_url_subpath_nonexistent(
+    tmp_path: Path, new_dandiset: SampleDandiset, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A URL naming a nonexistent path inside a Zarr asset errors out."""
+    _upload_zarrs(new_dandiset, ("sample.zarr", "ab"))
+    with pytest.raises(RuntimeError, match="1 error while downloading"):
+        download(
+            f"dandi://{new_dandiset.api.instance_id}"
+            f"/{new_dandiset.dandiset_id}/sample.zarr/nonexistent",
+            tmp_path,
+        )
+    assert "No entries in the Zarr asset match 'nonexistent'" in caplog.text
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_url_subpath_does_not_filter_other_urls(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """A Zarr subpath in one URL must not restrict a second URL's download."""
+    _upload_zarrs(new_dandiset, ("sample.zarr", "ab"), ("other.zarr", "cd"))
+    prefix = f"dandi://{new_dandiset.api.instance_id}/{new_dandiset.dandiset_id}"
+    download([f"{prefix}/sample.zarr/a", f"{prefix}/other.zarr"], tmp_path)
+    # First URL: only the requested subtree
+    assert (tmp_path / "sample.zarr" / "a" / "data.bin").exists()
+    assert not (tmp_path / "sample.zarr" / "b").exists()
+    # Second URL: the whole Zarr, unaffected by the first URL's subpath
+    assert (tmp_path / "other.zarr" / "c" / "data.bin").read_text() == "data-c"
+    assert (tmp_path / "other.zarr" / "d" / "data.bin").read_text() == "data-d"
+
+
+class _FakeZarrEntry:
+    """Minimal stand-in for a `RemoteZarrEntry` for `_download_zarr` tests."""
+
+    def __init__(self, path: str, size: int = 10) -> None:
+        self.path = path
+        self.size = size
+        self.digest = Digest(algorithm=DigestType.md5, value="0" * 32)
+        self.modified = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+    def __str__(self) -> str:
+        return self.path
+
+    def get_download_file_iter(self) -> Callable[[], Iterator[bytes]]:
+        return lambda: iter([])
+
+
+class _FakeZarrAsset:
+    """Minimal stand-in for a `BaseRemoteZarrAsset` for `_download_zarr` tests."""
+
+    def __init__(self, paths: Sequence[str]) -> None:
+        self.paths = list(paths)
+        self.size = 10 * len(self.paths)
+
+    def iterfiles(self, prefix: str | None = None) -> Iterator[_FakeZarrEntry]:
+        return iter([_FakeZarrEntry(p) for p in self.paths])
+
+
+def _run_download_zarr(
+    tmp_path: Path,
+    paths: Sequence[str],
+    filters: Sequence[ZarrFilter],
+    required_filters: Sequence[ZarrFilter] = (),
+) -> list[dict]:
+    """Drive `_download_zarr` over a fake asset, stubbing out the file transfer."""
+    with mock.patch.object(
+        dandi.download,
+        "_download_file",
+        lambda *args, **kwargs: iter(
+            [{"size": 10}, {"status": "downloading"}, {"status": "done"}]
+        ),
+    ):
+        return list(
+            dandi.download._download_zarr(
+                _FakeZarrAsset(paths),  # type: ignore[arg-type]
+                tmp_path / "sample.zarr",
+                toplevel_path=tmp_path,
+                existing=DownloadExisting.OVERWRITE,
+                lock=Lock(),
+                jobs=1,
+                zarr_entry_filter=make_zarr_entry_filter(list(filters)),
+                required_filters=list(required_filters),
+            )
+        )
+
+
+NO_MATCH = "No entries in the Zarr asset match 'nonexistent'"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "filters,required,error,downloads",
+    [
+        # A URL subpath matching nothing is an error ...
+        ([ZarrFilter("path", "nonexistent")], True, NO_MATCH, False),
+        # ... even when ``--zarr`` filters match and entries are downloaded
+        (
+            [ZarrFilter("path", "nonexistent"), ZarrFilter("glob", "**/.z*")],
+            True,
+            NO_MATCH,
+            True,
+        ),
+        # Without a URL subpath, matching nothing is a silent no-op
+        ([ZarrFilter("path", "nonexistent")], False, None, False),
+        # A URL subpath that does match downloads without error
+        ([ZarrFilter("path", "a")], True, None, True),
+    ],
+)
+def test_download_zarr_required_filters(
+    tmp_path: Path,
+    filters: list[ZarrFilter],
+    required: bool,
+    error: str | None,
+    downloads: bool,
+) -> None:
+    """Entries named by a URL must exist; ``--zarr`` filters need not match.
+
+    ``required`` marks the first filter as URL-derived.  ``downloads`` says
+    whether any entry was expected to be fetched, which is what distinguishes
+    "matched nothing at all" from "matched only the ``--zarr`` filters".
+    """
+    out = _run_download_zarr(
+        tmp_path,
+        [".zgroup", "a/data.bin"],
+        filters,
+        required_filters=filters[:1] if required else (),
+    )
+    errors = [r for r in out if r.get("status") == "error"]
+    assert [r["message"] for r in errors] == ([error] if error else [])
+    assert any("size" in r or "done" in r for r in out) is downloads
+    if error is None:
+        assert out[-1] == {"status": "done"}

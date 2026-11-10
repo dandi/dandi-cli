@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import lru_cache
 import re
@@ -247,6 +248,8 @@ def extract_age(metadata: dict) -> models.PropertyValue | None:
     except (KeyError, TypeError, ValueError):
         if metadata.get("age") is not None:
             duration, ref = parse_age(metadata["age"])
+            if metadata.get("age__reference") == "gestational":
+                ref = "Gestational"
         else:
             return None
     else:
@@ -286,16 +289,59 @@ def timedelta2duration(delta: timedelta) -> str:
     return s
 
 
+# Names for the sex IRIs which ``extract_sex`` produces itself
+SEX_NAMES_BY_IRI = {
+    "http://purl.obolibrary.org/obo/PATO_0000384": "Male",
+    "http://purl.obolibrary.org/obo/PATO_0000383": "Female",
+    "http://purl.obolibrary.org/obo/PATO_0001340": "Hermaphrodite",
+}
+
+
+def _is_c_elegans(species: Any) -> bool:
+    """Whether NWB ``subject.species`` designates *Caenorhabditis elegans*"""
+    if not isinstance(species, str):
+        return False
+    species = species.strip().lower()
+    return (
+        species in ("c. elegans", "caenorhabditis elegans")
+        or species.startswith("caenorhabditis elegans ")
+        or species.endswith("/ncbitaxon_6239")
+    )
+
+
 def extract_sex(metadata: dict) -> models.SexType | None:
     value = metadata.get("sex", None)
+    c_elegans_sex = metadata.get("c_elegans_sex")
+    is_c_elegans = _is_c_elegans(metadata.get("species"))
+    if (
+        isinstance(c_elegans_sex, str)
+        and c_elegans_sex.strip().lower() in ("xx", "xo")
+        and (value is None or value.strip().lower() in ("", "o", "other"))
+    ):
+        # CElegansSubject of ndx-subjects records the sex there and fixes
+        # `sex` to "O"
+        value = c_elegans_sex
+        is_c_elegans = True
     if value is not None and value != "":
-        value = value.lower()
+        value_orig = value.strip()
+        value = value_orig.lower()
         if value in ["m", "male"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
             value = "Male"
         elif value in ["f", "female"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000383"
             value = "Female"
+        elif value == "hermaphrodite":
+            value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
+            value = "Hermaphrodite"
+        elif value in ["xx", "xo"] and is_c_elegans:
+            # nwbinspector requires XX (hermaphrodite) or XO (male) for C. elegans
+            if value == "xx":
+                value_id = "http://purl.obolibrary.org/obo/PATO_0001340"
+                value = "Hermaphrodite"
+            else:
+                value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
+                value = "Male"
         elif value in ["unknown", "u"]:
             value_id = None
             value = "Unknown"
@@ -303,8 +349,11 @@ def extract_sex(metadata: dict) -> models.SexType | None:
             value_id = None
             value = "Other"
         elif value.startswith("http"):
-            value_id = value
-            value = None
+            value_id = value_orig
+            # dandischema requires a name; fall back to the IRI itself
+            value = {k.lower(): v for k, v in SEX_NAMES_BY_IRI.items()}.get(
+                value, value_id
+            )
         else:
             raise ValueError(f"Cannot interpret sex field: {value}")
         return models.SexType(identifier=value_id, name=value)
@@ -333,79 +382,193 @@ def extract_cellLine(metadata: dict) -> str | None:
 
 NCBITAXON_URI_TEMPLATE = "http://purl.obolibrary.org/obo/NCBITaxon_{}"
 
-# common_names, prefix, uri, name
+#: Separator between the current scientific name and the GenBank common name
+#: within `SpeciesRecord.name`
+SPECIES_NAME_SEPARATOR = " - "
+
+
+@dataclass(frozen=True)
+class SpeciesRecord:
+    """A single species entry of the `species_map` lookup table.
+
+    Attributes
+    ----------
+    common_names : tuple of str
+        Additional lower-cased names the species may be referred to by.  These
+        are only consulted if no record matched on `name` or `prefix`.
+    prefix : str or None
+        If not `None`, a lower-cased prefix such that any value starting with
+        it identifies this species, e.g. ``"mus"`` for *Mus musculus*.
+    taxon_id : str
+        The numeric NCBITaxon identifier, e.g. ``"10090"``.  The `uri` is
+        derived from it so a record cannot carry a PURL that `extract_species`
+        would fail to match.
+    name : str
+        The canonical DANDI name, formatted as
+        ``"{current scientific name} - {GenBank common name}"``.
+    """
+
+    common_names: tuple[str, ...]
+    prefix: str | None
+    taxon_id: str
+    name: str
+
+    def __post_init__(self) -> None:
+        # `common_names` is a tuple of one element for most entries, so a dropped
+        # trailing comma leaves a plain `str` here. That is hashable, iterates as
+        # lower-cased characters and therefore passes every other check below,
+        # while making each of its letters match this species. Reject the type
+        # rather than coercing it, since `tuple("mouse")` would silently produce
+        # exactly that character tuple.
+        if not isinstance(self.common_names, tuple):
+            raise TypeError(
+                f"Common names {self.common_names!r} of {self.uri} must be a "
+                f"tuple, got {type(self.common_names).__name__}"
+            )
+        for common_name in self.common_names:
+            if not common_name:
+                raise ValueError(f"Common name of {self.uri} must not be empty")
+            if common_name != common_name.lower():
+                raise ValueError(
+                    f"Common name {common_name!r} of {self.uri} must be lower-cased"
+                )
+        # An empty prefix starts every value, so such a record would match every
+        # lookup and turn every other one into a "multiple species matched" error.
+        if self.prefix is not None:
+            if not self.prefix:
+                raise ValueError(f"Prefix of {self.uri} must not be empty")
+            if self.prefix != self.prefix.lower():
+                raise ValueError(
+                    f"Prefix {self.prefix!r} of {self.uri} must be lower-cased"
+                )
+        # `extract_species` recovers the id with `NCBITaxon_([0-9]+)`, so a
+        # non-numeric id would build a URI that can never be matched back.
+        if not self.taxon_id.isdigit():
+            raise ValueError(
+                f"Taxon id {self.taxon_id!r} of {self.name!r} must be numeric"
+            )
+        if SPECIES_NAME_SEPARATOR not in self.name:
+            raise ValueError(
+                f"Name {self.name!r} of {self.uri} must be formatted as "
+                f"'{{scientific name}}{SPECIES_NAME_SEPARATOR}{{common name}}'"
+            )
+
+    @property
+    def uri(self) -> str:
+        """The NCBITaxon PURL for the species, see `NCBITAXON_URI_TEMPLATE`"""
+        return NCBITAXON_URI_TEMPLATE.format(self.taxon_id)
+
+    @property
+    def scientific_name(self) -> str:
+        """The current scientific name, i.e. the part of `name` before the separator"""
+        return self.name.split(SPECIES_NAME_SEPARATOR, 1)[0]
+
+    @property
+    def genbank_common_name(self) -> str:
+        """The GenBank common name, i.e. the part of `name` after the separator"""
+        return self.name.split(SPECIES_NAME_SEPARATOR, 1)[1]
+
+    def matches_name(self, value: str) -> bool:
+        """Whether `value` identifies this species by its full `name`, either
+        half of that name, or its `prefix`
+
+        `value` is normalized here, so callers need not pre-normalize it.
+        """
+        value = value.strip().lower()
+        return (
+            value == self.name.lower()
+            or (self.prefix is not None and value.startswith(self.prefix))
+            or value == self.scientific_name.lower()
+            or value == self.genbank_common_name.lower()
+        )
+
+    def matches_common_name(self, value: str) -> bool:
+        """Whether `value` is one of this species' `common_names`
+
+        `value` is normalized here, so callers need not pre-normalize it.
+        """
+        value = value.strip().lower()
+        return any(value == common_name for common_name in self.common_names)
+
+
 species_map = [
-    (
-        ["mouse"],
+    SpeciesRecord(
+        ("mouse",),
         "mus",
-        NCBITAXON_URI_TEMPLATE.format("10090"),
+        "10090",
         "Mus musculus - House mouse",
     ),
-    (
-        ["human"],
+    SpeciesRecord(
+        ("human",),
         "homo",
-        NCBITAXON_URI_TEMPLATE.format("9606"),
+        "9606",
         "Homo sapiens - Human",
     ),
-    (
-        ["rat", "norvegicus"],
+    SpeciesRecord(
+        ("brown rat", "rat", "norvegicus"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("10116"),
+        "10116",
         "Rattus norvegicus - Norway rat",
     ),
-    (
-        ["rattus rattus"],
+    SpeciesRecord(
+        ("rattus rattus",),
         None,
-        NCBITAXON_URI_TEMPLATE.format("10117"),
+        "10117",
         "Rattus rattus - Black rat",
     ),
-    (
-        ["mulatta", "rhesus"],
+    SpeciesRecord(
+        ("mulatta", "rhesus"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9544"),
+        "9544",
         "Macaca mulatta - Rhesus monkey",
     ),
-    (
-        ["jacchus"],
+    SpeciesRecord(
+        ("jacchus",),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9483"),
+        "9483",
         "Callithrix jacchus - Common marmoset",
     ),
-    (
-        ["melanogaster", "fruit fly"],
+    SpeciesRecord(
+        ("melanogaster", "fruit fly"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("7227"),
+        "7227",
         "Drosophila melanogaster - Fruit fly",
     ),
-    (
-        ["danio", "zebrafish", "zebra fish"],
+    SpeciesRecord(
+        ("danio", "zebrafish", "zebra fish"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("7955"),
+        "7955",
         "Danio rerio - Zebra fish",
     ),
-    (
-        ["c. elegans", "caenorhabditis elegans"],
+    SpeciesRecord(
+        ("c. elegans", "caenorhabditis elegans"),
         "caenorhabditis",
-        NCBITAXON_URI_TEMPLATE.format("6239"),
-        "Caenorhabditis elegans",
+        "6239",
+        "Caenorhabditis elegans - Roundworm",
     ),
-    (
-        ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
+    SpeciesRecord(
+        ("pig-tailed macaque", "pigtail monkey", "pigtail macaque"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9545"),
-        "Macaca nemestrina",
+        "9545",
+        "Macaca nemestrina - Pig-tailed macaque",
     ),
-    (
-        ["mongolian gerbil", "mongolian jird"],
+    SpeciesRecord(
+        ("bonnet macaque", "bonnet monkey", "radiata"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("10047"),
-        "Meriones unguiculatus",
+        "9548",
+        "Macaca radiata - Bonnet macaque",
     ),
-    (
-        ["common paper wasp"],
+    SpeciesRecord(
+        ("mongolian gerbil", "mongolian jird"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("30207"),
-        "Polistes fuscatus",
+        "10047",
+        "Meriones unguiculatus - Mongolian gerbil",
+    ),
+    SpeciesRecord(
+        ("common paper wasp",),
+        None,
+        "30207",
+        "Polistes fuscatus - Common paper wasp",
     ),
 ]
 
@@ -428,9 +591,9 @@ def parse_purlobourl(
 
     if url.startswith(NCBITAXON_URI_TEMPLATE.format("")):
         rdf_content_url = f"https://ontobee.org/ontology/rdf/NCBITaxon?iri={url}"
-        req = requests.get(rdf_content_url, allow_redirects=True)
+        req = requests.get(rdf_content_url, allow_redirects=True, timeout=30)
     else:
-        req = requests.get(url, allow_redirects=True)
+        req = requests.get(url, allow_redirects=True, timeout=30)
     req.raise_for_status()
     doc = parseString(req.text)
     for elfound in doc.getElementsByTagName("Class"):
@@ -454,7 +617,7 @@ def parse_purlobourl(
 
 def extract_species(metadata: dict) -> models.SpeciesType | None:
     value_orig = metadata.get("species", None)
-    value_id = None
+    value_matches: list[tuple[str, str | None]] = []  # of (value_id, value)
     if value_orig is not None and value_orig != "":
         if m := re.fullmatch(
             r"https?://purl\.obolibrary\.org/obo/NCBITaxon_([0-9]+)/?",
@@ -462,10 +625,9 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
             flags=re.I,
         ):
             normed_value = NCBITAXON_URI_TEMPLATE.format(m[1])
-            for _common_names, _prefix, uri, name in species_map:
-                if uri == normed_value:
-                    value_id = uri
-                    value = name
+            for record in species_map:
+                if record.uri == normed_value:
+                    value_matches.append((record.uri, record.name))
                     break
             else:
                 value_id = value_orig
@@ -482,18 +644,21 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                         value = " - ".join(
                             [result[key] for key in lookup if key in result]
                         )
+                # dandischema requires a name; fall back to the IRI itself
+                value_matches.append((value_id, value or value_id))
         else:
-            lower_value = value_orig.lower()
-            for common_names, prefix, uri, name in species_map:
-                if (
-                    lower_value == name.lower()
-                    or any(key in lower_value for key in common_names)
-                    or (prefix is not None and lower_value.startswith(prefix))
-                ):
-                    value_id = uri
-                    value = name
-                    break
-        if value_id is None:
+            lower_value = value_orig.lower().strip()
+            for record in species_map:
+                if record.matches_name(lower_value):
+                    value_matches.append((record.uri, record.name))
+            # only if no matches -- try to match by common names within common names
+            if not value_matches:
+                for record in species_map:
+                    if record.matches_common_name(lower_value):
+                        value_matches.append((record.uri, record.name))
+
+        value_matches = list(set(value_matches))  # unique values
+        if not value_matches:
             raise ValueError(
                 f"Cannot interpret species field: {value_orig}. Please "
                 "contact help@dandiarchive.org to add your species. "
@@ -504,6 +669,14 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                 "url for the species Homo sapiens. Please note that "
                 "this url is case sensitive."
             )
+        elif len(value_matches) > 1:
+            raise ValueError(
+                f"Got multiple ({len(value_matches)}) species matched for "
+                f"{value_orig}: {value_matches}.  Should not happen. "
+                "Either you need to be more specific or our code needs "
+                "fixing - contact help@dandiarchive.org."
+            )
+        value_id, value = value_matches[0]
         return models.SpeciesType(identifier=value_id, name=value)
     else:
         return None
@@ -780,6 +953,12 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "technique": "current clamp technique",
         "approach": "electrophysiological approach",
     },
+    "IZeroClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "IZeroClampSeries",
+        "technique": "current clamp technique",
+        "approach": "electrophysiological approach",
+    },
     "VoltageClampSeries": {
         "module": "icephys",
         "neurodata_type": "VoltageClampSeries",
@@ -819,6 +998,12 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "PlaneSegmentation": {
         "module": "ophys",
         "neurodata_type": "PlaneSegmentation",
+        "technique": None,
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "RoiResponseSeries": {
+        "module": "ophys",
+        "neurodata_type": "RoiResponseSeries",
         "technique": None,
         "approach": "microscopy approach; cell population imaging",
     },
@@ -900,9 +1085,9 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "technique": "fourier analysis technique",
         "approach": None,
     },
-    "OptogeneticStimulusSIte": {
+    "OptogeneticStimulusSite": {
         "module": "ogen",
-        "neurodata_type": "OptogeneticStimulusSIte",
+        "neurodata_type": "OptogeneticStimulusSite",
         "technique": None,
         "approach": "optogenetic approach",
     },

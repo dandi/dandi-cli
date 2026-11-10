@@ -12,15 +12,19 @@ from dandi.dandiarchive import (
     AssetIDURL,
     AssetItemURL,
     AssetPathPrefixURL,
+    AssetZarrEntryURL,
     BaseAssetIDURL,
     DandisetURL,
     ParsedDandiURL,
+    at_zarr_boundary,
     follow_redirect,
     multiasset_target,
     parse_dandi_url,
+    split_zarr_location,
 )
 from dandi.exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from dandi.tests.skip import mark
+from dandi.zarr_filter import ZarrFilter
 
 from .fixtures import DandiAPI, SampleDandiset
 
@@ -267,6 +271,81 @@ from .fixtures import DandiAPI, SampleDandiset
                 path="path/",
             ),
         ),
+        # Zarr entry URLs — location crosses a zarr boundary
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0/0",
+            ),
+        ),
+        (
+            "dandi://dandi/000108@draft/sub-1/file.ngff/scale0/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id="draft",
+                asset_path="sub-1/file.ngff",
+                zarr_subpath="scale0/0/0",
+            ),
+        ),
+        pytest.param(
+            # the GUI's own "browse to this zarr" URL: the parser appends the
+            # trailing slash, which is not meaningful at a zarr boundary
+            "https://dandiarchive.org/dandiset/000108/draft/files"
+            "?location=sub-1/file.ome.zarr",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id="draft",
+                path="sub-1/file.ome.zarr",
+            ),
+            marks=mark.skipif_no_network,
+        ),
+        pytest.param(
+            # ... and one browsing into it names entries
+            "https://dandiarchive.org/dandiset/000108/draft/files"
+            "?location=sub-1/file.ome.zarr/0/0",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id="draft",
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0",
+            ),
+            marks=mark.skipif_no_network,
+        ),
+        (  # a trailing slash below the boundary still names entries
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/",
+            AssetZarrEntryURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                asset_path="sub-1/file.ome.zarr",
+                zarr_subpath="0/0",
+            ),
+        ),
+        (  # plain .zarr URL without subpath should stay AssetItemURL
+            "dandi://dandi/000108/sub-1/file.ome.zarr",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/file.ome.zarr",
+            ),
+        ),
+        (  # ... as should one with a trailing slash at the boundary
+            "dandi://dandi/000108/sub-1/file.ome.zarr/",
+            AssetItemURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/file.ome.zarr",
+            ),
+        ),
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
@@ -355,6 +434,74 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
     assert parse_dandi_url(url) == parsed_url
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "location,split,boundary",
+    [
+        # Crosses a zarr boundary
+        ("sub-1/file.ome.zarr/0/0/0", ("sub-1/file.ome.zarr", "0/0/0"), False),
+        ("file.zarr/scale0/data", ("file.zarr", "scale0/data"), False),
+        ("sub-1/file.ngff/0/0", ("sub-1/file.ngff", "0/0"), False),
+        ("a/b.zarr/c/d/e/f", ("a/b.zarr", "c/d/e/f"), False),
+        # At a zarr boundary: no subpath to split off
+        ("sub-1/file.ome.zarr", None, True),
+        ("sub-1/file.ome.zarr/", None, True),
+        ("sub-1/file.ngff/", None, True),
+        ("file.zarr", None, True),
+        # Not a zarr at all
+        ("sub-1/file.nwb", None, False),
+        ("some/path/file.txt", None, False),
+        ("sub-1/", None, False),
+        ("", None, False),
+    ],
+)
+def test_zarr_location_helpers(
+    location: str, split: tuple[str, str] | None, boundary: bool
+) -> None:
+    """`split_zarr_location()` finds a subpath; `at_zarr_boundary()` finds the asset."""
+    assert split_zarr_location(location) == split
+    assert at_zarr_boundary(location) is boundary
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        # Only a URL pointing *inside* a zarr restricts the download
+        (
+            "dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0",
+            [ZarrFilter("path", "0/0/0")],
+        ),
+        ("dandi://dandi/000108/sub-1/file.ome.zarr/0/0/", [ZarrFilter("path", "0/0")]),
+        # Everything else leaves zarr assets unfiltered
+        ("dandi://dandi/000108", []),
+        ("dandi://dandi/000108/sub-1/file.ome.zarr", []),
+        ("dandi://dandi/000108/sub-1/file.ome.zarr/", []),
+        ("dandi://dandi/000108/sub-1/file.nwb", []),
+        ("dandi://dandi/000108/sub-1/", []),
+    ],
+)
+def test_get_zarr_filter(url: str, expected: list[ZarrFilter]) -> None:
+    assert parse_dandi_url(url).get_zarr_filter() == expected
+
+
+@pytest.mark.ai_generated
+def test_get_zarr_filter_empty_subpath() -> None:
+    """A directly-constructed URL with an empty subpath restricts nothing.
+
+    `parse_dandi_url()` cannot produce this, but the class is public and such
+    a filter would otherwise reject every entry.
+    """
+    url = AssetZarrEntryURL(
+        instance=known_instances["dandi"],
+        dandiset_id="000108",
+        version_id=None,
+        asset_path="sub-1/file.ome.zarr",
+        zarr_subpath="",
+    )
+    assert url.get_zarr_filter() == []
+
+
 @pytest.mark.parametrize(
     "url,parsed_url",
     [
@@ -375,6 +522,16 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
                 dandiset_id="000002",
                 version_id=None,
                 path="f*/bar.nwb",
+            ),
+        ),
+        (
+            # a zarr-looking path is still a glob, trailing slash and all:
+            "dandi://dandi/000108/sub-1/*.zarr/a/",
+            AssetGlobURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000108",
+                version_id=None,
+                path="sub-1/*.zarr/a/",
             ),
         ),
         (
@@ -456,7 +613,7 @@ def test_follow_redirect_retry_on_connection_error() -> None:
     # Mock requests.head to raise ConnectionError first 2 times, then succeed
     call_count = 0
 
-    def mock_head(url, allow_redirects=True):
+    def mock_head(url, allow_redirects=True, timeout=None):
         nonlocal call_count
         call_count += 1
         if call_count <= 2:
@@ -479,13 +636,44 @@ def test_follow_redirect_exhausted_retries_on_connection_error() -> None:
     test_url = "https://example.com/test"
 
     # Mock requests.head to always raise ConnectionError
-    def mock_head(url, allow_redirects=True):
+    def mock_head(url, allow_redirects=True, timeout=None):
         raise requests.ConnectionError("Connection failed")
 
     with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
         with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
             with pytest.raises(FailedToConnectError, match=r"failed with \d+ attempts"):
                 follow_redirect(test_url)
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        requests.ReadTimeout("Read timed out"),
+        requests.ConnectTimeout("Connect timed out"),
+    ],
+)
+def test_follow_redirect_retry_on_timeout(exc: requests.Timeout) -> None:
+    """Test that follow_redirect retries on requests.Timeout and eventually succeeds."""
+    test_url = "https://example.com/test"
+    expected_url = "https://example.com/redirected"
+
+    call_count = 0
+
+    def mock_head(url, allow_redirects=True, timeout=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise exc
+        response = requests.Response()
+        response.status_code = 200
+        response.url = expected_url
+        return response
+
+    with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
+        with patch("dandi.dandiarchive.sleep"):
+            result = follow_redirect(test_url)
+            assert result == expected_url
+            assert call_count == 3
 
 
 @responses.activate

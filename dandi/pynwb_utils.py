@@ -17,7 +17,7 @@ from datetime import timedelta
 import inspect
 import os
 import os.path as op
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from typing import IO, Any, TypeVar, cast
 import warnings
@@ -27,13 +27,15 @@ from fscacher import PersistentCache
 import h5py
 import hdmf
 import numpy as np
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 import pynwb
 from pynwb import NWBHDF5IO
+from pynwb.base import ExternalImage
 import semantic_version
 
 from . import __version__, get_logger
 from .consts import (
+    IMAGE_FILE_EXTENSIONS,
     VIDEO_FILE_EXTENSIONS,
     VIDEO_FILE_MODULES,
     metadata_nwb_computed_fields,
@@ -42,7 +44,7 @@ from .consts import (
 )
 from .misctypes import Readable
 from .utils import get_module_version, is_url
-from .validate_types import (
+from .validate._types import (
     Origin,
     OriginType,
     Scope,
@@ -150,6 +152,53 @@ def get_nwb_version(
         except Exception:
             lgr.debug("%s has no nwb_version", filepath)
     return None
+
+
+# Namespaces bundled with NWB/HDMF core — not extensions
+_NWB_CORE_NAMESPACES = frozenset({"core", "hdmf-common", "hdmf-experimental"})
+
+
+def get_nwb_extensions(filepath: str | Path | Readable) -> dict[str, str]:
+    """Return NWB extensions embedded in an HDF5 file.
+
+    Reads the ``specifications`` group of an NWB HDF5 file and returns a
+    mapping of extension namespace names to their latest embedded version,
+    excluding core NWB/HDMF namespaces.
+
+    Parameters
+    ----------
+    filepath
+        Path to an NWB ``.nwb`` HDF5 file, or a :class:`Readable`.
+
+    Returns
+    -------
+    dict[str, str]
+        ``{namespace_name: latest_version}`` for each non-core namespace
+        found in the file's ``specifications`` group.  Empty dict if no
+        extensions are present or the group does not exist.
+    """
+    extensions: dict[str, str] = {}
+    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
+        specs = h5file.get("specifications")
+        if specs is None:
+            return extensions
+        for name in specs:
+            if name in _NWB_CORE_NAMESPACES:
+                continue
+            ns_group = specs[name]
+            if not isinstance(ns_group, h5py.Group) or not (versions := list(ns_group)):
+                continue
+            try:
+                extensions[name] = max(versions, key=Version)
+            except InvalidVersion:
+                lgr.debug(
+                    "Cannot parse versions %s of NWB extension %s, taking the "
+                    "lexicographically last",
+                    versions,
+                    name,
+                )
+                extensions[name] = max(versions)
+    return extensions
 
 
 def get_neurodata_types_to_modalities_map() -> dict[str, str]:
@@ -342,19 +391,23 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
             # Read only the first and last spike time from each unit
             if "spike_times" in obj.colnames and len(obj["spike_times"]):
                 idxs = obj["spike_times"].data[:]
+                # Keep only boundaries where cumulative spike count increases.
+                # Non-spiking units repeat the prior cumulative index and are skipped.
+                unit_end_idxs = idxs[np.diff(np.r_[0, idxs]) > 0]
 
-                # handle bug if the first unit has no spikes
-                if idxs[0] == 0:
-                    idxs = idxs[1:]
+                if len(unit_end_idxs) == 0:
+                    continue
 
                 st_data = obj["spike_times"].target
 
-                if len(idxs) > 1:
-                    start = float(np.min(np.r_[st_data[0], st_data[idxs[:-1]]]))
+                if len(unit_end_idxs) > 1:
+                    start = float(
+                        np.min(np.r_[st_data[0], st_data[unit_end_idxs[:-1]]])
+                    )
                 else:
                     start = float(st_data[0])
 
-                end = float(np.max(st_data[idxs - 1]))
+                end = float(np.max(st_data[unit_end_idxs - 1]))
                 start_times.append(float(start))
                 end_times.append(float(end))
 
@@ -489,10 +542,17 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
         module_cont = getattr(nwb, module_name)
         for name, ob in module_cont.items():
             if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
-                out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
+                out_dict = dict(
+                    id=ob.object_id,
+                    name=ob.name,
+                    external_files=[],
+                    field="external_file",
+                )
                 for ext_file in ob.external_file:
-                    if Path(ext_file).suffix in VIDEO_FILE_EXTENSIONS:
-                        out_dict["external_files"].append(Path(ext_file))
+                    if (
+                        path := PurePosixPath(ext_file)
+                    ).suffix.lower() in VIDEO_FILE_EXTENSIONS:
+                        out_dict["external_files"].append(path)
                     else:
                         lgr.warning(
                             "external file %s should be one of: %s",
@@ -500,11 +560,51 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
                             ", ".join(VIDEO_FILE_EXTENSIONS),
                         )
                 out.append(out_dict)
+    out.extend(_get_external_images(nwb))
+    return out
+
+
+def _get_external_images(nwb: pynwb.NWBFile) -> list[dict]:
+    """Retrieves all ExternalImage metadata from an open nwb file.
+
+    An `ExternalImage` holds a single path or URL in ``data`` rather than a list in
+    ``external_file``, and it sits inside an `Images` container rather than directly in a module,
+    so the whole file is walked instead of the top level of the video modules.
+
+    Parameters
+    ----------
+    nwb: pynwb.NWBFile
+
+    Returns
+    -------
+    out: list[dict]
+        list of dicts : [{id: <ExternalImage uuid>, name: <ExternalImage name>,
+        external_files=[ExternalImage.data], field: "data"}]
+    """
+    out = []
+    for ob in nwb.objects.values():
+        if not isinstance(ob, ExternalImage) or ob.data is None:
+            continue
+        data = ob.data.decode() if isinstance(ob.data, bytes) else str(ob.data)
+        if (path := PurePosixPath(data)).suffix.lower() not in IMAGE_FILE_EXTENSIONS:
+            lgr.warning(
+                "external image %s should be one of: %s",
+                data,
+                ", ".join(IMAGE_FILE_EXTENSIONS),
+            )
+            continue
+        out.append(
+            dict(id=ob.object_id, name=ob.name, external_files=[path], field="data")
+        )
     return out
 
 
 def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
-    """Renames the external_file attribute in an ImageSeries datatype in an open nwb file.
+    """Rename external media references in an open NWB file.
+
+    This updates ``ImageSeries.external_file`` entries and legacy
+    ``PoseEstimation.original_videos`` references using the path mapping
+    collected in ``metadata["external_file_objects"]``.
 
     It pulls information about the ImageSeries objects from metadata:
     metadata["external_file_objects"] populated during _get_pynwb_metadata() call.
@@ -524,28 +624,121 @@ def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
             )
             return
         dandiset_nwbfile_path = op.join(dandiset_path, meta["dandi_path"])
-        with NWBHDF5IO(dandiset_nwbfile_path, mode="r+", load_namespaces=True) as io:
-            nwb = io.read()
-            for ext_file_dict in meta["external_file_objects"]:
-                # retrieve nwb neurodata object of the given object id:
-                container_list = [
-                    child
-                    for child in nwb.children
-                    if ext_file_dict["id"] == child.object_id
-                ]
-                if len(container_list) == 0:
-                    continue
-                else:
-                    container = container_list[0]
-                # rename all external files:
-                for no, (name_old, name_new) in enumerate(
-                    zip(
-                        ext_file_dict["external_files"],
-                        ext_file_dict["external_files_renamed"],
-                    )
-                ):
-                    if not is_url(str(name_old)):
-                        container.external_file[no] = str(name_new)
+        image_series = [
+            d
+            for d in meta["external_file_objects"]
+            if d.get("field", "external_file") == "external_file"
+        ]
+        external_images = [
+            d for d in meta["external_file_objects"] if d.get("field") == "data"
+        ]
+        if image_series:
+            with NWBHDF5IO(
+                dandiset_nwbfile_path, mode="r+", load_namespaces=True
+            ) as io:
+                nwb = io.read()
+                pose_video_renames: dict[str, str] = {}
+                for ext_file_dict in image_series:
+                    # retrieve nwb neurodata object of the given object id:
+                    container_list = [
+                        child
+                        for child in nwb.children
+                        if ext_file_dict["id"] == child.object_id
+                    ]
+                    if len(container_list) == 0:
+                        continue
+                    else:
+                        container = container_list[0]
+                    # rename all external files:
+                    for no, (name_old, name_new) in enumerate(
+                        zip(
+                            ext_file_dict["external_files"],
+                            ext_file_dict["external_files_renamed"],
+                        )
+                    ):
+                        reference = _external_reference_key(name_old)
+                        if not is_url(reference):
+                            container.external_file[no] = str(name_new)
+                            pose_video_renames[reference] = str(name_new)
+                _rename_pose_estimation_original_videos(nwb, pose_video_renames)
+        if external_images:
+            _rename_external_images(dandiset_nwbfile_path, external_images)
+
+
+def _external_reference_key(value: Any) -> str:
+    """Return a comparable representation of a legacy external-file reference."""
+
+    if isinstance(value, bytes):
+        value = value.decode()
+    return str(value).replace("\\", "/")
+
+
+def _rename_pose_estimation_original_videos(
+    nwb: pynwb.NWBFile, renames: dict[str, str]
+) -> None:
+    """Update legacy ndx-pose ``original_videos`` references in an NWB file.
+
+    ``original_videos`` is deprecated in ndx-pose in favor of the linked
+    ``source_video`` field.  Older files can still contain the path list, so
+    use the same old-to-new mapping as the source ``ImageSeries`` without
+    importing ndx-pose or reading waveform/video payloads.
+    """
+
+    if not renames:
+        return
+    for container in nwb.objects.values():
+        if getattr(container, "neurodata_type", None) != "PoseEstimation":
+            continue
+        original_videos = getattr(container, "original_videos", None)
+        if original_videos is None or isinstance(original_videos, (str, bytes)):
+            continue
+        for no, name_old in enumerate(original_videos):
+            reference = _external_reference_key(name_old)
+            if is_url(reference):
+                continue
+            if (name_new := renames.get(reference)) is not None:
+                original_videos[no] = name_new
+
+
+def _rename_external_images(nwbfile_path: str, external_images: list[dict]) -> None:
+    """Rewrites the ``data`` of the given `ExternalImage` objects in an NWB file on disk.
+
+    `ExternalImage.data` is a scalar string rather than the array `ImageSeries.external_file` is,
+    so assigning through the read container does not reach the file and the dataset is written
+    directly instead. Objects are matched on the ``object_id`` attribute, since an `ExternalImage`
+    sits inside an `Images` container at a path this function is not told.
+
+    Parameters
+    ----------
+    nwbfile_path: str
+        full path of the NWB file to rewrite
+    external_images: list[dict]
+        the ``field == "data"`` entries of ``metadata["external_file_objects"]``
+    """
+    # Avoid a module level dependency on h5py for a path most callers never take:
+    import h5py
+
+    renames = {}
+    for ext_file_dict in external_images:
+        for name_old, name_new in zip(
+            ext_file_dict["external_files"], ext_file_dict["external_files_renamed"]
+        ):
+            if not is_url(str(name_old)):
+                renames[ext_file_dict["id"]] = str(name_new)
+    if not renames:
+        return
+
+    def rename_if_matched(_name: str, obj: Any) -> None:
+        if not isinstance(obj, h5py.Dataset):
+            return
+        object_id = obj.attrs.get("object_id")
+        if isinstance(object_id, bytes):
+            object_id = object_id.decode()
+        if object_id in renames:
+            obj[()] = renames[object_id]
+
+    with h5py.File(nwbfile_path, "r+") as f:
+        f.visititems(rename_if_matched)
 
 
 @validate_cache.memoize_path
@@ -617,16 +810,9 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     )
 
     try:
-        if Version(pynwb.__version__) >= Version("3.0.0"):
-            error_outputs = pynwb.validate(path=path)
-        elif Version(pynwb.__version__) >= Version(
-            "2.2.0"
-        ):  # Use cached namespace feature
-            # argument get_cached_namespaces is True by default
-            error_outputs, _ = pynwb.validate(paths=[path])
-        else:  # Fallback if an older version
-            with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
-                error_outputs = pynwb.validate(io=reader)
+        # Validates against the namespaces cached in the file; pynwb falls back
+        # to its own namespaces if the file has none cached
+        error_outputs = pynwb.validate(path=path)
     except Exception as exc:
         if devel_debug:
             raise
@@ -740,18 +926,15 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
         dest = op.join(dest, op.basename(src))
     else:
         os.makedirs(op.dirname(dest), exist_ok=True)
-    kws = {}
-    if Version(pynwb.__version__) >= Version("2.8.2"):
-        # we might make it leaner by not caching the spec if original
-        # file did not have it.  Possible only since 2.8.2.dev11
-        kws["cache_spec"] = bool(pynwb.NWBHDF5IO.get_namespaces(src))
     with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(dest, "w") as iow:
         data = ior.read()
         data.generate_new_id()
         iow.export(
             ior,
             nwbfile=data,
-            **kws,
+            # keep the copy leaner by not caching the spec if the original
+            # file did not have it cached either
+            cache_spec=bool(pynwb.NWBHDF5IO.get_namespaces(src)),
         )
     return str(dest)
 

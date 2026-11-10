@@ -4,7 +4,7 @@ You are Claude, an AI onboarding engineer. Your mission is to gather ALL info ne
 <user>
 **Feature draft** ⟶ {{FEATURE_DRAFT_PARAGRAPH}}
 
-⚠️ **Prerequisites**: 
+⚠️ **Prerequisites**:
 - Ensure `.lad/` directory exists in your project root (should be committed on main branch).
 - Ensure `.coveragerc` file exists in project root. If missing, create it with:
   ```ini
@@ -17,13 +17,13 @@ You are Claude, an AI onboarding engineer. Your mission is to gather ALL info ne
       *.pyc
       .coverage
       .lad/*
-  
+
   [report]
   exclude_lines =
       pragma: no cover
       if __name__ == .__main__.:
   show_missing = True
-  
+
   [html]
   directory = coverage_html  ```
   (Replace `{{PROJECT_NAME}}` with your actual package name)
@@ -33,7 +33,7 @@ You are Claude, an AI onboarding engineer. Your mission is to gather ALL info ne
   [flake8]
   max-complexity = 10
   radon-max-cc = 10
-  exclude = 
+  exclude =
       __pycache__,
       .git,
       .lad,
@@ -50,7 +50,7 @@ Then:
 3. Detect obvious design forks (e.g. *pathlib* vs *os*) and ask me to choose.
 4. When nothing is missing reply **READY** and output the variable map (e.g. `FEATURE_SLUG=…`) so you can substitute all `{{…}}` placeholders in future steps.
 
-**Persist variables**  
+**Persist variables**
 Save the map above to `docs/{{FEATURE_SLUG}}/feature_vars.md` (create folders if missing).
 
 **Deliverable**: Variable map printed + saved to feature_vars.md file.

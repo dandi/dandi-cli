@@ -3,20 +3,23 @@ from __future__ import annotations
 import click
 
 from .base import (
+    EnumChoice,
     IntColonInt,
     devel_debug_option,
     devel_option,
     instance_option,
     map_to_click_exceptions,
 )
-from ..upload import UploadExisting, UploadValidation
+from ..consts import SyncMode
+from ..exceptions import UploadValidationError
+from ..upload import UploadExisting, UploadValidation, ZarrMode
 
 
 @click.command()
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(list(UploadExisting)),
+    type=EnumChoice(UploadExisting),
     help="What to do if a file found existing on the server. 'skip' would skip"
     "the file, 'force' - force reupload, 'overwrite' - force upload if "
     "either size or modification time differs; 'refresh' - upload only if "
@@ -35,7 +38,14 @@ from ..upload import UploadExisting, UploadValidation
     ),
 )
 @click.option(
-    "--sync", is_flag=True, help="Delete assets on the server that do not exist locally"
+    "--sync",
+    is_flag=False,
+    flag_value="ask",
+    default=None,
+    type=EnumChoice(SyncMode),
+    help="Delete assets on the server that do not exist locally. "
+    "With 'ask' (the default when --sync is passed without a value), prompt before "
+    "deleting. With 'do', delete without prompting.",
 )
 @click.option(
     "--validation",
@@ -44,8 +54,18 @@ from ..upload import UploadExisting, UploadValidation
     "'require' - data must pass validation before upload; "
     "'skip' - no validation is performed on data before upload; "
     "'ignore' - data is validated but upload proceeds regardless of validation results.",
-    type=click.Choice(list(UploadValidation)),
+    type=EnumChoice(UploadValidation),
     default="require",
+    show_default=True,
+)
+@click.option(
+    "--zarr-mode",
+    type=EnumChoice(ZarrMode),
+    default="full",
+    help=(
+        "Zarr sync mode: 'full' (default) syncs completely; "
+        "'patch' uploads/updates without deleting remote files."
+    ),
     show_default=True,
 )
 @click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
@@ -71,10 +91,11 @@ from ..upload import UploadExisting, UploadValidation
 def upload(
     paths: tuple[str, ...],
     jobs_pair: tuple[int, int] | None,
-    sync: bool,
+    sync: str | None,
     dandi_instance: str,
     existing: UploadExisting,
     validation: UploadValidation,
+    zarr_mode: ZarrMode,
     # Development options should come as kwargs
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
@@ -96,7 +117,8 @@ def upload(
     can point to specific files you would like to validate and have uploaded.
     """
     # Avoid heavy imports by importing with function:
-    from ..upload import upload
+    from ..upload import upload as upload_
+    from ..validate._io import validation_companion_path
 
     if jobs_pair is None:
         jobs = None
@@ -104,15 +126,25 @@ def upload(
     else:
         jobs, jobs_per_file = jobs_pair
 
-    upload(
-        paths,
-        existing=existing,
-        validation=validation,
-        dandi_instance=dandi_instance,
-        allow_any_path=allow_any_path,
-        upload_dandiset_metadata=upload_dandiset_metadata,
-        devel_debug=devel_debug,
-        jobs=jobs,
-        jobs_per_file=jobs_per_file,
-        sync=sync,
+    ctx = click.get_current_context()
+    companion = (
+        validation_companion_path(ctx.obj.logfile) if ctx.obj is not None else None
     )
+
+    try:
+        upload_(
+            paths,
+            existing=existing,
+            validation=validation,
+            dandi_instance=dandi_instance,
+            allow_any_path=allow_any_path,
+            upload_dandiset_metadata=upload_dandiset_metadata,
+            devel_debug=devel_debug,
+            jobs=jobs,
+            jobs_per_file=jobs_per_file,
+            sync=SyncMode(sync) if sync is not None else None,
+            zarr_mode=zarr_mode,
+            validation_log_path=companion,
+        )
+    except UploadValidationError as exc:
+        raise click.ClickException(str(exc))

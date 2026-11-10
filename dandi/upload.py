@@ -14,10 +14,10 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
-from enum import Enum
+from enum import StrEnum
 import io
 import os.path
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import time
 from time import sleep
@@ -32,15 +32,17 @@ from .consts import (
     DOWNLOAD_SUFFIX,
     DRAFT,
     DandiInstance,
+    SyncMode,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
 from .dandiapi import DandiAPIClient, RemoteAsset
-from .dandiset import Dandiset
-from .exceptions import NotFoundError, UploadError
+from .dandiset import AssetView, Dandiset
+from .exceptions import NotFoundError, UploadError, UploadValidationError
 from .files import (
     DandiFile,
     DandisetMetadataFile,
+    GenericAsset,
     LocalAsset,
     LocalDirectoryAsset,
     ZarrAsset,
@@ -49,7 +51,43 @@ from .misctypes import Digest
 from .support import pyout as pyouts
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
-from .validate_types import Severity
+from .validate._io import write_validation_jsonl
+from .validate._types import Severity
+
+
+def _partition_upload_assets(
+    assets: AssetView, roots: Sequence[PurePosixPath], allow_any_path: bool
+) -> tuple[list[LocalAsset], list[PurePosixPath]]:
+    """Select uploads and collapse omitted paths using the existing discovery."""
+    root_set = set(roots)
+    # This pruning is required: under_paths() can otherwise let a nested root
+    # narrow the selection when it is supplied alongside its parent.
+    roots = [p for p in root_set if not any(a in root_set for a in p.parents)]
+    selected = []
+    omitted = []
+    for asset in assets.under_paths(roots):
+        if type(asset) is GenericAsset and not allow_any_path:
+            omitted.append(PurePosixPath(asset.path))
+        else:
+            selected.append(asset)
+    keep = {
+        ancestor
+        for asset in selected
+        for ancestor in (PurePosixPath(asset.path), *PurePosixPath(asset.path).parents)
+    }
+    boundaries = set(roots) | {PurePosixPath(".")}
+    collapsed = set()
+    for path in omitted:
+        candidate = path
+        if path in boundaries:
+            collapsed.add(path)
+            continue
+        for ancestor in path.parents:
+            if ancestor in boundaries or ancestor in keep:
+                break
+            candidate = ancestor
+        collapsed.add(candidate)
+    return selected, sorted(collapsed)
 
 
 def _check_dandidownload_paths(dfile: DandiFile) -> None:
@@ -81,24 +119,23 @@ class Uploaded(TypedDict):
     errors: list[str]
 
 
-class UploadExisting(str, Enum):
+class UploadExisting(StrEnum):
     ERROR = "error"
     SKIP = "skip"
     FORCE = "force"
     OVERWRITE = "overwrite"
     REFRESH = "refresh"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class UploadValidation(str, Enum):
+class UploadValidation(StrEnum):
     REQUIRE = "require"
     SKIP = "skip"
     IGNORE = "ignore"
 
-    def __str__(self) -> str:
-        return self.value
+
+class ZarrMode(StrEnum):
+    FULL = "full"
+    PATCH = "patch"
 
 
 def upload(
@@ -111,7 +148,9 @@ def upload(
     devel_debug: bool = False,
     jobs: int | None = None,
     jobs_per_file: int | None = None,
-    sync: bool = False,
+    sync: bool | SyncMode | None = False,
+    zarr_mode: ZarrMode = ZarrMode.FULL,
+    validation_log_path: str | Path | None = None,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]
@@ -238,14 +277,17 @@ def upload(
         # DO NOT FACTOR OUT THIS VARIABLE!  It stores any
         # BIDSDatasetDescriptionAsset instances for the Dandiset, which need to
         # remain alive until we're done working with all BIDS assets.
-        assets = dandiset.assets(allow_all=allow_any_path)
+        assets = dandiset.assets(allow_all=True)
+        selected, omitted_paths = _partition_upload_assets(
+            assets,
+            [PurePosixPath(Path(p).relative_to(dandiset.path)) for p in paths],
+            allow_any_path,
+        )
 
         dandi_files: list[DandiFile] = []
         # Build the list step by step so as not to confuse mypy
         dandi_files.append(dandiset.metadata_file())
-        dandi_files.extend(
-            assets.under_paths(Path(p).relative_to(dandiset.path) for p in paths)
-        )
+        dandi_files.extend(selected)
         lgr.info(f"Found {len(dandi_files)} files to consider")
 
         # We will keep a shared set of "being processed" paths so
@@ -282,7 +324,10 @@ def upload(
                     try:
                         yield {"size": dfile.size}
                     except FileNotFoundError:
-                        raise UploadError("File not found")
+                        raise UploadError(
+                            f"File not found: {strpath}. "
+                            "Verify the file exists and the path is correct."
+                        )
                     except Exception as exc:
                         # without limiting [:50] it might cause some pyout indigestion
                         raise UploadError(str(exc)[:50])
@@ -300,6 +345,10 @@ def upload(
                 ):
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
+                    if validation_log_path is not None and validation_statuses:
+                        write_validation_jsonl(
+                            validation_statuses, validation_log_path, append=True
+                        )
                     validation_errors = [
                         s
                         for s in validation_statuses
@@ -317,7 +366,11 @@ def upload(
                             for i, e in enumerate(validation_errors, start=1):
                                 lgr.warning(" Error %d: %s", i, e)
                             validate_ok = False
-                            raise UploadError("failed validation")
+                            raise UploadValidationError(
+                                "File failed validation. "
+                                "Check log or run "
+                                f"'dandi validate {strpath}' to see detailed validation errors."
+                            )
                     else:
                         yield {"status": "validated"}
                 else:
@@ -356,7 +409,10 @@ def upload(
                     try:
                         file_etag = dfile.get_digest()
                     except Exception as exc:
-                        raise UploadError("failed to compute digest: %s" % str(exc))
+                        raise UploadError(
+                            f"Failed to compute digest: {exc}. "
+                            "Verify the file is readable and not corrupted."
+                        )
 
                 try:
                     extant = remote_dandiset.get_asset_by_path(dfile.path)
@@ -387,17 +443,36 @@ def upload(
                         digest=file_etag, ignore_errors=allow_any_path
                     ).model_dump(mode="json", exclude_none=True)
                 except Exception as e:
-                    raise UploadError("failed to extract metadata: %s" % str(e))
+                    raise UploadError(
+                        f"Failed to extract metadata: {e}. "
+                        "Verify the file format is correct and supported."
+                    )
 
                 #
                 # Upload file
                 #
                 yield {"status": "uploading"}
                 validating = False
+                # For Zarr, the "skip this asset?" decision requires walking
+                # the tree to diff local vs remote, which only iter_upload
+                # can do (check_replace_asset can't decide upfront).
+                # iter_upload signals "actually skip" by finishing with
+                # status="skipped"; when that happens, suppress the outer
+                # "done" yield so pyout's final row shows STATUS=skipped.
+                # See #1893.
+                last_status: str | None = None
+                upload_kwargs: dict = {}
+                if isinstance(dfile, ZarrAsset):
+                    upload_kwargs["zarr_mode"] = zarr_mode
                 for r in dfile.iter_upload(
-                    remote_dandiset, metadata, jobs=jobs_per_file, replacing=extant
+                    remote_dandiset,
+                    metadata,
+                    jobs=jobs_per_file,
+                    replacing=extant,
+                    **upload_kwargs,
                 ):
                     r.pop("asset", None)  # to keep pyout from choking
+                    last_status = r.get("status", last_status)
                     if r["status"] == "uploading":
                         uploaded_paths[strpath]["size"] = r.pop("current")
                         yield r
@@ -408,7 +483,8 @@ def upload(
                             validating = True
                     else:
                         yield r
-                yield {"status": "done"}
+                if last_status != "skipped":
+                    yield {"status": "done"}
 
             except Exception as exc:
                 if upload_err is None:
@@ -450,7 +526,32 @@ def upload(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
 
-        with out:
+        def report_validation_failure() -> None:
+            if not validate_ok:
+                msg = "One or more assets failed validation."
+                if validation_log_path is not None:
+                    msg += (
+                        f" Use `dandi validate --load {validation_log_path}`"
+                        " to review the saved results."
+                    )
+                lgr.warning(msg)
+
+        def report_omitted_paths() -> None:
+            if not omitted_paths:
+                return
+
+            relpaths = [path.as_posix() for path in omitted_paths]
+            lgr.warning(
+                "%s not uploaded (not recognized as DANDI assets): %s. "
+                "Review the paths or use --allow-any-path if intentional.",
+                pluralize(len(relpaths), "path"),
+                ", ".join(relpaths[:10]) + (", ..." if len(relpaths) > 10 else ""),
+            )
+            lgr.debug("Complete list of paths not uploaded: %s", ", ".join(relpaths))
+
+        with ExitStack() as warning_stack, out:
+            warning_stack.callback(report_validation_failure)
+            warning_stack.callback(report_omitted_paths)
             for dfile in dandi_files:
                 while len(process_paths) >= 10:
                     lgr.log(2, "Sleep waiting for some paths to finish processing")
@@ -475,12 +576,6 @@ def upload(
                 except ValueError as exc:
                     rec.update(error_file(exc))
                 out(rec)
-
-        if not validate_ok:
-            lgr.warning(
-                "One or more assets failed validation.  Consult the logfile for"
-                " details."
-            )
         if upload_err is not None:
             try:
                 import etelemetry
@@ -499,6 +594,9 @@ def upload(
             raise upload_err
 
         if sync:
+            # Normalize legacy bool True to SyncMode.ASK
+            if sync is True:
+                sync = SyncMode.ASK
             relpaths: list[str] = []
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
@@ -510,8 +608,11 @@ def upload(
                     p == "" or path_is_subpath(asset.path, p) for p in relpaths
                 ) and not os.path.lexists(Path(dandiset.path, asset.path)):
                     to_delete.append(asset)
-            if to_delete and click.confirm(
-                f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+            if to_delete and (
+                sync is SyncMode.DO
+                or click.confirm(
+                    f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+                )
             ):
                 for asset in to_delete:
                     asset.delete()
@@ -525,7 +626,10 @@ def check_replace_asset(
 ) -> tuple[bool, dict[str, str]]:
     # Returns a (replace asset, message to yield) tuple
     if isinstance(local_asset, ZarrAsset):
-        return (True, {"message": "exists - reuploading"})
+        # For Zarr, the actual add/modify/delete breakdown is only known after
+        # iter_upload walks the tree; it will refine this message (or downgrade
+        # STATUS to "skipped") once the diff is computed.  See #1893.
+        return (True, {"message": "exists - checking"})
     assert local_etag is not None
     metadata = remote_asset.get_raw_metadata()
     local_mtime = local_asset.modified

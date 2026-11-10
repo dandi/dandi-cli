@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+import errno
 import os.path
 from pathlib import Path
 
@@ -29,6 +30,7 @@ from .bases import (
     DandiFile,
     DandisetMetadataFile,
     GenericAsset,
+    ImageAsset,
     LocalAsset,
     LocalDirectoryAsset,
     LocalFileAsset,
@@ -41,6 +43,8 @@ from .bids import (
     GenericBIDSAsset,
     NWBBIDSAsset,
     ZarrBIDSAsset,
+    bids_dataset_description_problem,
+    is_bids_dataset_description,
 )
 from .zarr import LocalZarrEntry, ZarrAsset, ZarrStat
 
@@ -51,6 +55,7 @@ __all__ = [
     "DandisetMetadataFile",
     "GenericAsset",
     "GenericBIDSAsset",
+    "ImageAsset",
     "LocalAsset",
     "LocalDirectoryAsset",
     "LocalFileAsset",
@@ -82,6 +87,21 @@ def find_dandi_files(
     they are of a type represented by a `LocalDirectoryAsset` subclass, in
     which case they are not recursed into.
 
+    All requested paths are checked before any files are yielded.  Because this
+    function is a generator, a missing path raises `FileNotFoundError` when
+    the iterator is first advanced, not when the function is called.  A broken
+    symlink is still discovered so that the caller can apply its
+    missing-content policy.
+
+    .. versionchanged:: 0.82.0
+        Missing requested paths now raise `FileNotFoundError` on iteration.
+
+    .. versionchanged:: 0.83.0
+        A directory is a BIDS dataset only if its :file:`dataset_description.json`
+        declares ``"BIDSVersion"``; see ``is_bids_dataset_description()`` in
+        `dandi.files.bids`.  Otherwise it is regular DANDI layout, and a warning
+        says why.
+
     :param dandiset_path:
         The path to the root of the Dandiset in which the paths are located.
         All paths in ``paths`` must be equal to or subpaths of
@@ -109,6 +129,9 @@ def find_dandi_files(
                 raise ValueError(
                     f"Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
+        # Do not follow symlinks: unfetched DataLad content can be a broken link.
+        if not os.path.lexists(p):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(p))
         path_queue.append((Path(p), None))
     bids_roots = []
     while path_queue:
@@ -121,7 +144,7 @@ def find_dandi_files(
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
             elif dandiset_path is not None and p == Path(dandiset_path):
-                if os.path.lexists(p / BIDS_DATASET_DESCRIPTION):
+                if is_bids_dataset_description(p / BIDS_DATASET_DESCRIPTION):
                     bids = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                     assert isinstance(bids, BIDSDatasetDescriptionAsset)
                     bidsdd = bids
@@ -135,9 +158,11 @@ def find_dandi_files(
                     # (ie., it's not a Zarr or any other directory asset type
                     # we may add later), so traverse through it as a regular
                     # directory.
-                    if os.path.lexists(p / BIDS_DATASET_DESCRIPTION) and not any(
+                    if not any(
                         i in p.parents for i in bids_roots
-                    ):  # No nested BIDS
+                    ) and is_bids_dataset_description(  # No nested BIDS
+                        p / BIDS_DATASET_DESCRIPTION
+                    ):
                         bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                         assert isinstance(bids2, BIDSDatasetDescriptionAsset)
                         bidsdd = bids2
@@ -147,6 +172,13 @@ def find_dandi_files(
                     yield df
         else:
             df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
+            if type(df) is GenericAsset and p.name == BIDS_DATASET_DESCRIPTION:
+                lgr.warning(
+                    "%s: %s, so not treating %s as a BIDS dataset",
+                    p,
+                    bids_dataset_description_problem(p),
+                    p.parent,
+                )
             # Don't use isinstance() here, as GenericBIDSAsset's should still
             # be returned
             if type(df) is GenericAsset and not allow_all:
@@ -207,16 +239,21 @@ def find_bids_dataset_description(
     """
     .. versionadded:: 0.46.0
 
-    Look for the topmost :file:`dataset_description.json` file in the directory
-    ``dirpath`` and each of its parents, stopping when a :file:`dandiset.yaml`
-    file is found or ``dandiset_path`` is reached.
+    Look for the topmost :file:`dataset_description.json` file marking a BIDS
+    dataset (see ``is_bids_dataset_description()`` in `dandi.files.bids`) in the
+    directory ``dirpath`` and each of its parents, stopping when a
+    :file:`dandiset.yaml` file is found or ``dandiset_path`` is reached.
+
+    .. versionchanged:: 0.83.0
+        Only a :file:`dataset_description.json` declaring ``"BIDSVersion"``
+        marks a BIDS dataset.
     """
     topmost: BIDSDatasetDescriptionAsset | None = None
     dirpath = Path(dirpath)
     for d in (dirpath, *dirpath.parents):
         bids_marker = d / BIDS_DATASET_DESCRIPTION
         dandi_end = d / dandiset_metadata_file
-        if bids_marker.is_file() or bids_marker.is_symlink():
+        if is_bids_dataset_description(bids_marker):
             f = dandi_file(bids_marker, dandiset_path)
             assert isinstance(f, BIDSDatasetDescriptionAsset)
             topmost = f
