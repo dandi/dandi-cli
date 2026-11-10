@@ -28,7 +28,8 @@ every Dandiset:
 
 Example code for accessing asset files as regular Python file objects without
 downloading their entire content locally.  Such file objects could then
-be passed to functions of pynwb etc.
+be passed to functions of pynwb etc.  This requires the optional dependencies
+installed with ``pip install "dandi[extras]"``.
 
 .. literalinclude:: /examples/dandiapi-as_readable.py
     :language: python
@@ -56,8 +57,13 @@ Dandisets
 .. autoclass:: VersionInfo()
     :show-inheritance:
 
+.. autoclass:: VersionStatus
+
 .. autoclass:: RemoteValidationError()
     :inherited-members: BaseModel
+
+.. autoclass:: RemoteAssetValidationError()
+    :show-inheritance:
 
 Assets
 ------

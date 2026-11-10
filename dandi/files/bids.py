@@ -36,6 +36,7 @@ from ..validate._types import (
     MissingFileContent,
     Scope,
     Severity,
+    Standard,
     ValidationResult,
 )
 
@@ -49,6 +50,60 @@ lgr = dandi.get_logger()
 
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
+
+
+def _load_dataset_description(filepath: Path) -> dict[str, Any] | None:
+    """
+    Return the content of a :file:`dataset_description.json` file, or `None` if
+    it cannot be read or is not a JSON object
+    """
+    try:
+        content = json.loads(filepath.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return None
+    return content if isinstance(content, dict) else None
+
+
+def bids_dataset_description_problem(filepath: Path) -> str | None:
+    """
+    Return why the :file:`dataset_description.json` file at ``filepath`` does
+    not mark a BIDS dataset, or `None` if it does
+
+    It marks one if it is a JSON object with a ``"BIDSVersion"`` field, which may
+    still be invalid (e.g., empty), or if it is not valid JSON but contains
+    ``"BIDSVersion"`` (e.g., a trailing comma), for the BIDS validator to report
+    on.
+
+    Parameters
+    ----------
+    filepath : Path
+        The path to the :file:`dataset_description.json` file
+
+    Returns
+    -------
+    str | None
+        `None` if the file marks a BIDS dataset, the reason otherwise, e.g., that
+        it cannot be read (as a symlink to annexed content which is not present)
+    """
+    try:
+        raw = filepath.read_bytes()
+    except OSError:
+        return "cannot be read"
+    try:
+        content = json.loads(raw.decode("utf-8-sig"))
+    except ValueError:
+        return None if b"BIDSVersion" in raw else 'is not valid JSON with "BIDSVersion"'
+    if isinstance(content, dict) and "BIDSVersion" in content:
+        return None
+    return 'has no "BIDSVersion" field'
+
+
+def is_bids_dataset_description(filepath: Path) -> bool:
+    """
+    Whether there is a :file:`dataset_description.json` file at ``filepath``
+    marking a BIDS dataset; see `bids_dataset_description_problem()`
+    """
+    return bids_dataset_description_problem(filepath) is None
 
 
 def _get_hed_data_standard(hed_version: Any) -> StandardsType:
@@ -103,13 +158,13 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     #: `bids_path` properties; populated by `_get_metadata()`
     _asset_metadata: defaultdict[str, BareAsset] | None = None
 
-    #: Version of BIDS used in the validation
+    #: Version of BIDS used in the validation, as given in the validation results
     #: (not necessarily the same as the value of the `"BIDSVersion"` field in the
     #: represented `dataset_description.json` file);
     #: populated by `_validate()`
     #: In future this might be removed and the information included in the
     #: BareAsset via dandischema.
-    _bids_version: str | None = None
+    _validation_bids_version: str | None = None
 
     #: Threading lock needed in case multiple assets are validated in parallel
     #: during upload
@@ -125,15 +180,37 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     @property
     def bids_version(self) -> str | None:
         """
-        The version of BIDS used for in validation
+        The version of BIDS the dataset declares, i.e., the value of the
+        ``"BIDSVersion"`` field in the represented :file:`dataset_description.json`
+        file; `None` if the file cannot be read or the field is missing, empty, or
+        not a string
 
         Note
         ----
-            This value is not necessarily the same as the value of the `"BIDSVersion"`
-            field in the represented `dataset_description.json` file.
+            This value is not necessarily the version of BIDS used in validation;
+            see `get_validation_bids_version()`.
+
+        .. versionchanged:: 0.83.0
+            The declared version, rather than the version of BIDS used in
+            validation, which was always `None` with the deno-compiled BIDS
+            validator
+        """
+        content = _load_dataset_description(self.filepath) or {}
+        v = content.get("BIDSVersion")
+        return v if isinstance(v, str) and v else None
+
+    def get_validation_bids_version(self) -> str | None:
+        """
+        The version of BIDS used in validation of the dataset
+
+        The validator reports only the version of the BIDS schema it used, so the
+        version of BIDS is looked up for it; see
+        https://github.com/bids-standard/bids-validator/issues/10.  If that fails,
+        or the validation produced no results to take it from, `bids_version`, the
+        version the dataset declares, is assumed.
         """
         self._validate()
-        return self._bids_version
+        return self._validation_bids_version or self.bids_version
 
     def _get_metadata(self) -> None:
         """
@@ -215,10 +292,16 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                             result.path.relative_to(self.bids_root).as_posix()
                         ].append(result)
 
-                # Obtain BIDS standard version from one of the validation results
-                if self._dataset_errors:
-                    bids_version = self._dataset_errors[0].origin.standard_version
-                    self._bids_version = bids_version
+                # Obtain BIDS standard version from the validation results
+                self._validation_bids_version = next(
+                    (
+                        r.origin.standard_version
+                        for r in v_results
+                        if r.origin.standard is Standard.BIDS
+                        and r.origin.standard_version
+                    ),
+                    None,
+                )
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -359,7 +442,7 @@ class BIDSAsset(LocalFileAsset):
             _add_data_standard(metadata, bids)
 
     def get_validation_bids_version(self) -> str | None:
-        return self.bids_dataset_description.bids_version
+        return self.bids_dataset_description.get_validation_bids_version()
 
 
 class NWBBIDSAsset(BIDSAsset, NWBAsset):

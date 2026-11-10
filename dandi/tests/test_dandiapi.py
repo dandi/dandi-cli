@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import builtins
 from datetime import datetime, timezone
-import gc
 import json
 import logging
 from pathlib import Path
@@ -1182,23 +1181,26 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
 
 
 @pytest.mark.ai_generated
-def test_asset_as_readable_open_pauses_gc(
+def test_asset_as_readable_open_hdf5(
     new_dandiset: SampleDandiset, tmp_path: Path
 ) -> None:
-    # Automatic garbage collection is disabled while a remote asset is open, so
-    # that it cannot run in fsspec's IO thread while h5py holds its lock
-    # (https://github.com/dandi/dandi-cli/issues/1450)
-    p = tmp_path / "foo.txt"
-    p.write_bytes(b"This is test text.\n")
+    # HDF5-based files are read with remfile
+    remfile = pytest.importorskip("remfile")
+    p = tmp_path / "foo.h5"
+    data = bytes(range(256)) * 1000
+    p.write_bytes(data)
     d = new_dandiset.dandiset
-    d.upload_raw_asset(p, {"path": "foo.txt"})
+    d.upload_raw_asset(p, {"path": "foo.h5"})
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteBlobAsset)
-    assert gc.isenabled()
-    with asset.as_readable().open() as fp:
-        assert not gc.isenabled()
-        assert fp.read() == b"This is test text.\n"
-    assert gc.isenabled()
+    fp = asset.as_readable().open()
+    try:
+        assert isinstance(fp, remfile.File)
+        assert fp.read(10) == data[:10]
+        fp.seek(1000)
+        assert fp.read(len(data) - 1000) == data[1000:]
+    finally:
+        fp.close()
 
 
 @pytest.mark.parametrize(
@@ -1217,3 +1219,22 @@ def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> 
         )
     )
     assert dandi_api_client.api_key_env_var == expected_env_var_name
+
+
+@pytest.mark.ai_generated
+def test_all_public_api() -> None:
+    """``dandi.dandiapi.__all__`` must be defined, resolvable and limited to
+    the documented public API (not leak imports or helper names)."""
+    m = dandiapi
+
+    assert m.__doc__
+    names = set(m.__all__)
+    assert len(names) == len(m.__all__)
+    for n in names:
+        assert hasattr(m, n), n
+    ns: dict = {}
+    exec("from dandi.dandiapi import *", ns)
+    exported = {k for k in ns if k != "__builtins__"}
+    assert exported == names
+    assert {"DandiAPIClient", "RemoteDandiset", "RemoteAsset"} <= names
+    assert not {"APIBase", "RemoteDandisetData", "ZarrEntryServerData"} & names
