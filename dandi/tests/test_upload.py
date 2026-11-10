@@ -1327,6 +1327,71 @@ def test_upload_modified_published_zarr(
 
 
 @pytest.mark.ai_generated
+def test_upload_modified_zarr_reported_published(
+    mocker: MockerFixture, tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """
+    Exercise the handling of a published Zarr on any server, including those
+    which do not support publishing Zarrs yet, by making the client believe
+    that the Zarr of the asset is published.  Such a server still considers
+    the Zarr unpublished, so it is what the lookup by name finds and reuses
+    when "minting" the new Zarr; with a server which does support the feature
+    see `test_upload_modified_published_zarr`.
+    """
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    is_published = mocker.patch("dandi.files.zarr._is_published_zarr")
+    is_published.return_value = True
+
+    # Nothing to change: the server is not even asked
+    events = _spy_zarr_iter_upload(mocker)
+    zarr_dandiset.upload()
+    assert events[-1]["status"] == "skipped"
+    is_published.assert_not_called()
+
+    # Something to change: a new Zarr is requested, once, and uploaded in full
+    post = mocker.spy(RESTFullAPIClient, "post")
+    rmtree(zarr_dandiset.dspath / "sample.zarr")
+    zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
+    events.clear()
+    zarr_dandiset.upload()
+    is_published.assert_called_once_with(mocker.ANY, asset.zarr)
+    assert [c.args[1] for c in post.call_args_list if c.args[1] == "/zarr/"] == [
+        "/zarr/"
+    ]
+    assert {
+        "status": "producing asset",
+        "message": "remote Zarr is published; uploading as new",
+    } in events
+    assert events[-1]["status"] == "done"
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
+@pytest.mark.ai_generated
+def test_upload_modified_zarr_reported_published_patch_mode(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset
+) -> None:
+    """
+    Patch mode cannot be carried out on a published Zarr: a new Zarr would
+    lack the remote files which are not present locally.  The Zarr is only
+    reported as published to the client, so this runs with any server.
+    """
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    mocker.patch("dandi.files.zarr._is_published_zarr", return_value=True)
+    post = mocker.spy(RESTFullAPIClient, "post")
+    (zarr_dandiset.dspath / "sample.zarr" / "extra").write_bytes(b"123")
+    with pytest.raises(UploadError, match="published"):
+        zarr_dandiset.upload(zarr_mode="patch")
+    assert not [c for c in post.call_args_list if c.args[1] == "/zarr/"]
+    assert "extra" not in {str(e) for e in asset.iterfiles()}
+
+
+@pytest.mark.ai_generated
 def test_upload_modified_published_zarr_patch_mode(
     zarr_dandiset: SampleDandiset,
 ) -> None:
