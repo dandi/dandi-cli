@@ -18,6 +18,8 @@ from typing import IO, TypeVar, cast
 from dandischema.models import DigestType
 import remfile
 
+from .consts import HDF5_FILE_EXTENSIONS
+
 
 @dataclass
 class Digest:
@@ -317,21 +319,16 @@ class LocalReadableFile(Readable):
         return self.filepath.name
 
 
-#: Suffixes (compared case-insensitively) of the names of HDF5-based files
-#: (such as NWB), which `RemoteReadableAsset.open()` reads with remfile_
-HDF5_SUFFIXES = (".nwb", ".h5", ".hdf5")
-
-
 @dataclass
 class RemoteReadableAsset(Readable):
     """
     A concrete implementation of `Readable` for DANDI blob assets on a remote
     server.
 
-    `.open()` reads HDF5-based files (such as NWB; see `HDF5_SUFFIXES`) with
-    remfile_, and other files with fsspec_, which must be installed with the
-    ``http`` extra (e.g., ``pip install "fsspec[http]"``) in order for `.open()`
-    to be usable for them.
+    `.open()` reads HDF5-based files (such as NWB; see
+    `~dandi.consts.HDF5_FILE_EXTENSIONS`) with remfile_, and other files with
+    fsspec_, which must be installed with the ``http`` extra (e.g., ``pip
+    install "fsspec[http]"``) in order for `.open()` to be usable for them.
 
     Instances of this class are obtained by calling
     `BaseRemoteBlobAsset.as_readable()`.
@@ -357,7 +354,7 @@ class RemoteReadableAsset(Readable):
     name: str
 
     def open(self) -> IO[bytes]:
-        if self.name.lower().endswith(HDF5_SUFFIXES):
+        if self.name.lower().endswith(HDF5_FILE_EXTENSIONS):
             # h5py holds a global lock while it calls the read methods of a
             # file object.  fsspec reads in a separate thread (running its
             # asyncio event loop), so if a garbage collection runs in that
