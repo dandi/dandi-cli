@@ -72,7 +72,7 @@ def get_metadata(
             # Not `df.get_metadata()`, which for an NWB file would extract
             # its NWB metadata, i.e., call this function again
             path_metadata = df.get_bids_metadata(digest=digest)
-            meta["bids_version"] = df.get_validation_bids_version()
+            meta["bids_version"] = df.bids_dataset_description.bids_version
             # there might be a more elegant way to do this:
             if path_metadata.wasAttributedTo:
                 attributed = path_metadata.wasAttributedTo[0]
