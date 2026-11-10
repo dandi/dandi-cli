@@ -104,6 +104,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     assert target_metadata == metadata
 
 
+@pytest.mark.ai_generated
 def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> None:
     """
     Notes
@@ -129,6 +130,10 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
     assert metadata["subject_id"] == "01"
     # This is a key sourced from NWB only:
     assert metadata["sex"] == "U"
+    # The BIDS version the dataset declares
+    # (https://github.com/dandi/dandi-cli/issues/1961)
+    declared = json.loads((dpath / "dataset_description.json").read_text())
+    assert metadata["bids_version"] == declared["BIDSVersion"]
 
 
 @pytest.mark.ai_generated
@@ -1197,6 +1202,79 @@ def test_extract_sex(sex: str, identifier: str | None, name: str) -> None:
     assert rec is not None
     assert (None if rec.identifier is None else str(rec.identifier)) == identifier
     assert rec.name == name
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "species",
+    [
+        "Caenorhabditis elegans",
+        "C. elegans",
+        "Caenorhabditis elegans - Roundworm",
+        "http://purl.obolibrary.org/obo/NCBITaxon_6239",
+    ],
+)
+@pytest.mark.parametrize(
+    "sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("XO", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_c_elegans(
+    species: str, sex: str, identifier: str, name: str
+) -> None:
+    # nwbinspector requires these chromosomal codes for C. elegans
+    rec = extract_sex({"sex": sex, "species": species})
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("sex", ["O", "other", None])
+@pytest.mark.parametrize(
+    "c_elegans_sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_ndx_subjects_c_elegans(
+    sex: str | None, c_elegans_sex: str, identifier: str, name: str
+) -> None:
+    # CElegansSubject of ndx-subjects fixes `sex` to "O" and records the
+    # actual sex in `c_elegans_sex`
+    rec = extract_sex(
+        {
+            "sex": sex,
+            "c_elegans_sex": c_elegans_sex,
+            "species": "Caenorhabditis elegans",
+        }
+    )
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+def test_extract_sex_c_elegans_sex_does_not_override_explicit_sex() -> None:
+    rec = extract_sex({"sex": "M", "c_elegans_sex": "XX"})
+    assert rec is not None
+    assert rec.name == "Male"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("species", [None, "Mus musculus", "Drosophila melanogaster"])
+@pytest.mark.parametrize("sex", ["XX", "XO"])
+def test_extract_sex_chromosomal_other_species(species: str | None, sex: str) -> None:
+    # outside of C. elegans, XX/XO do not unambiguously designate a sex
+    metadata = {"sex": sex}
+    if species is not None:
+        metadata["species"] = species
+    with pytest.raises(ValueError, match="Cannot interpret sex field"):
+        extract_sex(metadata)
 
 
 @pytest.mark.parametrize(

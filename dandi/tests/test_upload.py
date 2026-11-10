@@ -813,8 +813,9 @@ def test_zarr_upload_connection_error_diagnostics(
 
     monkeypatch.setattr(RESTFullAPIClient, "put", mock_put)
 
-    with caplog.at_level("ERROR", logger="dandi"), pytest.raises(
-        requests.ConnectionError
+    with (
+        caplog.at_level("ERROR", logger="dandi"),
+        pytest.raises(requests.ConnectionError),
     ):
         new_dandiset.upload()
 
@@ -1169,3 +1170,28 @@ def test_upload_modified_zarr_reports_descriptive_message(
     assert "adding " in msg, msg
     assert "modifying " in msg, msg
     assert "deleting " in msg, msg
+
+
+@pytest.mark.ai_generated
+def test_upload_identical_files_in_parallel(new_dandiset: SampleDandiset) -> None:
+    """
+    Concurrent upload of many files with identical content must succeed: the
+    blob created by one upload makes ``/uploads/{id}/validate/`` of the others
+    respond with 409 (see dandi-cli#1650).
+    """
+    content = os.urandom(10 * 1024 * 1024)
+    nfiles = 10
+    for i in range(nfiles):
+        (new_dandiset.dspath / f"identical-{i}.bin").write_bytes(content)
+    new_dandiset.upload(allow_any_path=True, jobs=nfiles)
+    paths = sorted(a.path for a in new_dandiset.dandiset.get_assets())
+    assert paths == sorted(f"identical-{i}.bin" for i in range(nfiles))
+    assert (
+        len(
+            {
+                a.get_raw_metadata()["digest"]["dandi:dandi-etag"]
+                for a in new_dandiset.dandiset.get_assets()
+            }
+        )
+        == 1
+    )

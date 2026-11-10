@@ -5,12 +5,14 @@ import json
 from operator import attrgetter
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from typing import Any
 from unittest.mock import ANY
 
-from dandischema.models import get_schema_version
+from dandischema.models import BareAsset, get_schema_version
+import h5py
 import numpy as np
 from packaging.version import Version
 import pytest
@@ -19,6 +21,7 @@ import zarr
 from .fixtures import SampleDandiset
 from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, zarr_format_of
 from .. import get_logger
+from ..bids_validator_deno import _bids_version, bids_validate
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
 from ..exceptions import UnknownAssetError
@@ -28,15 +31,28 @@ from ..files import (
     GenericAsset,
     GenericBIDSAsset,
     ImageAsset,
+    LocalAsset,
     NWBAsset,
     NWBBIDSAsset,
     VideoAsset,
     ZarrAsset,
     ZarrBIDSAsset,
     dandi_file,
+    find_bids_dataset_description,
     find_dandi_files,
 )
-from ..validate._types import Validator
+from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
+from ..files.bids import bids_dataset_description_problem
+from ..misctypes import DUMMY_DANDI_ETAG
+from ..pynwb_utils import get_nwb_version
+from ..validate._types import (
+    Origin,
+    OriginType,
+    Scope,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = get_logger()
 
@@ -71,7 +87,9 @@ def test_find_dandi_files_missing_path(
 
 
 @pytest.mark.ai_generated
-@pytest.mark.skipif(os.name == "nt", reason="Creating symlinks requires Windows privileges")
+@pytest.mark.skipif(
+    os.name == "nt", reason="Creating symlinks requires Windows privileges"
+)
 def test_find_dandi_files_broken_symlink(tmp_path: Path) -> None:
     link = tmp_path / "unfetched.nwb"
     link.symlink_to(tmp_path / "absent.nwb")
@@ -226,6 +244,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.ai_generated
 def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     mkpaths(
         tmp_path,
@@ -242,6 +261,10 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         "bids2/subbids/dataset_description.json",
         "bids2/subbids/data.json",
     )
+    for ds in ("bids1", "bids2"):
+        (tmp_path / ds / "dataset_description.json").write_text(
+            '{"Name": "test", "BIDSVersion": "1.9.0"}'
+        )
 
     files = sorted(
         find_dandi_files(tmp_path, dandiset_path=tmp_path, allow_all=False),
@@ -854,3 +877,369 @@ def test_validate_zarr_requires_zarr_python_3(
     assert [r.id for r in zf.get_validation_errors()] == [
         "dandi_zarr.zarr_python_required"
     ]
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("ds", ["ds", ""], ids=["subdir", "dandiset-root"])
+@pytest.mark.parametrize(
+    "content, problem, bids_version",
+    [
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": "1.9.0"}', None, "1.9.0", id="valid"
+        ),
+        pytest.param(
+            '\ufeff{"Name": "x", "BIDSVersion": "1.9.0"}', None, "1.9.0", id="bom"
+        ),
+        # Invalid but declared BIDS datasets, for the BIDS validator to report on
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": ""}', None, None, id="empty-version"
+        ),
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": 1.9}', None, None, id="non-string-version"
+        ),
+        pytest.param(
+            '{"Name": "x", "BIDSVersion": "1.9.0",}', None, None, id="invalid-json"
+        ),
+        pytest.param(
+            '{"Name": "\xe9t\xe9", "BIDSVersion": "1.9.0"}'.encode("latin-1"),
+            None,
+            None,
+            id="latin-1",
+        ),
+        # Not BIDS datasets
+        pytest.param(
+            '{"Name": "x"}', 'has no "BIDSVersion" field', None, id="no-version"
+        ),
+        pytest.param("[]", 'has no "BIDSVersion" field', None, id="list"),
+        pytest.param(
+            '["BIDSVersion"]', 'has no "BIDSVersion" field', None, id="list-with-key"
+        ),
+        pytest.param("", 'is not valid JSON with "BIDSVersion"', None, id="empty"),
+        pytest.param(
+            '{"Name": "x",}',
+            'is not valid JSON with "BIDSVersion"',
+            None,
+            id="invalid-json-no-version",
+        ),
+        # e.g., to annexed content which is not present
+        pytest.param(None, "cannot be read", None, id="broken-symlink"),
+    ],
+)
+def test_bids_dataset_description_bids_version(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    ds: str,
+    content: str | bytes | None,
+    problem: str | None,
+    bids_version: str | None,
+) -> None:
+    ds_path = tmp_path / ds
+    dd_path = ds_path / "dataset_description.json"
+    mkpaths(ds_path, "sub-01/sub-01.nwb", "sub-01/notes.txt")
+    if content is None:
+        try:
+            dd_path.symlink_to(tmp_path / "absent")
+        except OSError as exc:
+            pytest.skip(f"Cannot create symlink: {exc}")
+    elif isinstance(content, bytes):
+        dd_path.write_bytes(content)
+    else:
+        dd_path.write_text(content, encoding="utf-8")
+
+    assert bids_dataset_description_problem(dd_path) == problem
+    bidsdd = find_bids_dataset_description(ds_path / "sub-01", tmp_path)
+
+    def file_types(**kwargs: bool) -> dict[str, type]:
+        return {
+            df.filepath.relative_to(ds_path).as_posix(): type(df)
+            for df in find_dandi_files(tmp_path, dandiset_path=tmp_path, **kwargs)
+        }
+
+    types = file_types(allow_all=True)
+    if problem is None:
+        assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
+        assert bidsdd.bids_version == bids_version
+        assert types["dataset_description.json"] is BIDSDatasetDescriptionAsset
+        assert types["sub-01/sub-01.nwb"] is NWBBIDSAsset
+        assert "not treating" not in caplog.text
+    else:
+        assert bidsdd is None
+        assert types["dataset_description.json"] is GenericAsset
+        assert types["sub-01/sub-01.nwb"] is NWBAsset
+        assert f"{problem}, so not treating" in caplog.text
+        # and not BIDS without allow_all either, so non-NWB files are skipped
+        assert file_types() == {"sub-01/sub-01.nwb": NWBAsset}
+        # warned about the marker file only, once per walk
+        warnings = [
+            r.getMessage() for r in caplog.records if "not treating" in r.getMessage()
+        ]
+        assert len(warnings) == 2
+        assert all("dataset_description.json" in w for w in warnings)
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "standard_versions, expected",
+    [
+        (["1.11.1"], "1.11.1"),
+        # BIDS version unknown for the schema the validator used
+        ([None], "1.9.0"),
+        # no validation results to take it from
+        ([], "1.9.0"),
+    ],
+)
+def test_get_validation_bids_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    standard_versions: list[str | None],
+    expected: str,
+) -> None:
+    mkpaths(tmp_path, "sub-01/sub-01.nwb")
+    (tmp_path / "dataset_description.json").write_text(
+        '{"Name": "x", "BIDSVersion": "1.9.0"}'
+    )
+    results = [
+        ValidationResult(
+            id="BIDS.SOME_ISSUE",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.bids_validator_deno,
+                validator_version="0",
+                standard=Standard.BIDS,
+                standard_version=v,
+                standard_schema_version="1.2.7",
+            ),
+            scope=Scope.DATASET,
+            dataset_path=tmp_path,
+        )
+        for v in standard_versions
+    ]
+    monkeypatch.setattr("dandi.files.bids.bids_validate", lambda *_a, **_kw: results)
+
+    bidsdd = dandi_file(tmp_path / "dataset_description.json", tmp_path)
+    assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
+    asset = dandi_file(
+        tmp_path / "sub-01" / "sub-01.nwb", tmp_path, bids_dataset_description=bidsdd
+    )
+    assert isinstance(asset, NWBBIDSAsset)
+    assert asset.get_validation_bids_version() == expected
+    assert bidsdd.get_validation_bids_version() == expected
+    # the declared version stays the declared one
+    assert bidsdd.bids_version == "1.9.0"
+
+
+@pytest.mark.ai_generated
+def test_get_validation_bids_version_bids_examples(
+    bids_examples: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    The version of BIDS used in validation is known
+    (https://github.com/dandi/dandi-cli/issues/1961)
+    """
+    # Do not fetch the published mapping
+    monkeypatch.setattr(_bids_version, "_published_mapping", dict)
+    ds_path = bids_examples / "ieeg_epilepsyNWB"
+    nwb_path = (
+        ds_path
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    bidsdd = find_bids_dataset_description(nwb_path.parent, ds_path)
+    assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
+    assert bidsdd.bids_version is not None
+    asset = dandi_file(nwb_path, ds_path, bids_dataset_description=bidsdd)
+    assert isinstance(asset, NWBBIDSAsset)
+    validation_bids_version = asset.get_validation_bids_version()
+    assert validation_bids_version is not None
+    assert (results := bids_validate(ds_path))
+    # the declared version, if that of the validator's schema is not known
+    assert validation_bids_version == (
+        results[0].origin.standard_version or bidsdd.bids_version
+    )
+
+
+def _data_standards(metadata: BareAsset) -> dict[str, Any]:
+    # TODO: use metadata.dataStandard directly, and type the result as
+    # dict[str, StandardsType], once min dandischema >= 0.15.0
+    return {s.name: s for s in getattr(metadata, "dataStandard", None) or []}
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    not _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    reason="dandischema too old, no dataStandard on BareAsset",
+)
+class TestDataStandard:
+    """Tests for per-asset dataStandard population"""
+
+    BIDS = "Brain Imaging Data Structure (BIDS)"
+    HED = "Hierarchical Event Descriptors (HED)"
+    NWB = "Neurodata Without Borders (NWB)"
+    OME_NGFF = "OME/NGFF Standard"
+
+    @staticmethod
+    def _bids_dd_metadata(tmp_path: Path, content: str) -> BareAsset:
+        dd_path = tmp_path / "dataset_description.json"
+        dd_path.write_text(content)
+        return BIDSDatasetDescriptionAsset(
+            filepath=dd_path,
+            path="dataset_description.json",
+            dandiset_path=tmp_path,
+        ).get_metadata()
+
+    @pytest.mark.parametrize(
+        "description, bids_version, hed_version, hed_extensions",
+        [
+            ({"BIDSVersion": "1.9.0"}, "1.9.0", None, None),
+            ({}, None, None, None),
+            # non-string values must not cause a crash
+            ({"BIDSVersion": 1.8}, "1.8", None, None),
+            ({"BIDSVersion": "1.9.0", "HEDVersion": "8.2.0"}, "1.9.0", "8.2.0", None),
+            ({"BIDSVersion": "1.9.0", "HEDVersion": []}, "1.9.0", None, None),
+            # library schemas, with and without namespace prefix
+            (
+                {
+                    "BIDSVersion": "1.9.0",
+                    "HEDVersion": ["8.2.0", "sc:score_1.0.0", "lang_1.1.0"],
+                },
+                "1.9.0",
+                "8.2.0",
+                {"score": "1.0.0", "lang": "1.1.0"},
+            ),
+            # partnered library schema without explicit standard schema
+            (
+                {"BIDSVersion": "1.10.0", "HEDVersion": "score_2.1.0"},
+                "1.10.0",
+                None,
+                {"score": "2.1.0"},
+            ),
+            # prefixed standard schema
+            (
+                {"BIDSVersion": "1.9.0", "HEDVersion": ["ts:8.3.0"]},
+                "1.9.0",
+                "8.3.0",
+                None,
+            ),
+            # non-string entries are ignored
+            (
+                {"BIDSVersion": "1.9.0", "HEDVersion": [{"8.2.0": 1}, "8.2.0"]},
+                "1.9.0",
+                "8.2.0",
+                None,
+            ),
+        ],
+    )
+    def test_bids_dataset_description(
+        self,
+        tmp_path: Path,
+        description: dict,
+        bids_version: str | None,
+        hed_version: str | None,
+        hed_extensions: dict[str, str] | None,
+    ) -> None:
+        standards = _data_standards(
+            self._bids_dd_metadata(
+                tmp_path, json.dumps({"Name": "Test", **description})
+            )
+        )
+        assert standards[self.BIDS].version == bids_version
+        if "HEDVersion" in description and description["HEDVersion"]:
+            assert set(standards) == {self.BIDS, self.HED}
+            hed = standards[self.HED]
+            assert hed.version == hed_version
+            if hed_extensions is None:
+                assert hed.extensions is None
+            else:
+                assert hed.extensions is not None
+                assert {e.name: e.version for e in hed.extensions} == hed_extensions
+        else:
+            assert set(standards) == {self.BIDS}
+
+    @pytest.mark.parametrize("content", ["{not json", "[]"])
+    def test_bids_dataset_description_invalid(
+        self, tmp_path: Path, content: str
+    ) -> None:
+        standards = _data_standards(self._bids_dd_metadata(tmp_path, content))
+        assert set(standards) == {self.BIDS}
+        assert standards[self.BIDS].version is None
+
+    def test_bids_dataset_assets(self, simple1_nwb: Path, tmp_path: Path) -> None:
+        """All assets in a BIDS dataset declare BIDS, dataset_description.json
+        also declares HED"""
+        (tmp_path / "dataset_description.json").write_text(
+            json.dumps({"Name": "Test", "BIDSVersion": "1.9.0", "HEDVersion": "8.2.0"})
+        )
+        (tmp_path / "participants.tsv").write_text("participant_id\nsub-01\n")
+        session = tmp_path / "sub-01" / "ses-1"
+        nwb_path = session / "ecephys" / "sub-01_ses-1_ecephys.nwb"
+        nwb_path.parent.mkdir(parents=True)
+        shutil.copy(simple1_nwb, nwb_path)
+        zarr.save(
+            session / "micr" / "sub-01_ses-1_sample-A_SPIM.ome.zarr", np.arange(10)
+        )
+        files = {
+            f.path: f
+            for f in find_dandi_files(tmp_path, dandiset_path=tmp_path)
+            if isinstance(f, LocalAsset)
+        }
+        expected = {
+            "dataset_description.json": {self.BIDS: "1.9.0", self.HED: "8.2.0"},
+            "participants.tsv": {self.BIDS: "1.9.0"},
+            "sub-01/ses-1/ecephys/sub-01_ses-1_ecephys.nwb": {
+                self.BIDS: "1.9.0",
+                self.NWB: get_nwb_version(simple1_nwb),
+            },
+            "sub-01/ses-1/micr/sub-01_ses-1_sample-A_SPIM.ome.zarr": {
+                self.BIDS: "1.9.0",
+                self.OME_NGFF: None,
+            },
+        }
+        assert set(files) == set(expected)
+        for path, versions in expected.items():
+            standards = _data_standards(
+                files[path].get_metadata(digest=DUMMY_DANDI_ETAG)
+            )
+            assert {name: s.version for name, s in standards.items()} == versions, path
+
+    def test_nwb(self, simple1_nwb: Path, tmp_path: Path) -> None:
+        nwb_path = tmp_path / "sub-1.nwb"
+        shutil.copy(simple1_nwb, nwb_path)
+        with h5py.File(nwb_path, "a") as f:
+            specs = f.require_group("specifications")
+            specs.create_group("ndx-test/0.1.0")
+            specs.create_group("ndx-test/0.2.0")
+        metadata = NWBAsset(
+            filepath=nwb_path, path="sub-1.nwb", dandiset_path=tmp_path
+        ).get_metadata()
+        nwb = _data_standards(metadata)[self.NWB]
+        assert nwb.version == get_nwb_version(nwb_path)
+        assert nwb.extensions is not None
+        assert [(e.name, e.version) for e in nwb.extensions] == [("ndx-test", "0.2.0")]
+
+    def test_nwb_unreadable(self, tmp_path: Path) -> None:
+        nwb_path = tmp_path / "sub-1.nwb"
+        nwb_path.write_text("not an HDF5 file")
+        metadata = NWBAsset(
+            filepath=nwb_path, path="sub-1.nwb", dandiset_path=tmp_path
+        ).get_metadata(ignore_errors=True)
+        nwb = _data_standards(metadata)[self.NWB]
+        assert nwb.version is None
+        assert nwb.extensions is None
+
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            ("sample.ome.zarr", True),
+            ("sample_1.5x.ome.zarr", True),
+            ("sample.zarr", False),
+        ],
+    )
+    def test_zarr(self, tmp_path: Path, path: str, expected: bool) -> None:
+        zarr_path = tmp_path / path
+        zarr.save(zarr_path, np.arange(10))
+        zf = dandi_file(zarr_path, tmp_path)
+        assert isinstance(zf, ZarrAsset)
+        standards = _data_standards(zf.get_metadata())
+        assert (self.OME_NGFF in standards) is expected

@@ -55,6 +55,18 @@ def test_validate_empty(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("use_path", [False, True])
+def test_validate_missing_path(tmp_path: Path, use_path: bool) -> None:
+    (tmp_path / dandiset_metadata_file).write_text("identifier: 123456\n")
+    missing = tmp_path / "missing.nwb"
+    requested_path = missing if use_path else str(missing)
+
+    with pytest.raises(FileNotFoundError) as exc:
+        list(validate(requested_path))
+    assert exc.value.filename == str(missing)
+
+
 def test_validate_just_dandiset_yaml(tmp_path: Path) -> None:
     (tmp_path / dandiset_metadata_file).write_text(
         "identifier: 12346\nname: Foo\ndescription: Dandiset Foo\n"

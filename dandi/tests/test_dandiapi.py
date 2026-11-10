@@ -14,7 +14,12 @@ import anys
 import click
 import dandischema
 from dandischema.consts import ALLOWED_INPUT_SCHEMAS
-from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
+from dandischema.models import (
+    UUID_PATTERN,
+    DigestType,
+    get_schema_version,
+    nwb_standard,
+)
 from packaging.version import Version as _PackagingVersion
 import pytest
 from pytest_mock import MockerFixture
@@ -43,6 +48,7 @@ from ..dandiapi import (
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
+from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
 from ..utils import list_paths
 
 # These tests exercise the 0.8.0 -> 0.7.0 downgrade wiring, which requires
@@ -528,6 +534,38 @@ def test__maybe_downgrade_metadata_falls_through_on_populated_field(
         "Could not downgrade metadata" in rec.message and populated_field in rec.message
         for rec in caplog.records
     )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    not _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    reason="dandischema too old, no dataStandard on BareAsset",
+)
+@pytest.mark.parametrize("server_schema", ["0.7.0", "0.8.0"])
+@responses.activate
+def test__maybe_downgrade_metadata_drops_asset_datastandard(server_schema: str) -> None:
+    """
+    Per-asset ``dataStandard`` (added in schema 0.8.1) is dropped, even if
+    populated, when uploading to an older server, which would otherwise be
+    sent metadata of a schema version it cannot validate.
+    """
+    _mock_server_info(server_schema)
+    client = DandiAPIClient("https://test.nil/api")
+    metadata = {
+        "schemaKey": "BareAsset",
+        "schemaVersion": get_schema_version(),
+        "path": "sub-1/sub-1.nwb",
+        "encodingFormat": "application/x-nwb",
+        "dataStandard": [{**nwb_standard, "version": "2.7.0"}],
+    }
+    out = client._maybe_downgrade_metadata(metadata)
+    assert out["schemaVersion"] == server_schema
+    assert "dataStandard" not in out
+    assert {k: v for k, v in out.items() if k != "schemaVersion"} == {
+        k: v for k, v in metadata.items() if k not in ("schemaVersion", "dataStandard")
+    }
+    # the original is left intact
+    assert metadata["dataStandard"] == [{**nwb_standard, "version": "2.7.0"}]
 
 
 @pytest.mark.ai_generated
@@ -1158,3 +1196,22 @@ def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> 
         )
     )
     assert dandi_api_client.api_key_env_var == expected_env_var_name
+
+
+@pytest.mark.ai_generated
+def test_all_public_api() -> None:
+    """``dandi.dandiapi.__all__`` must be defined, resolvable and limited to
+    the documented public API (not leak imports or helper names)."""
+    m = dandiapi
+
+    assert m.__doc__
+    names = set(m.__all__)
+    assert len(names) == len(m.__all__)
+    for n in names:
+        assert hasattr(m, n), n
+    ns: dict = {}
+    exec("from dandi.dandiapi import *", ns)
+    exported = {k for k in ns if k != "__builtins__"}
+    assert exported == names
+    assert {"DandiAPIClient", "RemoteDandiset", "RemoteAsset"} <= names
+    assert not {"APIBase", "RemoteDandisetData", "ZarrEntryServerData"} & names

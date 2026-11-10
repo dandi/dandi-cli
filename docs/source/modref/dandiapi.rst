@@ -56,8 +56,13 @@ Dandisets
 .. autoclass:: VersionInfo()
     :show-inheritance:
 
+.. autoclass:: VersionStatus
+
 .. autoclass:: RemoteValidationError()
     :inherited-members: BaseModel
+
+.. autoclass:: RemoteAssetValidationError()
+    :show-inheritance:
 
 Assets
 ------

@@ -3,11 +3,24 @@
 This module provides client classes for communicating with DANDI Archive API
 servers, including asset management, dandiset operations, and authentication.
 
-The main classes are:
-- DandiAPIClient: High-level client for DANDI API operations
-- RESTFullAPIClient: Base HTTP client with retry and authentication
-- RemoteDandiset: Represents a dandiset on the server
-- RemoteAsset: Represents an asset (file) on the server
+Start with :class:`DandiAPIClient`, the main entry point; the other classes
+are normally obtained from it rather than instantiated directly.  Read-only
+operations work without authentication; operations that modify data require
+an API key (see ``DandiAPIClient.authenticate()``).  Full documentation and
+examples are in the "dandi.dandiapi" section of the Sphinx docs.
+
+- :class:`DandiAPIClient`: High-level client for DANDI API operations; yields
+  :class:`RemoteDandiset` objects
+- :class:`RemoteDandiset`: Represents a dandiset on the server; yields
+  :class:`RemoteAsset` objects (:class:`RemoteBlobAsset` or
+  :class:`RemoteZarrAsset`)
+- :class:`RemoteAsset`: Represents an asset (file) of a dandiset on the server
+- :class:`BaseRemoteAsset`: An asset not tied to any dandiset
+
+Supporting classes (:class:`RESTFullAPIClient`, the ``Base*`` and ``*Zarr*``
+asset classes, :class:`Version`, :class:`VersionInfo`, :class:`AssetType`,
+etc.) are listed in ``__all__``, which is the public API of this module.
+Other names are internal and may change without notice.
 """
 
 from __future__ import annotations
@@ -68,6 +81,25 @@ from .utils import (
 if TYPE_CHECKING:
     from typing_extensions import Self
 
+
+__all__ = [
+    "AssetType",
+    "BaseRemoteAsset",
+    "BaseRemoteBlobAsset",
+    "BaseRemoteZarrAsset",
+    "DandiAPIClient",
+    "RESTFullAPIClient",
+    "RemoteAsset",
+    "RemoteAssetValidationError",
+    "RemoteBlobAsset",
+    "RemoteDandiset",
+    "RemoteValidationError",
+    "RemoteZarrAsset",
+    "RemoteZarrEntry",
+    "Version",
+    "VersionInfo",
+    "VersionStatus",
+]
 
 lgr = get_logger()
 
