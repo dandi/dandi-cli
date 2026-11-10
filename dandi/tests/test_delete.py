@@ -434,6 +434,79 @@ def test_delete_within_zarr_refused(mocker: MockerFixture, suffix: str) -> None:
     delete_spy.assert_not_called()
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "url",
+    [
+        "dandi://dandi/000108@0.210812.1448/sub-1/file.nwb",
+        "dandi://dandi/000108@0.210812.1448/sub-1/",
+        "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
+        "/assets/9e1a4a8d-fb5d-4a0f-9a0d-6d6ec5bc4b61/",
+        "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
+        "/assets/?path=sub-1",
+    ],
+)
+def test_delete_published_version_assets_refused(
+    mocker: MockerFixture, url: str
+) -> None:
+    """Asset URLs naming a published version are rejected before any request.
+
+    Published versions share asset IDs with the draft, so deleting the assets
+    found in the published version would remove them from the draft.
+    """
+    request_spy = mocker.spy(RESTFullAPIClient, "request")
+    with pytest.raises(NotImplementedError) as excinfo:
+        delete([url], dandi_instance="dandi", devel_debug=True, force=True)
+    assert str(excinfo.value) == (
+        "Cannot delete assets from published version 0.210812.1448 of Dandiset"
+        " 000108; only the draft version can be modified.  Use a URL for the"
+        " draft version or one without a version."
+    )
+    request_spy.assert_not_called()
+
+
+@pytest.mark.ai_generated
+def test_delete_non_draft_assets_not_deleted(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+) -> None:
+    """`Deleter.process_assets()` never sends a non-draft asset's ID to the
+    draft; it reports an error for it and still deletes the other assets."""
+    dandiset = text_dandiset.dandiset
+    deleter = delete_mod.Deleter(client=dandiset.client, dandiset=dandiset)
+    published = dandiset.get_asset_by_path("file.txt").model_copy(
+        update={"version_id": "0.210812.1448"}
+    )
+    other = dandiset.get_asset_by_path("subdir1/apple.txt")
+    deleter.add_asset(published)
+    deleter.add_asset(other)
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    records = {r["path"]: r for r in deleter.process_assets()}
+    assert records == {
+        "file.txt": {
+            "path": "file.txt",
+            "status": "Error",
+            "message": (
+                f"Asset belongs to {dandiset.identifier}/0.210812.1448,"
+                f" not {dandiset.identifier}/{DRAFT}"
+            ),
+        },
+        "subdir1/apple.txt": {"path": "subdir1/apple.txt", "status": "Deleted"},
+    }
+    sent_ids = [
+        aid for c in post_spy.call_args_list for aid in c.kwargs["json"]["asset_ids"]
+    ] + [c.args[1].rstrip("/").rsplit("/", 1)[-1] for c in delete_spy.call_args_list]
+    assert published.identifier not in sent_ids
+    assert other.identifier in sent_ids
+    assert {a.path for a in dandiset.get_assets()} == {
+        "file.txt",
+        "subdir2/banana.txt",
+        "subdir2/coconut.txt",
+    }
+
+
 def test_delete_no_dandiset(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

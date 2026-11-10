@@ -158,6 +158,17 @@ class Deleter:
                 )
             if parsed_url.version_id is None:
                 parsed_url.version_id = DRAFT
+            elif parsed_url.version_id != DRAFT:
+                # Published versions share asset IDs with the draft, so the
+                # assets must not be looked up in the published version and
+                # then deleted from the draft
+                raise NotImplementedError(
+                    f"Cannot delete assets from published version"
+                    f" {parsed_url.version_id} of Dandiset"
+                    f" {parsed_url.dandiset_id}; only the draft version can be"
+                    f" modified.  Use a URL for the draft version or one without"
+                    f" a version."
+                )
             self.register_assets_url(url, parsed_url)
 
     def register_local_path_equivalent(
@@ -208,9 +219,31 @@ class Deleter:
         deleted one at a time, one request at a time, with a status `dict`
         yielded for each asset as soon as it has been processed, and a failure
         only affecting that asset.
+
+        Assets that do not belong to the draft version of the Dandiset are
+        never deleted; they are reported as errors before anything is deleted.
         """
         assert self.dandiset is not None
-        assets = sorted(self.remote_assets, key=attrgetter("path"))
+        assets = []
+        for asset in sorted(self.remote_assets, key=attrgetter("path")):
+            # Bulk deletion only sends asset IDs, which a published version
+            # shares with the draft, so make sure that only assets of the
+            # draft are deleted from it
+            if (asset.dandiset_id, asset.version_id) != (
+                self.dandiset.identifier,
+                self.dandiset.version_id,
+            ):
+                yield {
+                    "path": asset.path,
+                    "status": "Error",
+                    "message": (
+                        f"Asset belongs to {asset.dandiset_id}/{asset.version_id},"
+                        f" not {self.dandiset.identifier}/"
+                        f"{self.dandiset.version_id}"
+                    ),
+                }
+            else:
+                assets.append(asset)
         for batch in chunked(assets, BULK_DELETE_BATCH_SIZE):
             if not self.dandiset.client._bulk_delete_unsupported:
                 try:
