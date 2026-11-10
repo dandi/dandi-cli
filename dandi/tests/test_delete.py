@@ -544,6 +544,26 @@ def test_delete_zarr_url_at_boundary(
     ]
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("jobs", [None, 4])
+def test_delete_jobs_deprecated(mocker: MockerFixture, jobs: int | None) -> None:
+    """Passing the ignored ``jobs`` argument emits a `DeprecationWarning`.
+
+    pytest turns warnings into errors, so the call without ``jobs`` also
+    checks that no warning is emitted then.  The URL is rejected before any
+    request, so no server is needed.
+    """
+    request_spy = mocker.spy(RESTFullAPIClient, "request")
+    url = "dandi://dandi/000108@0.210812.1448/sub-1/file.nwb"
+    with pytest.raises(NotImplementedError, match="published version"):
+        if jobs is None:
+            delete([url], dandi_instance="dandi", force=True)
+        else:
+            with pytest.warns(DeprecationWarning, match="jobs argument"):
+                delete([url], dandi_instance="dandi", jobs=jobs, force=True)
+    request_spy.assert_not_called()
+
+
 def test_delete_no_dandiset(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

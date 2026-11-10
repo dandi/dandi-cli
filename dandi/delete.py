@@ -14,6 +14,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from operator import attrgetter
 from pathlib import Path
+import warnings
 
 import click
 from yarl import URL
@@ -310,8 +311,16 @@ def delete(
     dandiset.
 
     Assets are deleted in batches, one request at a time, so ``jobs`` is
-    ignored; it is retained only for backwards compatibility.
+    deprecated and ignored; passing it emits a `DeprecationWarning`.
     """
+    if jobs is not None:
+        warnings.warn(
+            "The jobs argument of dandi.delete.delete() is deprecated and"
+            " ignored, as assets are now deleted in batches, one request at a"
+            " time",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     deleter = Deleter(skip_missing=skip_missing)
     for p in paths:
         if is_url(p):
