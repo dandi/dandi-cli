@@ -104,6 +104,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     assert target_metadata == metadata
 
 
+@pytest.mark.ai_generated
 def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> None:
     """
     Notes
@@ -129,6 +130,10 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
     assert metadata["subject_id"] == "01"
     # This is a key sourced from NWB only:
     assert metadata["sex"] == "U"
+    # The BIDS version the dataset declares
+    # (https://github.com/dandi/dandi-cli/issues/1961)
+    declared = json.loads((dpath / "dataset_description.json").read_text())
+    assert metadata["bids_version"] == declared["BIDSVersion"]
 
 
 @pytest.mark.ai_generated
@@ -1793,9 +1798,8 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
 
 
 @pytest.mark.timeout(120)
-@pytest.mark.xfail(reason="https://github.com/dandi/dandi-cli/issues/1450")
 def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
-    pytest.importorskip("fsspec")
+    pytest.importorskip("remfile")
     asset = nwb_dandiset.dandiset.get_asset_by_path("sub-mouse001/sub-mouse001.nwb")
     digest = asset.get_digest()
     mtime = ensure_datetime(asset.get_raw_metadata()["blobDateModified"])
@@ -1864,6 +1868,7 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
                     identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
                     name="Mus musculus - House mouse",
                 ),
+                strain=StrainType(schemaKey="StrainType", name="C57BL/6J"),
             ),
         ],
         variableMeasured=[],

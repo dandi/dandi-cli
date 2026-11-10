@@ -11,13 +11,13 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatchcase
-import gc
 import os.path
 from pathlib import Path
-import threading
-from typing import IO, Any, TypeVar, cast
+from typing import IO, TypeVar, cast
 
 from dandischema.models import DigestType
+
+from .consts import HDF5_FILE_EXTENSIONS
 
 
 @dataclass
@@ -322,13 +322,22 @@ class LocalReadableFile(Readable):
 class RemoteReadableAsset(Readable):
     """
     A concrete implementation of `Readable` for DANDI blob assets on a remote
-    server.  The fsspec_ library must be installed with the ``http`` extra
-    (e.g., ``pip install "fsspec[http]"``) in order for `.open()` to be usable.
+    server.
+
+    `.open()` reads HDF5-based files (such as NWB; see
+    `~dandi.consts.HDF5_FILE_EXTENSIONS`) with remfile_, and other files with
+    fsspec_.  These are optional dependencies, installed with the ``extras``
+    extra (``pip install "dandi[extras]"``).
 
     Instances of this class are obtained by calling
     `BaseRemoteBlobAsset.as_readable()`.
 
+    .. versionchanged:: 0.83.0
+
+        HDF5-based files are read with remfile instead of fsspec
+
     .. _fsspec: http://github.com/fsspec/filesystem_spec
+    .. _remfile: https://github.com/flatironinstitute/remfile
     """
 
     #: The URL that data is read from
@@ -344,6 +353,24 @@ class RemoteReadableAsset(Readable):
     name: str
 
     def open(self) -> IO[bytes]:
+        if self.name.lower().endswith(HDF5_FILE_EXTENSIONS):
+            # h5py holds a global lock while it calls the read methods of a
+            # file object.  fsspec reads in a separate thread (running its
+            # asyncio event loop), so if a garbage collection runs in that
+            # thread while h5py waits for a read, and frees h5py objects, their
+            # finalizers wait for h5py's lock, which is never released: a
+            # deadlock (https://github.com/dandi/dandi-cli/issues/1450).
+            # remfile makes its HTTP requests in the calling thread, where a
+            # garbage collection can take h5py's (reentrant) lock, as long as
+            # it uses a single thread (its default `_max_threads=1`).  Its
+            # requests time out, so that a stalled connection cannot hang.
+            import remfile
+
+            return cast(IO[bytes], remfile.File(self.url, _size=self.size))
+        else:
+            return self._open_fsspec()
+
+    def _open_fsspec(self) -> IO[bytes]:
         # Optional dependency:
         from aiohttp import ClientTimeout
         import fsspec
@@ -357,22 +384,15 @@ class RemoteReadableAsset(Readable):
         # (or minio in tests) causes fsspec's background IO thread to block
         # forever, which in turn blocks the calling thread in
         # threading.Event.wait() — see https://github.com/fsspec/filesystem_spec/issues/1666
-        #
-        # Automatic garbage collection is disabled while the file is open, as
-        # it could otherwise deadlock fsspec's IO thread (see `_GCPausedFile`).
         return cast(
             IO[bytes],
-            _GCPausedFile(
-                fsspec.open(
-                    self.url,
-                    mode="rb",
-                    client_kwargs={
-                        "timeout": ClientTimeout(
-                            total=120, sock_read=60, sock_connect=30
-                        )
-                    },
-                ).open()
-            ),
+            fsspec.open(
+                self.url,
+                mode="rb",
+                client_kwargs={
+                    "timeout": ClientTimeout(total=120, sock_read=60, sock_connect=30)
+                },
+            ).open(),
         )
 
     def get_size(self) -> int:
@@ -386,62 +406,3 @@ class RemoteReadableAsset(Readable):
 
     def __str__(self) -> str:
         return self.url
-
-
-#: Protects `_gc_pauses` and `_gc_was_enabled`
-_gc_lock = threading.Lock()
-#: The number of open `_GCPausedFile` instances
-_gc_pauses = 0
-#: Whether automatic garbage collection was enabled before the first open
-#: `_GCPausedFile` disabled it
-_gc_was_enabled = False
-
-
-class _GCPausedFile:
-    """
-    A file object during whose lifetime automatic garbage collection is
-    disabled
-
-    h5py holds a global lock while it reads from a Python file object, and the
-    read of a `RemoteReadableAsset` waits for fsspec's IO thread to fetch the
-    data.  If a garbage collection ran in that thread meanwhile, the finalizer
-    of an unreferenced object closing an HDF5 file (e.g., hdmf's
-    ``HDMFIO.__del__``) would wait for the same lock, and neither thread could
-    proceed (<https://github.com/dandi/dandi-cli/issues/1450>).
-    """
-
-    def __init__(self, fp: IO[bytes]) -> None:
-        global _gc_pauses, _gc_was_enabled
-        self._fp = fp
-        self._paused = False
-        with _gc_lock:
-            if _gc_pauses == 0:
-                _gc_was_enabled = gc.isenabled()
-                gc.disable()
-            _gc_pauses += 1
-            self._paused = True
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._fp, name)
-
-    def __enter__(self) -> _GCPausedFile:
-        return self
-
-    def __exit__(self, *_exc: object) -> None:
-        self.close()
-
-    def __del__(self) -> None:
-        if self._paused:
-            self.close()
-
-    def close(self) -> None:
-        global _gc_pauses
-        try:
-            self._fp.close()
-        finally:
-            with _gc_lock:
-                if self._paused:
-                    self._paused = False
-                    _gc_pauses -= 1
-                    if _gc_pauses == 0 and _gc_was_enabled:
-                        gc.enable()
