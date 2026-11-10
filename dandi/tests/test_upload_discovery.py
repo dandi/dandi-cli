@@ -70,6 +70,9 @@ def test_wholly_unrecognized_dandiset(tmp_path: Path) -> None:
 @pytest.mark.ai_generated
 def test_bids_assets_stay_recognized(tmp_path: Path) -> None:
     mkpaths(tmp_path, "dandiset.yaml", "dataset_description.json", "sidecar.json")
+    (tmp_path / "dataset_description.json").write_text(
+        '{"Name": "test", "BIDSVersion": "1.9.0"}'
+    )
     assets = Dandiset(tmp_path).assets(allow_all=True)
     selected, omitted = _partition_upload_assets(assets, [PurePosixPath(".")], False)
     assert sorted(a.filepath for a in selected) == sorted(

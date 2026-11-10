@@ -33,16 +33,21 @@ from dateutil.tz import tzutc
 from hdmf.common import DynamicTable
 import numpy as np
 from pydantic import ByteSize
+import pynwb
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+from pynwb.file import Subject
 import pytest
+from pytest_mock import MockerFixture
 import requests
 from semantic_version import Version
 
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
-from ..consts import metadata_nwb_subject_fields
+from ..consts import dandiset_metadata_file, metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
+from ..files import NWBBIDSAsset, dandi_file, find_bids_dataset_description
+from ..metadata import nwb as metadata_nwb
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
@@ -50,7 +55,9 @@ from ..metadata.util import (
     SpeciesRecord,
     extract_age,
     extract_cellLine,
+    extract_sex,
     extract_species,
+    extract_wasDerivedFrom,
     parse_age,
     parse_purlobourl,
     process_ndtypes,
@@ -61,6 +68,12 @@ from ..misctypes import DUMMY_DANDI_ETAG
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
+
+AGE_REFERENCE_TYPES = {
+    "birth": AgeReferenceType.BirthReference,
+    "gestational": AgeReferenceType.GestationalReference,
+    None: AgeReferenceType.BirthReference,
+}
 
 mark_xfail_ontobee = pytest.mark.xfail(
     condition="not config.getoption('--scheduled')",
@@ -79,6 +92,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     # We also populate with nd_types now, although here they would be empty
     target_metadata["nd_types"] = []
     target_metadata["external_file_objects"] = []
+    target_metadata["brain_locations"] = []
     # we do not populate any subject fields in our simple1_nwb
     for f in metadata_nwb_subject_fields:
         target_metadata[f] = None
@@ -90,6 +104,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     assert target_metadata == metadata
 
 
+@pytest.mark.ai_generated
 def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> None:
     """
     Notes
@@ -115,6 +130,63 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
     assert metadata["subject_id"] == "01"
     # This is a key sourced from NWB only:
     assert metadata["sex"] == "U"
+    # The BIDS version the dataset declares
+    # (https://github.com/dandi/dandi-cli/issues/1961)
+    declared = json.loads((dpath / "dataset_description.json").read_text())
+    assert metadata["bids_version"] == declared["BIDSVersion"]
+
+
+@pytest.mark.ai_generated
+def test_bids_nwb_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # Getting the BIDS metadata of an NWB file in a BIDS dataset must not
+    # extract its NWB metadata again (which used to recurse until
+    # RecursionError, running the BIDS validator at every level)
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = get_metadata.__wrapped__(file_path)
+    assert spy.call_count == 0
+    assert metadata["subject_id"] == "01"
+    assert metadata["sex"] == "U"
+
+
+@pytest.mark.ai_generated
+def test_nwb_bids_asset_metadata_no_recursion(
+    bids_examples: Path, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # The metadata of an NWBBIDSAsset merges its BIDS and NWB metadata,
+    # extracting the latter (which itself includes BIDS metadata) only once
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(bids_examples / "ieeg_epilepsyNWB", dpath)
+    (dpath / dandiset_metadata_file).write_text("identifier: '000027'\n")
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    # (The asset refers to it only weakly)
+    bids_dataset_description = find_bids_dataset_description(file_path)
+    df = dandi_file(file_path, dpath, bids_dataset_description=bids_dataset_description)
+    assert isinstance(df, NWBBIDSAsset)
+    spy = mocker.spy(metadata_nwb, "nwb2asset")
+    metadata = df.get_metadata(digest=DUMMY_DANDI_ETAG, ignore_errors=False)
+    assert spy.call_count == 1
+    assert metadata.wasAttributedTo is not None
+    participant = metadata.wasAttributedTo[0]
+    assert participant.identifier == "01"
+    assert participant.sex is not None
+    assert participant.sex.name == "Unknown"
 
 
 @pytest.mark.parametrize(
@@ -475,6 +547,54 @@ def test_time_extract() -> None:
     )
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "reference", [ref for ref in AGE_REFERENCE_TYPES.keys() if ref is not None]
+)
+def test_age_reference_roundtrip(tmp_path: Path, reference: str) -> None:
+    path = tmp_path / "age.nwb"
+    nwb = NWBFile("age reference", "age", datetime(2020, 1, 1, tzinfo=tzutc()))
+    nwb.subject = Subject(age="P3W", age__reference=reference)
+    with NWBHDF5IO(str(path), "w") as io:
+        io.write(nwb)
+    metadata = get_metadata(path)
+    assert metadata["age__reference"] == reference
+    age = extract_age(metadata)
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES[reference])
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+@pytest.mark.parametrize("legacy", [False, True])
+def test_age_reference_legacy(reference: str | None, legacy: bool) -> None:
+    age = extract_age(
+        {"age": "Gestational week 3" if legacy else "P3W", "age__reference": reference}
+    )
+    assert age is not None
+    assert age.value == "P3W"
+    assert age.valueReference == PropertyValue(
+        value=AGE_REFERENCE_TYPES["gestational" if legacy else reference]
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("reference", AGE_REFERENCE_TYPES.keys())
+def test_age_reference_preserves_birth_dates(reference: str | None) -> None:
+    age = extract_age(
+        {
+            "age": "P3W",
+            "age__reference": reference,
+            "date_of_birth": "2020-01-01T00:00:00Z",
+            "session_start_time": "2020-01-03T00:00:00Z",
+        }
+    )
+    assert age is not None
+    assert age.value == "P2D"
+    assert age.valueReference == PropertyValue(value=AGE_REFERENCE_TYPES["birth"])
+
+
 def test_time_extract_gest() -> None:
     """extract age with Gestational ref"""
     meta_birth = {
@@ -712,6 +832,200 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
     _assert_session_duration(metadata, 157.0)
 
 
+@pytest.mark.ai_generated
+def test_brain_anatomy_in_wasDerivedFrom(tmp_path: Path) -> None:
+    """Test that brain anatomy from electrode locations appears in wasDerivedFrom."""
+    nwb_path = tmp_path / "test_anatomy.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session for anatomy",
+        identifier="test_anatomy_123",
+        session_start_time=session_start,
+        subject=pynwb.file.Subject(
+            subject_id="mouse001",
+            species="Mus musculus",
+            sex="U",
+        ),
+    )
+
+    # Add device and electrode group with a brain location
+    device = nwbfile.create_device(name="probe0")
+    electrode_group = nwbfile.create_electrode_group(
+        name="group0",
+        description="test electrode group",
+        location="VISp",
+        device=device,
+    )
+    nwbfile.add_electrode(
+        group=electrode_group,
+        location="VISp",
+        x=0.0,
+        y=0.0,
+        z=0.0,
+    )
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasDerivedFrom is not None
+    assert len(asset.wasDerivedFrom) > 0
+
+    # Find the deepest BioSample (the one without wasDerivedFrom)
+    sample = asset.wasDerivedFrom[0]
+    while sample.wasDerivedFrom:
+        sample = sample.wasDerivedFrom[0]
+
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) > 0
+    assert "MBA_" in str(sample.anatomy[0].identifier)
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_non_mouse_skipped(tmp_path: Path) -> None:
+    """Test that brain anatomy is not extracted for non-mouse species."""
+    nwb_path = tmp_path / "test_anatomy_rat.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session for anatomy",
+        identifier="test_anatomy_rat_123",
+        session_start_time=session_start,
+        subject=pynwb.file.Subject(
+            subject_id="rat001",
+            species="Rattus norvegicus",
+            sex="U",
+        ),
+    )
+
+    device = nwbfile.create_device(name="probe0")
+    electrode_group = nwbfile.create_electrode_group(
+        name="group0",
+        description="test electrode group",
+        location="VISp",
+        device=device,
+    )
+    nwbfile.add_electrode(
+        group=electrode_group,
+        location="VISp",
+        x=0.0,
+        y=0.0,
+        z=0.0,
+    )
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    # No wasDerivedFrom should exist (no tissue/slice/cell ids and non-mouse)
+    assert asset.wasDerivedFrom is None
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_with_existing_biosample_chain(tmp_path: Path) -> None:
+    """Test that anatomy is added to the deepest BioSample when chain exists."""
+    metadata = {
+        "tissue_sample_id": "tissue01",
+        "slice_id": "slice01",
+        "cell_id": "cell01",
+        "brain_locations": ["VISp", "CA1"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    assert result is not None
+
+    # Navigate to deepest sample (tissue)
+    sample = result[0]  # cell
+    assert sample.identifier == "cell01"
+    assert sample.wasDerivedFrom is not None
+    sample = sample.wasDerivedFrom[0]  # slice
+    assert sample.identifier == "slice01"
+    assert sample.wasDerivedFrom is not None
+    sample = sample.wasDerivedFrom[0]  # tissue (deepest)
+    assert sample.identifier == "tissue01"
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) >= 1
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_ophys_imaging_plane(tmp_path: Path) -> None:
+    """Test that brain anatomy is extracted from imaging plane locations."""
+    nwb_path = tmp_path / "test_ophys.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test ophys",
+        identifier="test_ophys_123",
+        session_start_time=session_start,
+        subject=pynwb.file.Subject(
+            subject_id="mouse002",
+            species="Mus musculus",
+            sex="U",
+        ),
+    )
+
+    device = nwbfile.create_device(name="microscope")
+    nwbfile.create_imaging_plane(
+        name="ImagingPlane",
+        optical_channel=pynwb.ophys.OpticalChannel(
+            name="OpticalChannel",
+            description="test channel",
+            emission_lambda=500.0,
+        ),
+        description="test imaging plane",
+        device=device,
+        excitation_lambda=600.0,
+        indicator="GCaMP6f",
+        location="Primary visual area",
+    )
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasDerivedFrom is not None
+    assert len(asset.wasDerivedFrom) > 0
+
+    sample = asset.wasDerivedFrom[0]
+    while sample.wasDerivedFrom:
+        sample = sample.wasDerivedFrom[0]
+
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) > 0
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_synthetic_biosample_fallback() -> None:
+    """Test that a synthetic BioSample is created when no tissue/slice/cell IDs exist."""
+    metadata = {
+        "brain_locations": ["VISp"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    assert result is not None
+    assert len(result) == 1
+    sample = result[0]
+    assert sample.identifier == "brain-region-sample"
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) == 1
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_unmatched_tokens_only() -> None:
+    """Test that only unmatched tokens for a mouse produce no anatomy."""
+    metadata = {
+        "brain_locations": ["nonexistent_area_xyz", "fake_region_123"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    # No matching anatomy → no synthetic BioSample created
+    assert result is None
+
+
 @mark_xfail_ontobee
 @mark.skipif_no_network
 @pytest.mark.obolibrary
@@ -797,6 +1111,137 @@ def test_species_rat(species: str) -> None:
         "schemaKey": "SpeciesType",
         "name": "Rattus norvegicus - Norway rat",
     }
+
+
+@pytest.mark.ai_generated
+def test_species_unknown_iri_lookup_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An NCBITaxon IRI not in species_map whose label cannot be looked up
+    # still gets a name, as dandischema requires one
+    iri = "http://purl.obolibrary.org/obo/NCBITaxon_999999999"
+
+    def fail(*_args: Any, **_kwargs: Any) -> None:
+        raise ConnectionError("no network")
+
+    monkeypatch.setattr("dandi.metadata.util.parse_purlobourl", fail)
+    species_rec = extract_species({"species": iri})
+    assert species_rec is not None
+    assert str(species_rec.identifier) == iri
+    assert species_rec.name == iri
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "sex,identifier,name",
+    [
+        ("M", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+        ("female", "http://purl.obolibrary.org/obo/PATO_0000383", "Female"),
+        ("U", None, "Unknown"),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0000384",
+            "http://purl.obolibrary.org/obo/PATO_0000384",
+            "Male",
+        ),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0000383",
+            "http://purl.obolibrary.org/obo/PATO_0000383",
+            "Female",
+        ),
+        (
+            "Hermaphrodite",
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "Hermaphrodite",
+        ),
+        (
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "http://purl.obolibrary.org/obo/PATO_0001340",
+            "Hermaphrodite",
+        ),
+        # unknown IRI: kept as is (not lowercased) and used as the name
+        (
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+            "http://purl.obolibrary.org/obo/PATO_0001827",
+        ),
+    ],
+)
+def test_extract_sex(sex: str, identifier: str | None, name: str) -> None:
+    rec = extract_sex({"sex": sex})
+    assert rec is not None
+    assert (None if rec.identifier is None else str(rec.identifier)) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "species",
+    [
+        "Caenorhabditis elegans",
+        "C. elegans",
+        "Caenorhabditis elegans - Roundworm",
+        "http://purl.obolibrary.org/obo/NCBITaxon_6239",
+    ],
+)
+@pytest.mark.parametrize(
+    "sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("XO", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_c_elegans(
+    species: str, sex: str, identifier: str, name: str
+) -> None:
+    # nwbinspector requires these chromosomal codes for C. elegans
+    rec = extract_sex({"sex": sex, "species": species})
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("sex", ["O", "other", None])
+@pytest.mark.parametrize(
+    "c_elegans_sex,identifier,name",
+    [
+        ("XX", "http://purl.obolibrary.org/obo/PATO_0001340", "Hermaphrodite"),
+        ("xo", "http://purl.obolibrary.org/obo/PATO_0000384", "Male"),
+    ],
+)
+def test_extract_sex_ndx_subjects_c_elegans(
+    sex: str | None, c_elegans_sex: str, identifier: str, name: str
+) -> None:
+    # CElegansSubject of ndx-subjects fixes `sex` to "O" and records the
+    # actual sex in `c_elegans_sex`
+    rec = extract_sex(
+        {
+            "sex": sex,
+            "c_elegans_sex": c_elegans_sex,
+            "species": "Caenorhabditis elegans",
+        }
+    )
+    assert rec is not None
+    assert str(rec.identifier) == identifier
+    assert rec.name == name
+
+
+@pytest.mark.ai_generated
+def test_extract_sex_c_elegans_sex_does_not_override_explicit_sex() -> None:
+    rec = extract_sex({"sex": "M", "c_elegans_sex": "XX"})
+    assert rec is not None
+    assert rec.name == "Male"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("species", [None, "Mus musculus", "Drosophila melanogaster"])
+@pytest.mark.parametrize("sex", ["XX", "XO"])
+def test_extract_sex_chromosomal_other_species(species: str | None, sex: str) -> None:
+    # outside of C. elegans, XX/XO do not unambiguously designate a sex
+    metadata = {"sex": sex}
+    if species is not None:
+        metadata["species"] = species
+    with pytest.raises(ValueError, match="Cannot interpret sex field"):
+        extract_sex(metadata)
 
 
 @pytest.mark.parametrize(
@@ -1029,6 +1474,15 @@ def test_species_record_matching_methods() -> None:
                 "variableMeasured": ["CurrentClampStimulusSeries"],
             },
         ),
+        pytest.param(
+            ["IZeroClampSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["current clamp technique"],
+                "variableMeasured": ["IZeroClampSeries"],
+            },
+            marks=pytest.mark.ai_generated,
+        ),
         (
             ["VoltageClampSeries"],
             {
@@ -1076,6 +1530,15 @@ def test_species_record_matching_methods() -> None:
                 "measurementTechnique": None,
                 "variableMeasured": ["PlaneSegmentation"],
             },
+        ),
+        pytest.param(
+            ["RoiResponseSeries"],
+            {
+                "approach": ["microscopy approach; cell population imaging"],
+                "measurementTechnique": None,
+                "variableMeasured": ["RoiResponseSeries"],
+            },
+            marks=pytest.mark.ai_generated,
         ),
         (
             ["Position"],
@@ -1182,11 +1645,11 @@ def test_species_record_matching_methods() -> None:
             },
         ),
         (
-            ["OptogeneticStimulusSIte"],
+            ["OptogeneticStimulusSite"],
             {
                 "approach": ["optogenetic approach"],
                 "measurementTechnique": None,
-                "variableMeasured": ["OptogeneticStimulusSIte"],
+                "variableMeasured": ["OptogeneticStimulusSite"],
             },
         ),
         (

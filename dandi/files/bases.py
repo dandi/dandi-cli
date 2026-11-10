@@ -18,7 +18,7 @@ from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
-from dandischema.models import get_schema_version
+from dandischema.models import StandardsType, get_schema_version, nwb_standard
 from packaging.version import Version
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -47,7 +47,62 @@ from dandi.validate._types import (
     Validator,
 )
 
+# True when the installed dandischema exposes the per-asset dataStandard field
+# and related StandardsType enhancements (version, extensions) and
+# hed_standard.  All of these ship together in DANDI schema 0.8.1, expected to
+# be released in dandischema 0.15.0.
+# TODO: remove this guard (and all branches that check it) once the minimum
+# required dandischema version is >= 0.15.0.
+_SCHEMA_BAREASSET_HAS_DATASTANDARD = "dataStandard" in BareAsset.model_fields
+if not _SCHEMA_BAREASSET_HAS_DATASTANDARD and Version(
+    dandischema.__version__
+) >= Version("0.15.0"):
+    raise RuntimeError(
+        f"dandischema {dandischema.__version__} should have "
+        f"'dataStandard' field on BareAsset"
+    )
+
 lgr = dandi.get_logger()
+
+
+def _add_data_standard(metadata: BareAsset, standard: StandardsType) -> None:
+    """Add ``standard`` to ``metadata.dataStandard`` unless already listed
+
+    A no-op if the installed dandischema has no per-asset ``dataStandard``.
+    """
+    if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+        return
+    # TODO: use metadata.dataStandard directly once min dandischema >= 0.15.0
+    cur = getattr(metadata, "dataStandard", None)
+    if cur is None:
+        setattr(metadata, "dataStandard", [standard])
+    elif standard not in cur:
+        cur.append(standard)
+
+
+def _get_nwb_data_standard(filepath: str | Path) -> StandardsType:
+    """NWB ``StandardsType`` with the version and extensions (e.g. ``ndx-*``)
+    used by the NWB file, as far as they could be determined"""
+    # Avoid heavy import by importing within function:
+    from dandi.pynwb_utils import get_nwb_extensions, get_nwb_version
+
+    kwargs: dict[str, Any] = dict(nwb_standard)
+    try:
+        if version := get_nwb_version(filepath):
+            kwargs["version"] = version
+        if extensions := get_nwb_extensions(filepath):
+            kwargs["extensions"] = [
+                StandardsType(name=name, version=ver)  # type: ignore[call-arg]
+                for name, ver in sorted(extensions.items())
+            ]
+    except Exception:
+        lgr.debug(
+            "Failed to extract NWB version or extensions from %s",
+            filepath,
+            exc_info=True,
+        )
+    return StandardsType(**kwargs)
+
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
@@ -356,18 +411,16 @@ class LocalFileAsset(LocalAsset):
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         total_size = pre_upload_size_check(self.filepath)
+        init_json = {
+            "contentSize": total_size,
+            "digest": {
+                "algorithm": "dandi:dandi-etag",
+                "value": filetag,
+            },
+            "dandiset": dandiset.identifier,
+        }
         try:
-            resp = client.post(
-                "/uploads/initialize/",
-                json={
-                    "contentSize": total_size,
-                    "digest": {
-                        "algorithm": "dandi:dandi-etag",
-                        "value": filetag,
-                    },
-                    "dandiset": dandiset.identifier,
-                },
-            )
+            resp = client.post("/uploads/initialize/", json=init_json)
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 409:
                 lgr.debug("%s: Blob already exists on server", asset_path)
@@ -442,8 +495,26 @@ class LocalFileAsset(LocalAsset):
                                 f" client says {filetag}"
                             )
                     # else: Error? Warning?
-                    resp = client.post(f"/uploads/{upload_id}/validate/")
-                    blob_id = resp["blob_id"]
+                    try:
+                        resp = client.post(f"/uploads/{upload_id}/validate/")
+                    except requests.HTTPError as e:
+                        if e.response is None or e.response.status_code != 409:
+                            raise
+                        # An identical blob was uploaded concurrently (e.g.,
+                        # for another file with the same content), and the
+                        # server does not provide its id here.
+                        lgr.debug(
+                            "%s: Identical blob was created concurrently;"
+                            " looking up its id",
+                            asset_path,
+                        )
+                        blob_id = e.response.headers.get(
+                            "Location"
+                        ) or _lookup_existing_blob_id(client, init_json)
+                        if blob_id is None:
+                            raise
+                    else:
+                        blob_id = resp["blob_id"]
             except Exception:
                 post_upload_size_check(self.filepath, total_size, True)
                 raise
@@ -500,6 +571,8 @@ class NWBAsset(LocalFileAsset):
             else:
                 raise
         metadata.path = self.path
+        if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+            _add_data_standard(metadata, _get_nwb_data_standard(self.filepath))
         return metadata
 
     # TODO: @validate_cache.memoize_path
@@ -648,6 +721,25 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
         return sum(p.size for p in self.iterfiles())
 
 
+def _lookup_existing_blob_id(
+    client: RESTFullAPIClient, init_json: dict[str, Any]
+) -> str | None:
+    """
+    Ask the server to initialize an upload for a blob and return the id of the
+    identical blob if the server reports (via a 409 with a ``Location``
+    header) that it already exists, or `None` if there is no such blob.  Note
+    that if there is no such blob, the server starts a new upload, which is
+    left uncompleted (and is expected to expire server-side).
+    """
+    try:
+        client.post("/uploads/initialize/", json=init_json)
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 409:
+            return e.response.headers.get("Location")
+        raise
+    return None
+
+
 def _upload_blob_part(
     storage_session: RESTFullAPIClient,
     fp: IO[bytes],
@@ -738,42 +830,53 @@ def _check_required_fields(
     return errors
 
 
-_current_nwbinspector_version: str = ""
+_current_nwbinspector_version: Version | None = None
+_nwbinspector_version_lock = Lock()
 
 
-def _get_nwb_inspector_version():
+def _get_nwb_inspector_version() -> Version:
     # Avoid heavy import by importing within function:
     from nwbinspector.utils import get_package_version
 
     global _current_nwbinspector_version
-    if _current_nwbinspector_version is not None:
-        return _current_nwbinspector_version
-    _current_nwbinspector_version = get_package_version(name="nwbinspector")
-    # Ensure latest version of NWB Inspector is installed and used client-side
-    try:
-        from etelemetry import get_project
+    # Assets may be validated concurrently (e.g. by `dandi upload`), so lock to
+    # look up the version (and warn if it is outdated) only once per process
+    with _nwbinspector_version_lock:
+        if _current_nwbinspector_version is not None:
+            return _current_nwbinspector_version
+        _current_nwbinspector_version = get_package_version(name="nwbinspector")
+        # Ensure latest version of NWB Inspector is installed and used client-side
+        try:
+            max_version = _get_latest_nwb_inspector_version()
+            if max_version is not None and _current_nwbinspector_version < max_version:
+                lgr.warning(
+                    "NWB Inspector version %s is installed - please "
+                    "use the latest release of the NWB Inspector (%s) "
+                    "when performing `dandi validate`. To update, run "
+                    "`pip install -U nwbinspector` if you installed it with `pip`.",
+                    _current_nwbinspector_version,
+                    max_version,
+                )
 
-        max_version = Version(
-            get_project(repo="NeurodataWithoutBorders/nwbinspector")["version"]
-        )
-
-        if _current_nwbinspector_version < max_version:
+        except Exception as e:  # In case of no internet connection or other error
             lgr.warning(
-                "NWB Inspector version %s is installed - please "
-                "use the latest release of the NWB Inspector (%s) "
-                "when performing `dandi validate`. To update, run "
-                "`pip install -U nwbinspector` if you installed it with `pip`.",
-                _current_nwbinspector_version,
-                max_version,
+                "Failed to retrieve NWB Inspector version due to %s: %s",
+                type(e).__name__,
+                str(e),
             )
+        return _current_nwbinspector_version
 
-    except Exception as e:  # In case of no internet connection or other error
-        lgr.warning(
-            "Failed to retrieve NWB Inspector version due to %s: %s",
-            type(e).__name__,
-            str(e),
-        )
-    return _current_nwbinspector_version
+
+def _get_latest_nwb_inspector_version() -> Version | None:
+    """
+    Return the latest released version of NWB Inspector according to
+    etelemetry, or `None` if etelemetry checks are disabled via ``NO_ET``
+    """
+    from etelemetry import get_project
+
+    if (project := get_project(repo="NeurodataWithoutBorders/nwbinspector")) is None:
+        return None
+    return Version(project["version"])
 
 
 def _pydantic_errors_to_validation_results(

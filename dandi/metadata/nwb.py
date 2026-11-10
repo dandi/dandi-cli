@@ -31,7 +31,7 @@ lgr = get_logger()
 @metadata_cache.memoize_path
 def get_metadata(
     path: str | Path | Readable, digest: Digest | None = None
-) -> dict | None:
+) -> dict[str, Any]:
     """
     Get "flatdata" from a .nwb file
 
@@ -69,8 +69,10 @@ def get_metadata(
             assert isinstance(df, bids.BIDSAsset)
             if not digest:
                 digest = DUMMY_DANDI_ETAG
-            path_metadata = df.get_metadata(digest=digest)
-            meta["bids_version"] = df.get_validation_bids_version()
+            # Not `df.get_metadata()`, which for an NWB file would extract
+            # its NWB metadata, i.e., call this function again
+            path_metadata = df.get_bids_metadata(digest=digest)
+            meta["bids_version"] = df.bids_dataset_description.bids_version
             # there might be a more elegant way to do this:
             if path_metadata.wasAttributedTo:
                 attributed = path_metadata.wasAttributedTo[0]

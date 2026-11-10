@@ -22,3 +22,5 @@ venv/
 venvs/
 .DS_Store
 .duct
+uv.lock
+.lad/tmp/

@@ -3,15 +3,31 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import cached_property
+import json
 from pathlib import Path
 from threading import Lock
+from typing import Any
 import weakref
 
-from dandischema.models import BareAsset
+from dandischema.models import (
+    BareAsset,
+    StandardsType,
+    bids_standard,
+    ome_ngff_standard,
+)
 
+import dandi
 from dandi.bids_validator_deno import bids_validate
 
-from .bases import DandiFile, GenericAsset, LocalFileAsset, NWBAsset
+from .bases import (
+    _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    DandiFile,
+    GenericAsset,
+    LocalFileAsset,
+    NWBAsset,
+    _add_data_standard,
+)
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
@@ -21,11 +37,102 @@ from ..validate._types import (
     MissingFileContent,
     Scope,
     Severity,
+    Standard,
     ValidationResult,
 )
 
+try:
+    from dandischema.models import hed_standard  # type: ignore[attr-defined]
+except ImportError:
+    # TODO: import together with the above once min dandischema >= 0.15.0
+    hed_standard = {}  # type: ignore[no-redef]
+
+lgr = dandi.get_logger()
+
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
+
+
+def _load_dataset_description(filepath: Path) -> dict[str, Any] | None:
+    """
+    Return the content of a :file:`dataset_description.json` file, or `None` if
+    it cannot be read or is not a JSON object
+    """
+    try:
+        content = json.loads(filepath.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return None
+    return content if isinstance(content, dict) else None
+
+
+def bids_dataset_description_problem(filepath: Path) -> str | None:
+    """
+    Return why the :file:`dataset_description.json` file at ``filepath`` does
+    not mark a BIDS dataset, or `None` if it does
+
+    It marks one if it is a JSON object with a ``"BIDSVersion"`` field, which may
+    still be invalid (e.g., empty), or if it is not valid JSON but contains
+    ``"BIDSVersion"`` (e.g., a trailing comma), for the BIDS validator to report
+    on.
+
+    Parameters
+    ----------
+    filepath : Path
+        The path to the :file:`dataset_description.json` file
+
+    Returns
+    -------
+    str | None
+        `None` if the file marks a BIDS dataset, the reason otherwise, e.g., that
+        it cannot be read (as a symlink to annexed content which is not present)
+    """
+    try:
+        raw = filepath.read_bytes()
+    except OSError:
+        return "cannot be read"
+    try:
+        content = json.loads(raw.decode("utf-8-sig"))
+    except ValueError:
+        return None if b"BIDSVersion" in raw else 'is not valid JSON with "BIDSVersion"'
+    if isinstance(content, dict) and "BIDSVersion" in content:
+        return None
+    return 'has no "BIDSVersion" field'
+
+
+def is_bids_dataset_description(filepath: Path) -> bool:
+    """
+    Whether there is a :file:`dataset_description.json` file at ``filepath``
+    marking a BIDS dataset; see `bids_dataset_description_problem()`
+    """
+    return bids_dataset_description_problem(filepath) is None
+
+
+def _get_hed_data_standard(hed_version: Any) -> StandardsType:
+    """HED ``StandardsType`` for ``HEDVersion`` of ``dataset_description.json``
+
+    ``HEDVersion`` is a string or a list of strings, each either
+    ``[prefix:]version`` for the HED standard schema or
+    ``[prefix:]library_version`` for a library schema (e.g. ``"8.2.0"``,
+    ``"sc:score_1.0.0"``, ``"lang_1.1.0"``).  Library schemas are recorded as
+    ``extensions``.  The dataset-specific namespace prefix is ignored.
+    """
+    kwargs: dict[str, Any] = dict(hed_standard)
+    extensions: list[StandardsType] = []
+    for entry in hed_version if isinstance(hed_version, list) else [hed_version]:
+        if not isinstance(entry, str):
+            continue
+        library, _, version = entry.rpartition(":")[2].rpartition("_")
+        if not version:
+            continue
+        if library:
+            ext = StandardsType(name=library, version=version)  # type: ignore[call-arg]
+            if ext not in extensions:
+                extensions.append(ext)
+        else:
+            kwargs.setdefault("version", version)
+    if extensions:
+        kwargs["extensions"] = extensions
+    return StandardsType(**kwargs)
 
 
 @dataclass
@@ -52,13 +159,13 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     #: `bids_path` properties; populated by `_get_metadata()`
     _asset_metadata: defaultdict[str, BareAsset] | None = None
 
-    #: Version of BIDS used in the validation
+    #: Version of BIDS used in the validation, as given in the validation results
     #: (not necessarily the same as the value of the `"BIDSVersion"` field in the
     #: represented `dataset_description.json` file);
     #: populated by `_validate()`
     #: In future this might be removed and the information included in the
     #: BareAsset via dandischema.
-    _bids_version: str | None = None
+    _validation_bids_version: str | None = None
 
     #: Threading lock needed in case multiple assets are validated in parallel
     #: during upload
@@ -74,15 +181,37 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     @property
     def bids_version(self) -> str | None:
         """
-        The version of BIDS used for in validation
+        The version of BIDS the dataset declares, i.e., the value of the
+        ``"BIDSVersion"`` field in the represented :file:`dataset_description.json`
+        file; `None` if the file cannot be read or the field is missing, empty, or
+        not a string
 
         Note
         ----
-            This value is not necessarily the same as the value of the `"BIDSVersion"`
-            field in the represented `dataset_description.json` file.
+            This value is not necessarily the version of BIDS used in validation;
+            see `get_validation_bids_version()`.
+
+        .. versionchanged:: 0.83.0
+            The declared version, rather than the version of BIDS used in
+            validation, which was always `None` with the deno-compiled BIDS
+            validator
+        """
+        content = _load_dataset_description(self.filepath) or {}
+        v = content.get("BIDSVersion")
+        return v if isinstance(v, str) and v else None
+
+    def get_validation_bids_version(self) -> str | None:
+        """
+        The version of BIDS used in validation of the dataset
+
+        The validator reports only the version of the BIDS schema it used, so the
+        version of BIDS is looked up for it; see
+        https://github.com/bids-standard/bids-validator/issues/10.  If that fails,
+        or the validation produced no results to take it from, `bids_version`, the
+        version the dataset declares, is assumed.
         """
         self._validate()
-        return self._bids_version
+        return self._validation_bids_version or self.bids_version
 
     def _get_metadata(self) -> None:
         """
@@ -164,10 +293,16 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                             result.path.relative_to(self.bids_root).as_posix()
                         ].append(result)
 
-                # Obtain BIDS standard version from one of the validation results
-                if self._dataset_errors:
-                    bids_version = self._dataset_errors[0].origin.standard_version
-                    self._bids_version = bids_version
+                # Obtain BIDS standard version from the validation results
+                self._validation_bids_version = next(
+                    (
+                        r.origin.standard_version
+                        for r in v_results
+                        if r.origin.standard is Standard.BIDS
+                        and r.origin.standard_version
+                    ),
+                    None,
+                )
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -194,7 +329,41 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         assert self._dataset_errors is not None
         return self._dataset_errors.copy()
 
-    # get_metadata(): inherit use of default metadata from LocalFileAsset
+    @cached_property
+    def data_standards(self) -> tuple[StandardsType, StandardsType | None]:
+        """
+        BIDS standard with ``BIDSVersion``, and HED standard if ``HEDVersion``
+        is declared, as read from the :file:`dataset_description.json` file
+
+        :meta private:
+        """
+        try:
+            with open(self.filepath, encoding="utf-8") as f:
+                desc = json.load(f)
+            if not isinstance(desc, dict):
+                raise ValueError(f"expected a JSON object, got {type(desc).__name__}")
+        except (OSError, ValueError) as e:
+            lgr.warning("Failed to read %s: %s", self.filepath, e)
+            desc = {}
+        bids = dict(bids_standard)
+        if (bids_version := desc.get("BIDSVersion")) is not None:
+            bids["version"] = str(bids_version)
+        hed = None
+        if hed_version := desc.get("HEDVersion"):
+            hed = _get_hed_data_standard(hed_version)
+        return StandardsType(**bids), hed
+
+    def get_metadata(
+        self,
+        digest: Digest | None = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = super().get_metadata(digest=digest, ignore_errors=ignore_errors)
+        if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+            for standard in self.data_standards:
+                if standard is not None:
+                    _add_data_standard(metadata, standard)
+        return metadata
 
 
 def _bids_combined_validation_errors(
@@ -263,14 +432,33 @@ class BIDSAsset(LocalFileAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        return self.get_bids_metadata(digest)
+
+    def get_bids_metadata(self, digest: Digest | None = None) -> BareAsset:
+        """
+        Return the metadata of the asset that comes from the BIDS dataset (its
+        path, files such as :file:`participants.tsv`, and the BIDS version in
+        :file:`dataset_description.json` as ``dataStandard``) only.
+
+        Unlike `get_metadata()`, which subclasses override to also extract
+        metadata from the content of the asset (e.g., `NWBBIDSAsset` from the
+        NWB file), this never reads the content, so that the extraction of
+        metadata from the content can use it without recursing.
+        """
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
         metadata.path = self.path
+        self._add_bids_data_standard(metadata)
         return metadata
 
+    def _add_bids_data_standard(self, metadata: BareAsset) -> None:
+        if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+            bids, _ = self.bids_dataset_description.data_standards
+            _add_data_standard(metadata, bids)
+
     def get_validation_bids_version(self) -> str | None:
-        return self.bids_dataset_description.bids_version
+        return self.bids_dataset_description.get_validation_bids_version()
 
 
 class NWBBIDSAsset(BIDSAsset, NWBAsset):
@@ -295,14 +483,17 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        bids_metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
+        bids_metadata = self.get_bids_metadata(digest)
         nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
-        return BareAsset(
+        metadata = BareAsset(
             **{
                 **bids_metadata.model_dump(),
                 **nwb_metadata.model_dump(exclude_none=True),
             }
         )
+        # The dataStandard of the NWB metadata replaced the BIDS one
+        self._add_bids_data_standard(metadata)
+        return metadata
 
 
 class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
@@ -327,8 +518,10 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
+        metadata = self.get_bids_metadata(digest)
         metadata.encodingFormat = ZARR_MIME_TYPE
+        if self.path.endswith(".ome.zarr"):
+            _add_data_standard(metadata, StandardsType(**ome_ngff_standard))
         return metadata
 
 

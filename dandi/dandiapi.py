@@ -3,11 +3,24 @@
 This module provides client classes for communicating with DANDI Archive API
 servers, including asset management, dandiset operations, and authentication.
 
-The main classes are:
-- DandiAPIClient: High-level client for DANDI API operations
-- RESTFullAPIClient: Base HTTP client with retry and authentication
-- RemoteDandiset: Represents a dandiset on the server
-- RemoteAsset: Represents an asset (file) on the server
+Start with :class:`DandiAPIClient`, the main entry point; the other classes
+are normally obtained from it rather than instantiated directly.  Read-only
+operations work without authentication; operations that modify data require
+an API key (see ``DandiAPIClient.authenticate()``).  Full documentation and
+examples are in the "dandi.dandiapi" section of the Sphinx docs.
+
+- :class:`DandiAPIClient`: High-level client for DANDI API operations; yields
+  :class:`RemoteDandiset` objects
+- :class:`RemoteDandiset`: Represents a dandiset on the server; yields
+  :class:`RemoteAsset` objects (:class:`RemoteBlobAsset` or
+  :class:`RemoteZarrAsset`)
+- :class:`RemoteAsset`: Represents an asset (file) of a dandiset on the server
+- :class:`BaseRemoteAsset`: An asset not tied to any dandiset
+
+Supporting classes (:class:`RESTFullAPIClient`, the ``Base*`` and ``*Zarr*``
+asset classes, :class:`Version`, :class:`VersionInfo`, :class:`AssetType`,
+etc.) are listed in ``__all__``, which is the public API of this module.
+Other names are internal and may change without notice.
 """
 
 from __future__ import annotations
@@ -76,6 +89,25 @@ if TYPE_CHECKING:
 
     from .files import LocalAsset
 
+
+__all__ = [
+    "AssetType",
+    "BaseRemoteAsset",
+    "BaseRemoteBlobAsset",
+    "BaseRemoteZarrAsset",
+    "DandiAPIClient",
+    "RESTFullAPIClient",
+    "RemoteAsset",
+    "RemoteAssetValidationError",
+    "RemoteBlobAsset",
+    "RemoteDandiset",
+    "RemoteValidationError",
+    "RemoteZarrAsset",
+    "RemoteZarrEntry",
+    "Version",
+    "VersionInfo",
+    "VersionStatus",
+]
 
 lgr = get_logger()
 
@@ -709,8 +741,7 @@ class DandiAPIClient(RESTFullAPIClient):
           number for 0.x series, and same MAJOR version for/after 1.x series;
         - the same;
         - higher than the client has, but only if the client's schema version is listed
-          among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint),
-          or if not there -- `dandischema.consts.ALLOWED_INPUT_SCHEMAS` is consulted.
+          among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint).
 
         If neither of above, a `SchemaVersionError` is raised.
 
@@ -725,11 +756,10 @@ class DandiAPIClient(RESTFullAPIClient):
             schema_version
         )
         if server_ver > our_ver:
-            # TODO: potentially adjust here if name would be different: see
-            # https://github.com/dandi/dandi-archive/issues/2624
-            allowed_schema_versions = server_info.get(
-                "allowed_schema_versions", dandischema.consts.ALLOWED_INPUT_SCHEMAS
-            )
+            # A server without the field (dandi-archive < 0.19.0,
+            # https://github.com/dandi/dandi-archive/pull/2625) accepts no older
+            # schema.  LINC is one, but its schema is older than any client's.
+            allowed_schema_versions = server_info.get("allowed_schema_versions") or []
             if schema_version not in allowed_schema_versions:
                 raise SchemaVersionError(
                     f"Server uses schema version {server_schema_version};"

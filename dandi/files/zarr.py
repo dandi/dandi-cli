@@ -21,7 +21,7 @@ import urllib.parse
 if TYPE_CHECKING:
     from ..upload import ZarrMode
 
-from dandischema.models import BareAsset, DigestType
+from dandischema.models import BareAsset, DigestType, StandardsType, ome_ngff_standard
 from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
@@ -55,7 +55,7 @@ from dandi.utils import (
     pre_upload_size_check,
 )
 
-from .bases import LocalDirectoryAsset
+from .bases import LocalDirectoryAsset, _add_data_standard
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     MissingFileContent,
@@ -466,6 +466,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         metadata = get_default_metadata(self.filepath, digest=digest)
         metadata.encodingFormat = ZARR_MIME_TYPE
         metadata.path = self.path
+        if self.path.endswith(".ome.zarr"):
+            _add_data_standard(metadata, StandardsType(**ome_ngff_standard))
         return metadata
 
     def get_validation_errors(
@@ -591,6 +593,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     json={"name": asset_path, "dandiset": dandiset.identifier},
                 )
             except requests.HTTPError as e:
+                # dandi-archive >= 1.0.0 rejects a duplicate with the DRF
+                # "unique set" error
+                # (https://github.com/dandi/dandi-archive/pull/2589), but still
+                # answers "Zarr already exists" if it loses a race to a
+                # concurrent creation, as older versions always do; both must
+                # stay.
                 if e.response is not None and (
                     "Zarr already exists" in e.response.text
                     or "dandiset, name must make a unique set" in e.response.text
@@ -998,8 +1006,11 @@ def _upload_zarr_file(
         if item.content_type is not None:
             headers["Content-Type"] = item.content_type
 
-        # TODO: Replace below implementation with this once LINC and EMBER
-        # update their API to match dandi-archive >= 0.12.14
+        # TODO: Replace below implementation with this once LINC signs the
+        # header for embargoed Zarrs, as dandi-archive >= 0.12.14 does
+        # (https://github.com/dandi/dandi-archive/pull/2503).  DANDI and EMBER
+        # do; LINC (a fork of dandi-archive 0.3.115) does not, and accepts
+        # embargoed Zarrs without it.
         # if dandiset.embargo_status == EmbargoStatus.EMBARGOED:
         #     # Technically, a header can be specified more than once.
         #     # Join all together just in case.

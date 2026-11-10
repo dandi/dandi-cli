@@ -27,9 +27,10 @@ from fscacher import PersistentCache
 import h5py
 import hdmf
 import numpy as np
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 import pynwb
 from pynwb import NWBHDF5IO
+from pynwb.base import ExternalImage
 import semantic_version
 
 from . import __version__, get_logger
@@ -151,6 +152,53 @@ def get_nwb_version(
         except Exception:
             lgr.debug("%s has no nwb_version", filepath)
     return None
+
+
+# Namespaces bundled with NWB/HDMF core — not extensions
+_NWB_CORE_NAMESPACES = frozenset({"core", "hdmf-common", "hdmf-experimental"})
+
+
+def get_nwb_extensions(filepath: str | Path | Readable) -> dict[str, str]:
+    """Return NWB extensions embedded in an HDF5 file.
+
+    Reads the ``specifications`` group of an NWB HDF5 file and returns a
+    mapping of extension namespace names to their latest embedded version,
+    excluding core NWB/HDMF namespaces.
+
+    Parameters
+    ----------
+    filepath
+        Path to an NWB ``.nwb`` HDF5 file, or a :class:`Readable`.
+
+    Returns
+    -------
+    dict[str, str]
+        ``{namespace_name: latest_version}`` for each non-core namespace
+        found in the file's ``specifications`` group.  Empty dict if no
+        extensions are present or the group does not exist.
+    """
+    extensions: dict[str, str] = {}
+    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
+        specs = h5file.get("specifications")
+        if specs is None:
+            return extensions
+        for name in specs:
+            if name in _NWB_CORE_NAMESPACES:
+                continue
+            ns_group = specs[name]
+            if not isinstance(ns_group, h5py.Group) or not (versions := list(ns_group)):
+                continue
+            try:
+                extensions[name] = max(versions, key=Version)
+            except InvalidVersion:
+                lgr.debug(
+                    "Cannot parse versions %s of NWB extension %s, taking the "
+                    "lexicographically last",
+                    versions,
+                    name,
+                )
+                extensions[name] = max(versions)
+    return extensions
 
 
 def get_neurodata_types_to_modalities_map() -> dict[str, str]:
@@ -283,6 +331,9 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
             start_time = out["session_start_time"]
             out["session_end_time"] = start_time + timedelta(seconds=session_duration)
 
+        # Extract brain locations for anatomy metadata
+        out["brain_locations"] = _get_brain_locations(nwb)
+
     return out
 
 
@@ -389,6 +440,86 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
     return None
 
 
+def _get_brain_locations(nwb: pynwb.NWBFile) -> list[str]:
+    """Extract brain location strings from an NWB file.
+
+    Collects location values from imaging planes (ophys), the electrodes
+    table (ecephys), and intracellular electrodes (icephys).
+
+    Parameters
+    ----------
+    nwb : pynwb.NWBFile
+        An open NWB file object.
+
+    Returns
+    -------
+    list[str]
+        Raw location strings found in the file.
+    """
+    locations: list[str] = []
+
+    # Ophys: imaging planes
+    for plane in getattr(nwb, "imaging_planes", {}).values():
+        loc = getattr(plane, "location", None)
+        if loc and isinstance(loc, str):
+            locations.append(loc)
+
+    # Ecephys: electrodes table "location" column
+    electrodes = getattr(nwb, "electrodes", None)
+    if electrodes is not None:
+        try:
+            col_names = electrodes.colnames
+        except Exception:
+            lgr.debug(
+                "Failed to read colnames from electrodes table",
+                exc_info=True,
+            )
+            col_names = ()
+        if col_names and "location" in col_names:
+            try:
+                locs = electrodes["location"].data[:]
+            except Exception:
+                lgr.debug(
+                    "Failed to read location data from electrodes table",
+                    exc_info=True,
+                )
+                locs = []
+            for val in locs:
+                if isinstance(val, bytes):
+                    val = val.decode("utf-8", errors="replace")
+                if val and isinstance(val, str):
+                    locations.append(val)
+
+    # Icephys: intracellular electrodes
+    ic_electrodes = getattr(nwb, "ic_electrodes", None) or getattr(
+        nwb, "icephys_electrodes", None
+    )
+    if ic_electrodes is not None:
+        if isinstance(ic_electrodes, dict):
+            for elec in ic_electrodes.values():
+                loc = getattr(elec, "location", None)
+                if loc and isinstance(loc, str):
+                    locations.append(loc)
+        else:
+            # Might be a DynamicTable in some NWB versions
+            try:
+                col_names = getattr(ic_electrodes, "colnames", ())
+                if col_names and "location" in col_names:
+                    for val in ic_electrodes["location"].data[:]:
+                        if isinstance(val, bytes):
+                            val = val.decode("utf-8", errors="replace")
+                        if val and isinstance(val, str):
+                            locations.append(val)
+            except Exception:
+                lgr.debug(
+                    "Failed to read location from ic_electrodes table: %s",
+                    ic_electrodes,
+                    exc_info=True,
+                )
+
+    return locations
+
+
 def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
     """Retrieves all ImageSeries related metadata from an open nwb file.
 
@@ -450,12 +581,6 @@ def _get_external_images(nwb: pynwb.NWBFile) -> list[dict]:
         list of dicts : [{id: <ExternalImage uuid>, name: <ExternalImage name>,
         external_files=[ExternalImage.data], field: "data"}]
     """
-    try:
-        from pynwb.base import ExternalImage
-    except ImportError:
-        # `ExternalImage` was added in pynwb 3.1.0; nothing to collect on an older one.
-        return []
-
     out = []
     for ob in nwb.objects.values():
         if not isinstance(ob, ExternalImage) or ob.data is None:
@@ -685,16 +810,9 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     )
 
     try:
-        if Version(pynwb.__version__) >= Version("3.0.0"):
-            error_outputs = pynwb.validate(path=path)
-        elif Version(pynwb.__version__) >= Version(
-            "2.2.0"
-        ):  # Use cached namespace feature
-            # argument get_cached_namespaces is True by default
-            error_outputs, _ = pynwb.validate(paths=[path])
-        else:  # Fallback if an older version
-            with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
-                error_outputs = pynwb.validate(io=reader)
+        # Validates against the namespaces cached in the file; pynwb falls back
+        # to its own namespaces if the file has none cached
+        error_outputs = pynwb.validate(path=path)
     except Exception as exc:
         if devel_debug:
             raise
@@ -808,18 +926,15 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
         dest = op.join(dest, op.basename(src))
     else:
         os.makedirs(op.dirname(dest), exist_ok=True)
-    kws = {}
-    if Version(pynwb.__version__) >= Version("2.8.2"):
-        # we might make it leaner by not caching the spec if original
-        # file did not have it.  Possible only since 2.8.2.dev11
-        kws["cache_spec"] = bool(pynwb.NWBHDF5IO.get_namespaces(src))
     with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(dest, "w") as iow:
         data = ior.read()
         data.generate_new_id()
         iow.export(
             ior,
             nwbfile=data,
-            **kws,
+            # keep the copy leaner by not caching the spec if the original
+            # file did not have it cached either
+            cache_spec=bool(pynwb.NWBHDF5IO.get_namespaces(src)),
         )
     return str(dest)
 
