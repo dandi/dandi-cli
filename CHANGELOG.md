@@ -487,7 +487,7 @@ Removed hardcoded vendor specific info so that dandi-cli can now connect to diff
 
 #### Add support for all known instances in short URL format, removed dandi-staging and renamed EMBER* ones into EMBER-DANDI* ([#1750](https://github.com/dandi/dandi-cli/pull/1750))
 
-Added support for all known instances in short URL format (such as `DANDI-SANDBOX:123456` or `EMBER-DANDI:123456`) matching the instance names known to the dandi CLI and library. 
+Added support for all known instances in short URL format (such as `DANDI-SANDBOX:123456` or `EMBER-DANDI:123456`) matching the instance names known to the dandi CLI and library.
 BREAKING: Note that `INSTANCE:` in above examples must be capital - lower case `dandi:123456` would no longer be supported. Also version will be treated case-sensitive so must be `draft` not `DRAFT`.
 Removed deprecated `dandi-staging` instance definition.
 Renamed `ember` and `ember-sandbox` into `ember-dandi` and `ember-dandi-sandbox` correspondingly.
