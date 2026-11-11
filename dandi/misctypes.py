@@ -354,16 +354,9 @@ class RemoteReadableAsset(Readable):
 
     def open(self) -> IO[bytes]:
         if self.name.lower().endswith(HDF5_FILE_EXTENSIONS):
-            # h5py holds a global lock while it calls the read methods of a
-            # file object.  fsspec reads in a separate thread (running its
-            # asyncio event loop), so if a garbage collection runs in that
-            # thread while h5py waits for a read, and frees h5py objects, their
-            # finalizers wait for h5py's lock, which is never released: a
-            # deadlock (https://github.com/dandi/dandi-cli/issues/1450).
-            # remfile makes its HTTP requests in the calling thread, where a
-            # garbage collection can take h5py's (reentrant) lock, as long as
-            # it uses a single thread (its default `_max_threads=1`).  Its
-            # requests time out, so that a stalled connection cannot hang.
+            # remfile reads in this thread (with its default `_max_threads=1`);
+            # fsspec's reads in another thread can deadlock h5py:
+            # https://github.com/dandi/dandi-cli/issues/1450
             import remfile
 
             return cast(IO[bytes], remfile.File(self.url, _size=self.size))
