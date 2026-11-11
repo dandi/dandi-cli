@@ -403,7 +403,8 @@ New markers must be registered in `pytest_configure()` in
   macOS (M1 + Intel), Windows
 - `lint.yml` — codespell + flake8
 - `typing.yml` — mypy
-- `duplication.yml` — jscpd (`tox -e duplication`)
+- [pre-commit.ci](https://pre-commit.ci) — all pre-commit hooks above,
+  including jscpd, on every pull request
 - `docs.yml` — Sphinx build
 - `release.yml` — automated release via `auto` (see below)
 
