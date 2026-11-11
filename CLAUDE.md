@@ -35,6 +35,12 @@ See [`.lad/README.md`](./.lad/README.md) for the full overview and
 Due to use of `pre-commit` with black and other auto-fixers, if changes were reported, just
 rerun commit a 2nd time.  Only then if it still does not commit, analyze output further.
 
+## Pull Requests
+
+Keep PR descriptions short: a single paragraph saying what changes and why.
+No section headings, file-by-file change lists, test logs or verification
+write-ups; put details in commit messages or in replies to reviewers.
+
 ## Issue Tracking with git-bug
 
 This project has GitHub issues synced locally via git-bug.  Use these commands
