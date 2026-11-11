@@ -1162,12 +1162,18 @@ def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
         text_dandiset.dandiset.get_asset_by_path(dest)
 
 
-def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
-    p = tmp_path / "foo.txt"
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("name,module", [("foo.txt", "fsspec"), ("foo.h5", "remfile")])
+def test_asset_as_readable_open(
+    new_dandiset: SampleDandiset, tmp_path: Path, name: str, module: str
+) -> None:
+    pytest.importorskip(module)
+    p = tmp_path / name
     # Write bytes so that the LF doesn't get converted on Windows:
-    p.write_bytes(b"This is test text.\n")
+    content = b"This is test text.\n"
+    p.write_bytes(content)
     d = new_dandiset.dandiset
-    d.upload_raw_asset(p, {"path": "foo.txt"})
+    d.upload_raw_asset(p, {"path": name})
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteBlobAsset)
     # The purpose of this test is to check that RemoteReadableAsset.open()
@@ -1175,30 +1181,8 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
     # block here, as that opens fsspec file objects.
     fp = asset.as_readable().open()
     try:
-        assert fp.read() == b"This is test text.\n"
-    finally:
-        fp.close()
-
-
-@pytest.mark.ai_generated
-def test_asset_as_readable_open_hdf5(
-    new_dandiset: SampleDandiset, tmp_path: Path
-) -> None:
-    # HDF5-based files are read with remfile
-    remfile = pytest.importorskip("remfile")
-    p = tmp_path / "foo.h5"
-    data = bytes(range(256)) * 1000
-    p.write_bytes(data)
-    d = new_dandiset.dandiset
-    d.upload_raw_asset(p, {"path": "foo.h5"})
-    (asset,) = d.get_assets()
-    assert isinstance(asset, RemoteBlobAsset)
-    fp = asset.as_readable().open()
-    try:
-        assert isinstance(fp, remfile.File)
-        assert fp.read(10) == data[:10]
-        fp.seek(1000)
-        assert fp.read(len(data) - 1000) == data[1000:]
+        assert type(fp).__module__.split(".")[0] == module
+        assert fp.read(len(content)) == content
     finally:
         fp.close()
 
