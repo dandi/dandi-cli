@@ -12,7 +12,7 @@ repos:
     -   id: check-yaml
     -   id: check-added-large-files
 -   repo: https://github.com/psf/black
-    rev: 22.3.0
+    rev: 22.12.0  # 22.3.0 crashes on Python 3.14, which pre-commit.ci uses
     hooks:
     -   id: black
         exclude: ^(dandi/_version\.py|dandi/due\.py|versioneer\.py)$
