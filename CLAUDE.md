@@ -37,9 +37,8 @@ rerun commit a 2nd time.  Only then if it still does not commit, analyze output 
 
 ## Pull Requests
 
-Keep PR descriptions short: a single paragraph saying what changes and why.
-No section headings, file-by-file change lists, test logs or verification
-write-ups; put details in commit messages or in replies to reviewers.
+Keep PR descriptions abbreviated.  Do not mention tests passing (reviewers can
+see that from CI) or otherwise state the obvious.
 
 ## Issue Tracking with git-bug
 
