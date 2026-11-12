@@ -244,6 +244,7 @@ The following hooks run on commit (`.pre-commit-config.yaml`):
 3. isort (import sorting)
 4. codespell (spell checking)
 5. flake8 (linting)
+6. reuse (license and copyright information, see `REUSE.toml`)
 
 Because black and isort auto-fix files, a commit that triggers fixes will
 fail the first time.  Simply re-run `git commit` — the second attempt should
@@ -375,9 +376,13 @@ New markers must be registered in `pytest_configure()` in
 
 ## CI/CD
 
-- `run-tests.yml` — full test matrix: Python 3.10–3.13 × Ubuntu,
+- `run-tests.yml` — full test matrix: Python 3.11–3.14 × Ubuntu,
   macOS (M1 + Intel), Windows
-- `lint.yml` — codespell + flake8
+- `lint.yml` — codespell only, to annotate typos in the pull request diff
+- [pre-commit.ci](https://pre-commit.ci) — all pre-commit hooks (black,
+  isort, codespell, flake8, reuse, ...) on pull requests and pushes: the same
+  hooks `tox -e lint` runs locally.  It also opens a quarterly pull request
+  updating the hooks, which needs a label (e.g. `internal`) before merging.
 - `typing.yml` — mypy
 - `docs.yml` — Sphinx build
 - `release.yml` — automated release via `auto` (see below)

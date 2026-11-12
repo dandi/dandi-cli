@@ -633,8 +633,7 @@ def test_move_from_subdir_as_dot(
             devel_debug=True,
         )
     assert (
-        str(excinfo.value)
-        == "Cannot move current working directory. "
+        str(excinfo.value) == "Cannot move current working directory. "
         "Change to a different directory before moving this location."
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
