@@ -347,10 +347,19 @@ class LocalAsset(DandiFile):
         replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
-        Like `upload()`, but returns a generator of status `dict`\\s instead
-        of blocking until the upload is complete. See `upload()` for a
-        description of the parameters.
+        Upload the asset with the given metadata to the given Dandiset,
+        returning a generator of status `dict`\\s.
 
+        :param RemoteDandiset dandiset:
+            the Dandiset to which the asset will be uploaded
+        :param dict metadata:
+            Metadata for the uploaded asset.  The "path" field will be set to
+            the value of the instance's ``path`` attribute if no such field is
+            already present.
+        :param int jobs: Number of threads to use for uploading; defaults to 5
+        :param RemoteAsset replacing:
+            If set, replace the given asset, which must have the same path as
+            the new asset
         :returns:
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
