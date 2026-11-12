@@ -52,8 +52,8 @@ Development Workflow
       # Run tests
       pytest dandi -x
 
-      # Run linters, and check for duplicated code
-      tox -e lint,typing,duplication
+      # Run linters
+      tox -e lint,typing
 
 5. **Commit your changes**:
 

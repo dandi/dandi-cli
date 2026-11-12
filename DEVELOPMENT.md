@@ -85,8 +85,9 @@ you can also run `tox` with `lint` and `typing`:
 tox -e lint,typing
 ```
 
-To check for duplicated code (with [jscpd](https://github.com/kucherenko/jscpd),
-configured in `.jscpd.json`):
+`tox -e lint` also checks for duplicated code (with
+[jscpd](https://github.com/kucherenko/jscpd), configured in `.jscpd.json`).
+To run only that check and see its statistics:
 ```
 tox -e duplication
 ```
@@ -264,7 +265,7 @@ The following hooks run on commit (`.pre-commit-config.yaml`):
 3. isort (import sorting)
 4. codespell (spell checking)
 5. flake8 (linting)
-6. reuse (license and copyright information)
+6. reuse (license and copyright information, see `REUSE.toml`)
 7. jscpd (code duplication, as in `tox -e duplication`).  jscpd comes only as
    wheels, which on Linux need glibc 2.34 or newer; on older systems, commit
    with `SKIP=jscpd`.
@@ -399,12 +400,14 @@ New markers must be registered in `pytest_configure()` in
 
 ## CI/CD
 
-- `run-tests.yml` — full test matrix: Python 3.10–3.13 × Ubuntu,
+- `run-tests.yml` — full test matrix: Python 3.11–3.14 × Ubuntu,
   macOS (M1 + Intel), Windows
-- `lint.yml` — codespell + flake8
+- `lint.yml` — codespell only, to annotate typos in the pull request diff
+- [pre-commit.ci](https://pre-commit.ci) — all pre-commit hooks (black,
+  isort, codespell, flake8, reuse, jscpd) on pull requests and pushes: the same
+  hooks `tox -e lint` runs locally.  It also opens a quarterly pull request
+  updating the hooks, which needs a label (e.g. `internal`) before merging.
 - `typing.yml` — mypy
-- [pre-commit.ci](https://pre-commit.ci) — all pre-commit hooks above,
-  including jscpd, on every pull request
 - `docs.yml` — Sphinx build
 - `release.yml` — automated release via `auto` (see below)
 
