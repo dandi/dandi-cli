@@ -1711,6 +1711,18 @@ class BaseRemoteAsset(ABC, APIBase):
     def __str__(self) -> str:
         return f"{self.client._instance_id}:assets/{self.identifier}"
 
+    def _update_from_data(self, data: dict[str, Any]) -> None:
+        """
+        Update the asset in place from the asset record, including
+        ``metadata``, that the API returns for a metadata update
+        """
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.created = ensure_datetime(data["created"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]
+
     @classmethod
     def from_base_data(
         cls,
@@ -2183,12 +2195,7 @@ class RemoteAsset(BaseRemoteAsset):
         data = self.client.put(
             self.api_path, json={"metadata": metadata, id_field: id_value}
         )
-        self.identifier = data["asset_id"]
-        self.path = data["path"]
-        self.size = int(data["size"])
-        self.created = ensure_datetime(data["created"])
-        self.modified = ensure_datetime(data["modified"])
-        self._metadata = data["metadata"]
+        self._update_from_data(data)
 
     def rename(self, dest: str) -> None:
         """
