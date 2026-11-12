@@ -12,12 +12,69 @@ from pytest_mock import MockerFixture
 import requests
 import responses
 
-from ..misctypes import RemoteReadableAsset
+from ..misctypes import (
+    RemoteReadableAsset,
+    _match_parts,
+    _path_stem,
+    _path_suffix,
+    _path_suffixes,
+    _split_path,
+)
 from ..pynwb_utils import get_nwb_version
 
-remfile = pytest.importorskip("remfile")
-
 URL = "https://example.com/blobs/abc/def/abcdef"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "name,suffix,suffixes,stem",
+    [
+        ("foo.txt", ".txt", [".txt"], "foo"),
+        ("foo.tar.gz", ".gz", [".tar", ".gz"], "foo.tar"),
+        ("foo", "", [], "foo"),
+        (".bashrc", "", [], ".bashrc"),
+        ("foo.", "", [], "foo."),
+        ("..foo.txt", ".txt", [".txt"], "..foo"),
+    ],
+)
+def test_path_suffix_suffixes_stem(
+    name: str, suffix: str, suffixes: list[str], stem: str
+) -> None:
+    assert _path_suffix(name) == suffix
+    assert _path_suffixes(name) == suffixes
+    assert _path_stem(name) == stem
+
+
+@pytest.mark.ai_generated
+def test_split_path() -> None:
+    assert _split_path("a/b//c/") == ("a", "b", "c")
+    assert _split_path("") == ()
+    with pytest.raises(ValueError, match="Absolute paths not allowed"):
+        _split_path("/a")
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "pattern,result",
+    [
+        ("*.txt", True),
+        ("b/*.txt", True),
+        ("a/b/c.txt", True),
+        ("x/b/*.txt", False),
+        ("*.dat", False),
+        ("z/a/b/c.txt", False),
+    ],
+)
+def test_match_parts(pattern: str, result: bool) -> None:
+    assert _match_parts(("a", "b", "c.txt"), pattern) is result
+
+
+@pytest.mark.ai_generated
+def test_match_parts_invalid_pattern() -> None:
+    with pytest.raises(ValueError, match="Empty pattern"):
+        _match_parts(("a",), "")
+    with pytest.raises(ValueError, match="Absolute paths not allowed"):
+        _match_parts(("a",), "/a")
 
 
 @pytest.mark.ai_generated
@@ -39,6 +96,7 @@ def test_remote_readable_asset_open(
     Unlike ``test_asset_as_readable_open`` (``test_dandiapi.py``), this needs no
     archive instance, and covers every HDF5 extension, in any case.
     """
+    remfile = pytest.importorskip("remfile")
     remfile_file = mocker.patch.object(remfile, "File")
     open_fsspec = mocker.patch.object(RemoteReadableAsset, "_open_fsspec")
     r = RemoteReadableAsset(url=URL, size=10, mtime=None, name=name)
@@ -65,6 +123,7 @@ def test_remote_readable_asset_gc_while_reading_hdf5(tmp_path: Path) -> None:
     in the thread holding h5py's lock, and forces a collection there, with an
     h5py object in the garbage.
     """
+    pytest.importorskip("remfile")
     p = tmp_path / "foo.nwb"
     with h5py.File(p, "w") as f:
         f.attrs["nwb_version"] = "2.8.0"
