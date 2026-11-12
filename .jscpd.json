@@ -1,0 +1,28 @@
+{
+  "threshold": 2,
+  "reporters": ["console"],
+  "ignore": [
+    "**/.git/**",
+    "**/.tox/**",
+    "**/.venv*/**",
+    "**/venv*/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.hypothesis/**",
+    "**/*.egg-info/**",
+    "**/.eggs/**",
+    "**/.npm/**",
+    "**/.tmp/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/tests/data/**",
+    "**/dandi/data/*.json",
+    "**/versioneer.py",
+    "**/dandi/_version.py"
+  ],
+  "ignorePattern": [
+    "(?s):[ \\t]*(?:#[^\\n]*)?\\n[ \\t]*[rRuU]?\"\"\".*?\"\"\""
+  ],
+  "minTokens": 50,
+  "minLines": 5
+}

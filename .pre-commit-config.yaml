@@ -46,3 +46,22 @@ repos:
     rev: v5.0.2
     hooks:
     -   id: reuse
+-   repo: https://github.com/kucherenko/jscpd
+    rev: v5.4.3  # a new version may fingerprint clones differently: also
+                 # update .jscpd-baseline.json (see DEVELOPMENT.md)
+    hooks:
+    # Scan all of dandi/ and tools/, not just the staged files, and fail over
+    # the threshold in .jscpd.json or on a clone that .jscpd-baseline.json
+    # lacks.  These args replace the hook's default `--exit-code 1`, which
+    # fails on any clone at all.
+    -   id: jscpd
+        name: Check for duplicated code (to accept it, see DEVELOPMENT.md)
+        args: [dandi, tools, --baseline, .jscpd-baseline.json, --fail-on-new-clones]
+        pass_filenames: false
+    # Accept the current clones: rewrite .jscpd-baseline.json
+    -   id: jscpd
+        alias: jscpd-update-baseline
+        name: Accept duplicated code into .jscpd-baseline.json
+        args: [dandi, tools, --baseline, .jscpd-baseline.json, --update-baseline]
+        pass_filenames: false
+        stages: [manual]
