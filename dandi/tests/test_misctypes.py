@@ -102,7 +102,7 @@ def test_remote_readable_asset_open(
     r = RemoteReadableAsset(url=URL, size=10, mtime=None, name=name)
     fp = r.open()
     if uses_remfile:
-        remfile_file.assert_called_once_with(URL, _size=10)
+        remfile_file.assert_called_once_with(URL, _size=10, _max_threads=1)
         assert fp is remfile_file.return_value
         open_fsspec.assert_not_called()
     else:
