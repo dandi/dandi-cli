@@ -248,7 +248,10 @@ class LocalizedMover(Mover):
     def calculate_moves(
         self, *srcs: str, dest: str, existing: MoveExisting
     ) -> list[Movement]:
-        """See `Mover.calculate_moves`."""
+        """
+        Given a sequence of input source paths and a destination path, return a
+        sorted list of all assets that will be moved/renamed
+        """
         destpath, dest_is_dir = self.resolve(dest)
         destobj: File | Folder | None
         try:
@@ -319,7 +322,10 @@ class LocalizedMover(Mover):
     def calculate_moves_by_regex(
         self, find: str, replace: str, existing: MoveExisting
     ) -> list[Movement]:
-        """See `Mover.calculate_moves_by_regex`."""
+        """
+        Given a regular expression and a replacement string, return a sorted
+        list of all assets that will be moved/renamed
+        """
         rgx = re.compile(find)
         moves: dict[AssetPath, AssetPath] = {}
         rev: dict[AssetPath, AssetPath] = {}
@@ -441,7 +447,14 @@ class LocalMover(LocalizedMover):
         return "local"
 
     def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
-        """See `LocalizedMover.get_assets`."""
+        """
+        Yield all available assets as ``(asset_path, relpath)`` pairs, where
+        ``asset_path`` is a ``/``-separated path relative to the root of the
+        Dandiset and ``relpath`` is a ``/``-separated path to that asset,
+        relative to `subpath` (For assets outside of `subpath`, ``relpath``
+        starts with ``"../"``).  If ``subpath_only`` is true, only assets
+        underneath `subpath` are returned.
+        """
         root = self.dandiset_path
         if subpath_only:
             root /= self.subpath
@@ -457,7 +470,14 @@ class LocalMover(LocalizedMover):
             yield (AssetPath(df.path), relpath)
 
     def get_path(self, path: str, is_src: bool = True) -> File | Folder:
-        """See `LocalizedMover.get_path`."""
+        """
+        Return the asset or folder of assets at ``path`` (relative to
+        `subpath`) as a `File` or `Folder` instance.  If there is nothing at
+        the given path, raises `NotFoundError`.
+
+        If the path points to a folder, its `~Folder.relcontents` attribute
+        will be populated iff ``is_src`` is given.
+        """
         rpath, needs_dir = self.resolve(path)
         p = self.dandiset_path / rpath
         if not os.path.lexists(p):
@@ -505,7 +525,10 @@ class LocalMover(LocalizedMover):
         )
 
     def move(self, src: AssetPath, dest: AssetPath) -> None:
-        """See `LocalizedMover.move`."""
+        """
+        Move the asset at path ``src`` to path ``dest`` (which can be assumed
+        to not exist)
+        """
         lgr.debug("Moving local file %r to %r", src, dest)
         target = self.dandiset_path / dest
         try:
@@ -579,7 +602,14 @@ class RemoteMover(LocalizedMover):
         return "remote"
 
     def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
-        """See `LocalizedMover.get_assets`."""
+        """
+        Yield all available assets as ``(asset_path, relpath)`` pairs, where
+        ``asset_path`` is a ``/``-separated path relative to the root of the
+        Dandiset and ``relpath`` is a ``/``-separated path to that asset,
+        relative to `subpath` (For assets outside of `subpath`, ``relpath``
+        starts with ``"../"``).  If ``subpath_only`` is true, only assets
+        underneath `subpath` are returned.
+        """
         for path in self.assets.keys():
             relpath = posixpath.relpath(path, self.subpath.as_posix())
             if subpath_only and relpath.startswith("../"):
@@ -587,7 +617,14 @@ class RemoteMover(LocalizedMover):
             yield (path, relpath)
 
     def get_path(self, path: str, is_src: bool = True) -> File | Folder:
-        """See `LocalizedMover.get_path`."""
+        """
+        Return the asset or folder of assets at ``path`` (relative to
+        `subpath`) as a `File` or `Folder` instance.  If there is nothing at
+        the given path, raises `NotFoundError`.
+
+        If the path points to a folder, its `~Folder.relcontents` attribute
+        will be populated iff ``is_src`` is given.
+        """
         rpath, needs_dir = self.resolve(path)
         relcontents: list[str] = []
         file_found = False
@@ -643,7 +680,10 @@ class RemoteMover(LocalizedMover):
         return path in self.assets
 
     def move(self, src: AssetPath, dest: AssetPath) -> None:
-        """See `LocalizedMover.move`."""
+        """
+        Move the asset at path ``src`` to path ``dest`` (which can be assumed
+        to not exist)
+        """
         lgr.debug("Moving remote asset %r to %r", src, dest)
         assert src in self.assets
         try:
@@ -702,7 +742,10 @@ class LocalRemoteMover(Mover):
     def calculate_moves(
         self, *srcs: str, dest: str, existing: MoveExisting
     ) -> list[Movement]:
-        """See `Mover.calculate_moves`."""
+        """
+        Given a sequence of input source paths and a destination path, return a
+        sorted list of all assets that will be moved/renamed
+        """
         local_moves = self.local.calculate_moves(*srcs, dest=dest, existing=existing)
         remote_moves = self.remote.calculate_moves(*srcs, dest=dest, existing=existing)
         self.compare_moves(local_moves, remote_moves)
@@ -711,7 +754,10 @@ class LocalRemoteMover(Mover):
     def calculate_moves_by_regex(
         self, find: str, replace: str, existing: MoveExisting
     ) -> list[Movement]:
-        """See `Mover.calculate_moves_by_regex`."""
+        """
+        Given a regular expression and a replacement string, return a sorted
+        list of all assets that will be moved/renamed
+        """
         local_moves = self.local.calculate_moves_by_regex(find, replace, existing)
         remote_moves = self.remote.calculate_moves_by_regex(find, replace, existing)
         self.compare_moves(local_moves, remote_moves)

@@ -20,6 +20,9 @@
     "**/versioneer.py",
     "**/dandi/_version.py"
   ],
+  "ignorePattern": [
+    "(?s):[ \\t]*(?:#[^\\n]*)?\\n[ \\t]*[rRuU]?\"\"\".*?\"\"\""
+  ],
   "minTokens": 50,
   "minLines": 5
 }

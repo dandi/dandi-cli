@@ -94,6 +94,8 @@ tox -e duplication
 It fails if duplicated lines exceed the threshold in `.jscpd.json`, or on a
 clone missing from `.jscpd-baseline.json`, the clones accepted so far.  Editing
 code that is already duplicated changes its clone, so it is flagged too.
+Docstrings are not counted (`ignorePattern` in `.jscpd.json`): an overriding
+method may well repeat its base class's docstring.
 Either remove the duplication, or, if it is intended, accept it and commit the
 updated baseline:
 ```
