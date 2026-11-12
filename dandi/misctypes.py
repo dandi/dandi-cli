@@ -17,6 +17,8 @@ from typing import IO, TypeVar, cast
 
 from dandischema.models import DigestType
 
+from .consts import HDF5_FILE_EXTENSIONS
+
 
 @dataclass
 class Digest:
@@ -341,13 +343,24 @@ class LocalReadableFile(Readable):
 class RemoteReadableAsset(Readable):
     """
     A concrete implementation of `Readable` for DANDI blob assets on a remote
-    server.  The fsspec_ library must be installed with the ``http`` extra
-    (e.g., ``pip install "fsspec[http]"``) in order for `.open()` to be usable.
+    server.
+
+    `.open()` reads HDF5-based files (such as NWB; see
+    `~dandi.consts.HDF5_FILE_EXTENSIONS`) with remfile_, and other files with
+    fsspec_.  These are optional dependencies, installed with the ``extras``
+    extra (``pip install "dandi[extras]"``).
 
     Instances of this class are obtained by calling
     `BaseRemoteBlobAsset.as_readable()`.
 
+    .. versionchanged:: 0.83.0
+
+        HDF5-based files are read with remfile instead of fsspec.  For these,
+        the file object supports ``seek()``, ``tell()`` and sized ``read()``
+        calls, as needed by h5py.
+
     .. _fsspec: http://github.com/fsspec/filesystem_spec
+    .. _remfile: https://github.com/magland/remfile
     """
 
     #: The URL that data is read from
@@ -363,6 +376,19 @@ class RemoteReadableAsset(Readable):
     name: str
 
     def open(self) -> IO[bytes]:
+        if self.name.lower().endswith(HDF5_FILE_EXTENSIONS):
+            # remfile reads in this thread (with `_max_threads=1`); fsspec's
+            # reads in another thread can deadlock h5py:
+            # https://github.com/dandi/dandi-cli/issues/1450
+            import remfile
+
+            return cast(
+                IO[bytes], remfile.File(self.url, _size=self.size, _max_threads=1)
+            )
+        else:
+            return self._open_fsspec()
+
+    def _open_fsspec(self) -> IO[bytes]:
         # Optional dependency:
         from aiohttp import ClientTimeout
         import fsspec

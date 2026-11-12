@@ -1124,12 +1124,18 @@ def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
         text_dandiset.dandiset.get_asset_by_path(dest)
 
 
-def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
-    p = tmp_path / "foo.txt"
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("name,module", [("foo.txt", "fsspec"), ("foo.h5", "remfile")])
+def test_asset_as_readable_open(
+    new_dandiset: SampleDandiset, tmp_path: Path, name: str, module: str
+) -> None:
+    pytest.importorskip(module)
+    p = tmp_path / name
     # Write bytes so that the LF doesn't get converted on Windows:
-    p.write_bytes(b"This is test text.\n")
+    content = b"This is test text.\n"
+    p.write_bytes(content)
     d = new_dandiset.dandiset
-    d.upload_raw_asset(p, {"path": "foo.txt"})
+    d.upload_raw_asset(p, {"path": name})
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteBlobAsset)
     # The purpose of this test is to check that RemoteReadableAsset.open()
@@ -1137,7 +1143,8 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
     # block here, as that opens fsspec file objects.
     fp = asset.as_readable().open()
     try:
-        assert fp.read() == b"This is test text.\n"
+        assert type(fp).__module__.split(".")[0] == module
+        assert fp.read(len(content)) == content
     finally:
         fp.close()
 

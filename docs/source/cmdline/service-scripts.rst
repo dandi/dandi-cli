@@ -20,10 +20,10 @@ Recompute & update the metadata for NWB assets on a remote server.
 ``<url>`` must point to a draft Dandiset or one or more assets inside a draft
 Dandiset.  See :ref:`resource_ids` for allowed URL formats.
 
-Running this command requires the fsspec_ library to be installed with the
-``http`` extra (e.g., ``pip install "fsspec[http]"``).
+Running this command requires the remfile_ library, installed with the
+``extras`` extra (e.g., ``pip install "dandi[extras]"``).
 
-.. _fsspec: http://github.com/fsspec/filesystem_spec
+.. _remfile: https://github.com/magland/remfile
 
 Options
 ^^^^^^^

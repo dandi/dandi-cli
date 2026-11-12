@@ -39,7 +39,7 @@ DATA_DIR = Path(__file__).with_name("data")
 def test_reextract_metadata(
     monkeypatch: pytest.MonkeyPatch, nwb_dandiset: SampleDandiset
 ) -> None:
-    pytest.importorskip("fsspec")
+    pytest.importorskip("remfile")
     asset_id = nwb_dandiset.dandiset.get_asset_by_path(
         "sub-mouse001/sub-mouse001.nwb"
     ).identifier
