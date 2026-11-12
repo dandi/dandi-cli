@@ -1465,7 +1465,7 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        return self._iter_version_assets({"order": order})
+        yield from self._iter_version_assets({"order": order})
 
     def get_asset(self, asset_id: str) -> RemoteAsset:
         """
@@ -1494,7 +1494,7 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        return self._iter_version_assets(
+        yield from self._iter_version_assets(
             {"path": self._normalize_path(path), "order": order}
         )
 
@@ -1512,7 +1512,7 @@ class RemoteDandiset:
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
         field name to reverse the sort order.
         """
-        return self._iter_version_assets({"glob": pattern, "order": order})
+        yield from self._iter_version_assets({"glob": pattern, "order": order})
 
     def get_asset_by_path(self, path: str) -> RemoteAsset:
         """

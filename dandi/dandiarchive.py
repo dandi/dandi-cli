@@ -405,7 +405,7 @@ class AssetPathPrefixURL(MultiAssetURL):
             `NotFoundError` will now be raised if `strict` is true and there
             are no such assets.
         """
-        return _iter_multi_assets(
+        yield from _iter_multi_assets(
             self,
             client,
             strict,
@@ -589,7 +589,7 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        return _iter_multi_assets(
+        yield from _iter_multi_assets(
             self,
             client,
             strict,
@@ -618,7 +618,7 @@ class AssetGlobURL(MultiAssetURL):
             `NotFoundError` will now be raised if `strict` is true and there
             are no such assets.
         """
-        return _iter_multi_assets(
+        yield from _iter_multi_assets(
             self,
             client,
             strict,
