@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from base64 import b64encode
 from collections import Counter
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
@@ -300,86 +300,62 @@ def _validate_zarr2(path: Path, devel_debug: bool = False) -> list[ValidationRes
         A list of validation results representing validation errors encountered
     """
     # zarr-metadata is an optional dependency (the `zarr` extra)
-    import zarr_metadata
-    from zarr_metadata.model import read_repaired_node_metadata_v2
-    from zarr_metadata.problems import MetadataValidationError
+    from zarr_metadata.model import (
+        read_repaired_consolidated_metadata_v2,
+        read_repaired_node_metadata_v2,
+    )
 
     results: list[ValidationResult] = []
 
     for root, dirs, files in os.walk(path):
         if Path(root) == path and ".zmetadata" in files:
+            # Readers such as hdmf-zarr open stores through it
+            zmetadata_path = path / ".zmetadata"
             results.extend(
-                _validate_zarr2_consolidated_metadata(path / ".zmetadata", devel_debug)
+                _validate_zarr2_metadata(
+                    lambda: json.loads(zmetadata_path.read_text()),
+                    read_repaired_consolidated_metadata_v2,
+                    zmetadata_path,
+                    "Zarr consolidated metadata",
+                    devel_debug,
+                )
             )
         node_files = [f for f in (".zarray", ".zgroup", ".zattrs") if f in files]
         if ".zarray" not in node_files and ".zgroup" not in node_files:
             continue
-        try:
-            meta: dict[str, Any] = {
-                f: json.loads((Path(root) / f).read_text()) for f in node_files
-            }
-        except (OSError, ValueError) as e:
-            if devel_debug:
-                raise
-            results.append(
-                ValidationResult(
-                    id="zarr.invalid_metadata",
-                    origin=Origin(
-                        type=OriginType.VALIDATION,
-                        validator=Validator.dandi_zarr,
-                        validator_version=dandi_version,
-                        standard=Standard.ZARR,
-                        standard_version="2",
-                    ),
-                    scope=Scope.FILE,
-                    origin_result=e,
-                    severity=Severity.ERROR,
-                    message="Invalid Zarr metadata",
-                    path=Path(root),
-                )
+        results.extend(
+            _validate_zarr2_metadata(
+                lambda: {
+                    f: json.loads((Path(root) / f).read_text()) for f in node_files
+                },
+                read_repaired_node_metadata_v2,
+                Path(root),
+                "Zarr metadata",
+                devel_debug,
             )
-            continue
-        # Known writer bugs are repaired, not reported
-        reading = read_repaired_node_metadata_v2(meta).reading
-        if reading.problems and devel_debug:
-            raise MetadataValidationError(reading.problems)
-        for problem in reading.problems:
-            results.append(
-                ValidationResult(
-                    id="zarr.invalid_metadata",
-                    origin=Origin(
-                        type=OriginType.VALIDATION,
-                        validator=Validator.zarr_metadata,
-                        validator_version=zarr_metadata.__version__,
-                        standard=Standard.ZARR,
-                        standard_version="2",
-                    ),
-                    scope=Scope.FILE,
-                    severity=Severity.ERROR,
-                    message=f"Invalid Zarr metadata: {problem}",
-                    path=Path(root),
-                )
-            )
+        )
         if ".zarray" in node_files:
             dirs.clear()  # Skip the chunks
 
     return results
 
 
-def _validate_zarr2_consolidated_metadata(
-    path: Path, devel_debug: bool = False
+def _validate_zarr2_metadata(
+    load: Callable[[], Any],
+    read: Callable[[Any], Any],
+    path: Path,
+    label: str,
+    devel_debug: bool = False,
 ) -> list[ValidationResult]:
     """
-    Validate the consolidated metadata (``.zmetadata``) of a Zarr format V2 store
-    with zarr-metadata
-
-    Readers such as hdmf-zarr open stores through their consolidated metadata,
-    so it is validated on its own even though the rest of the validation reads
-    the metadata of each node.
+    Validate Zarr format V2 metadata with zarr-metadata
 
     Parameters
     ----------
-    path : The path to the ``.zmetadata`` file in the filesystem
+    load : Loads the metadata from its JSON file or files
+    read : The zarr-metadata function that reads and repairs the metadata
+    path : The path reported in the validation results
+    label : What the metadata is, used in the messages of the validation results
     devel_debug : bool
         If True, re-raise an exception instead of returning it packaged in a
         `ValidationResult` object
@@ -391,11 +367,10 @@ def _validate_zarr2_consolidated_metadata(
     """
     # zarr-metadata is an optional dependency (the `zarr` extra)
     import zarr_metadata
-    from zarr_metadata.model import read_repaired_consolidated_metadata_v2
     from zarr_metadata.problems import MetadataValidationError
 
     try:
-        meta = json.loads(path.read_text())
+        meta = load()
     except (OSError, ValueError) as e:
         if devel_debug:
             raise
@@ -412,12 +387,12 @@ def _validate_zarr2_consolidated_metadata(
                 scope=Scope.FILE,
                 origin_result=e,
                 severity=Severity.ERROR,
-                message="Invalid Zarr consolidated metadata",
+                message=f"Invalid {label}",
                 path=path,
             )
         ]
     # Known writer bugs are repaired, not reported
-    reading = read_repaired_consolidated_metadata_v2(meta).reading
+    reading = read(meta).reading
     if reading.problems and devel_debug:
         raise MetadataValidationError(reading.problems)
     return [
@@ -432,7 +407,7 @@ def _validate_zarr2_consolidated_metadata(
             ),
             scope=Scope.FILE,
             severity=Severity.ERROR,
-            message=f"Invalid Zarr consolidated metadata: {problem}",
+            message=f"Invalid {label}: {problem}",
             path=path,
         )
         for problem in reading.problems
