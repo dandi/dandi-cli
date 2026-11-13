@@ -4,15 +4,25 @@ import ast
 import logging
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from pytest_mock import MockerFixture
 import requests
+import responses
 
 from .fixtures import DandiAPI, SampleDandiset, bulk_delete_supported
+from .test_dandiapi import (
+    _add_bulk_delete_response,
+    _add_fallback_responses,
+    _bulk_delete_dandiset,
+    _bulk_delete_request_ids,
+    _single_delete_url,
+    _single_delete_urls,
+)
 from .. import delete as delete_mod
 from ..consts import DRAFT, dandiset_metadata_file
-from ..dandiapi import RemoteDandiset, RESTFullAPIClient
+from ..dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from ..delete import delete, is_same_url
 from ..download import download
 from ..exceptions import BulkDeleteUnsupportedError, HTTP404Error, NotFoundError
@@ -843,6 +853,98 @@ def test_delete_fallback_reports_per_asset(
         "subdir2/coconut.txt": ("Deleted", None),
     }
     assert [a.path for a in text_dandiset.dandiset.get_assets()] == ["file.txt"]
+
+
+def _mock_deleter(
+    paths: list[str], published_path: str
+) -> tuple[delete_mod.Deleter, dict[str, RemoteAsset]]:
+    """Return a `Deleter` for the mocked draft Dandiset of
+    `_bulk_delete_dandiset()`, and a `dict` of its registered assets by path:
+    assets of the draft at ``paths``, and one of a published version at
+    ``published_path``.  They are registered in reverse order, to check that
+    they are deleted in path order."""
+    dandiset = _bulk_delete_dandiset()
+    published = RemoteDandiset(dandiset.client, dandiset.identifier, "0.210812.1448")
+    assets = {}
+    for ds, path in [(dandiset, p) for p in paths] + [(published, published_path)]:
+        assets[path] = RemoteAsset.from_data(
+            ds,
+            {
+                "asset_id": str(uuid4()),
+                "path": path,
+                "size": 0,
+                "created": "2020-01-01T00:00:00Z",
+                "modified": "2020-01-01T00:00:00Z",
+                "blob": str(uuid4()),
+            },
+        )
+    deleter = delete_mod.Deleter(client=dandiset.client, dandiset=dandiset)
+    for asset in reversed(assets.values()):
+        deleter.add_asset(asset)
+    return deleter, assets
+
+
+_PUBLISHED_ERROR = {
+    "path": "p.txt",
+    "status": "Error",
+    "message": "Asset belongs to 000001/0.210812.1448, not 000001/draft",
+}
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_deleter_process_assets_bulk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Assets are deleted in path order in batches of
+    `BULK_DELETE_BATCH_SIZE`, and an asset not in the draft is never sent"""
+    monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
+    deleter, assets = _mock_deleter(["a.txt", "b.txt", "c.txt"], "p.txt")
+    ids = {path: a.identifier for path, a in assets.items()}
+    _add_bulk_delete_response(missing=[ids["b.txt"]])
+    assert list(deleter.process_assets()) == [
+        _PUBLISHED_ERROR,
+        {"path": "a.txt", "status": "Deleted"},
+        {"path": "b.txt", "status": "Skipped", "message": "already absent"},
+        {"path": "c.txt", "status": "Deleted"},
+    ]
+    assert _bulk_delete_request_ids() == [
+        [ids["a.txt"], ids["b.txt"]],
+        [ids["c.txt"]],
+    ]
+    assert _single_delete_urls() == []
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_deleter_process_assets_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On a server without bulk deletion, assets are deleted one at a time, a
+    failure only affects the asset concerned, and an asset not in the draft is
+    never sent"""
+    monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
+    deleter, assets = _mock_deleter(["a.txt", "b.txt", "c.txt", "d.txt"], "p.txt")
+    ids = {path: a.identifier for path, a in assets.items()}
+    _add_fallback_responses(
+        [ids[p] for p in ["a.txt", "b.txt", "d.txt"]], missing=[ids["b.txt"]]
+    )
+    responses.add(responses.DELETE, _single_delete_url(ids["c.txt"]), status=403)
+    assert list(deleter.process_assets()) == [
+        _PUBLISHED_ERROR,
+        {"path": "a.txt", "status": "Deleted"},
+        {"path": "b.txt", "status": "Skipped", "message": "already absent"},
+        {
+            "path": "c.txt",
+            "status": "Error",
+            "message": (
+                "HTTPError: Error 403 while sending DELETE request to"
+                f" {_single_delete_url(ids['c.txt'])}: "
+            ),
+        },
+        {"path": "d.txt", "status": "Deleted"},
+    ]
+    # The bulk deletion endpoint is only tried for the first batch
+    assert _bulk_delete_request_ids() == [[ids["a.txt"], ids["b.txt"]]]
+    assert _single_delete_urls() == [
+        _single_delete_url(ids[p]) for p in ["a.txt", "b.txt", "c.txt", "d.txt"]
+    ]
 
 
 @pytest.mark.parametrize(
