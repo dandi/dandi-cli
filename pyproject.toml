@@ -69,7 +69,6 @@ dependencies = [
     "pydantic ~= 2.9",
     # Floor raised: dandischema 0.12 / nwbinspector 0.7 require modern pynwb.
     "pynwb >= 3.1.0",
-    "numcodecs >= 0.11.0",
     # Floor raised: earlier releases require hdmf-zarr, whose releases for
     # Python 3.11 either cap zarr < 3 or break with zarr 3.
     "nwbinspector >= 0.7.2",
@@ -127,7 +126,11 @@ zarr = [
     # Reading strings in Zarr format V3 warns before 3.1.1, and the expected
     # digests in the tests assume 3.1.4, which stopped writing
     # `consolidated_metadata: null`.
-    "zarr >= 3.1.4, < 4",
+    "zarr >= 3.1.4, < 4; python_version < '3.12'",
+    # Earlier releases report valid structured arrays as unreadable: data type
+    # `struct` in Zarr format V3 before 3.2, nested structured data types in
+    # Zarr format V2 before 3.4.1.  zarr 3.2 and later require Python 3.12.
+    "zarr >= 3.4.1, < 4; python_version >= '3.12'",
     # 0.x APIs are unstable, pin to minor version
     "zarr-metadata ~= 0.6.0",
 ]
@@ -245,10 +248,7 @@ ignore_missing_imports = true
 # `numpy.ndarray` as a value for the `NDArrayLike` protocol because of
 # minor `ndarray.reshape` overload divergence. This surfaces as ~30
 # `arg-type` errors on every `zarr.save(path, np.arange(...))` call in
-# the test suite. zarr-python 2.x has no stubs and the same calls are
-# untyped, so CI typing (which currently resolves to zarr 2.18) passes.
-# Skip following zarr imports so behaviour is consistent regardless of
-# the installed zarr-python version.
+# the test suite. Skip following zarr imports to avoid them.
 [[tool.mypy.overrides]]
 module = ["zarr.*"]
 follow_imports = "skip"

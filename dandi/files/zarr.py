@@ -183,7 +183,7 @@ def _validate_zarr3(path: Path, devel_debug: bool = False) -> list[ValidationRes
             meta_path = Path(root) / meta_fname
             try:
                 meta = json.loads(meta_path.read_text())
-            except ValueError as e:
+            except (OSError, ValueError) as e:
                 if devel_debug:
                     raise
                 results.append(
@@ -307,6 +307,10 @@ def _validate_zarr2(path: Path, devel_debug: bool = False) -> list[ValidationRes
     results: list[ValidationResult] = []
 
     for root, dirs, files in os.walk(path):
+        if Path(root) == path and ".zmetadata" in files:
+            results.extend(
+                _validate_zarr2_consolidated_metadata(path / ".zmetadata", devel_debug)
+            )
         node_files = [f for f in (".zarray", ".zgroup", ".zattrs") if f in files]
         if ".zarray" not in node_files and ".zgroup" not in node_files:
             continue
@@ -314,7 +318,7 @@ def _validate_zarr2(path: Path, devel_debug: bool = False) -> list[ValidationRes
             meta: dict[str, Any] = {
                 f: json.loads((Path(root) / f).read_text()) for f in node_files
             }
-        except ValueError as e:
+        except (OSError, ValueError) as e:
             if devel_debug:
                 raise
             results.append(
@@ -360,6 +364,79 @@ def _validate_zarr2(path: Path, devel_debug: bool = False) -> list[ValidationRes
             dirs.clear()  # Skip the chunks
 
     return results
+
+
+def _validate_zarr2_consolidated_metadata(
+    path: Path, devel_debug: bool = False
+) -> list[ValidationResult]:
+    """
+    Validate the consolidated metadata (``.zmetadata``) of a Zarr format V2 store
+    with zarr-metadata
+
+    Readers such as hdmf-zarr open stores through their consolidated metadata,
+    so it is validated on its own even though the rest of the validation reads
+    the metadata of each node.
+
+    Parameters
+    ----------
+    path : The path to the ``.zmetadata`` file in the filesystem
+    devel_debug : bool
+        If True, re-raise an exception instead of returning it packaged in a
+        `ValidationResult` object
+
+    Returns
+    -------
+    list[ValidationResult]
+        A list of validation results representing validation errors encountered
+    """
+    # zarr-metadata is an optional dependency (the `zarr` extra)
+    import zarr_metadata
+    from zarr_metadata.model import read_repaired_consolidated_metadata_v2
+    from zarr_metadata.problems import MetadataValidationError
+
+    try:
+        meta = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        if devel_debug:
+            raise
+        return [
+            ValidationResult(
+                id="zarr.invalid_metadata",
+                origin=Origin(
+                    type=OriginType.VALIDATION,
+                    validator=Validator.dandi_zarr,
+                    validator_version=dandi_version,
+                    standard=Standard.ZARR,
+                    standard_version="2",
+                ),
+                scope=Scope.FILE,
+                origin_result=e,
+                severity=Severity.ERROR,
+                message="Invalid Zarr consolidated metadata",
+                path=path,
+            )
+        ]
+    # Known writer bugs are repaired, not reported
+    reading = read_repaired_consolidated_metadata_v2(meta).reading
+    if reading.problems and devel_debug:
+        raise MetadataValidationError(reading.problems)
+    return [
+        ValidationResult(
+            id="zarr.invalid_metadata",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.zarr_metadata,
+                validator_version=zarr_metadata.__version__,
+                standard=Standard.ZARR,
+                standard_version="2",
+            ),
+            scope=Scope.FILE,
+            severity=Severity.ERROR,
+            message=f"Invalid Zarr consolidated metadata: {problem}",
+            path=path,
+        )
+        for problem in reading.problems
+    ]
 
 
 def _is_empty_group(group: Any) -> bool:
@@ -557,6 +634,23 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
+        errors: list[ValidationResult] = []
+        # The depth check needs neither zarr-python nor zarr-metadata
+        if self._is_too_deep():
+            msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
+            if devel_debug:
+                raise ValueError(msg)
+            errors.append(
+                ValidationResult(
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                    severity=Severity.ERROR,
+                    id="dandi_zarr.tree_depth_exceeded",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message=msg,
+                )
+            )
+
         # zarr-python and zarr-metadata are optional dependencies (the `zarr`
         # extra), and only zarr-python 3.x can read Zarr format V3.
         zarr_version: str | None
@@ -577,7 +671,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 if zarr_version is None
                 else f"found {zarr_version}"
             )
-            return [
+            errors.append(
                 ValidationResult(
                     origin=ORIGIN_VALIDATION_DANDI_ZARR,
                     severity=Severity.ERROR,
@@ -590,13 +684,13 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         "`pip install 'dandi[zarr]'`."
                     ),
                 )
-            ] + super().get_validation_errors(
+            )
+            return errors + super().get_validation_errors(
                 schema_version=schema_version,
                 devel_debug=devel_debug,
                 missing_file_content=missing_file_content,
             )
 
-        errors: list[ValidationResult] = []
         origin_internal_zarr: Origin = Origin(
             type=OriginType.INTERNAL,
             validator=Validator.zarr,
@@ -653,20 +747,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         message="Zarr group is empty.",
                     )
                 )
-        if self._is_too_deep():
-            msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
-            if devel_debug:
-                raise ValueError(msg)
-            errors.append(
-                ValidationResult(
-                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
-                    severity=Severity.ERROR,
-                    id="dandi_zarr.tree_depth_exceeded",
-                    scope=Scope.FILE,
-                    path=self.filepath,
-                    message=msg,
-                )
-            )
         return errors + super().get_validation_errors(
             schema_version=schema_version,
             devel_debug=devel_debug,

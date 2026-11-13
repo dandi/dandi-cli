@@ -29,6 +29,11 @@ conda) environment via
 
     pip install dandi
 
+To validate or upload Zarr assets, install the `zarr` extra, which adds
+zarr-python 3 and zarr-metadata:
+
+    pip install "dandi[zarr]"
+
 or
 
     conda install -c conda-forge dandi

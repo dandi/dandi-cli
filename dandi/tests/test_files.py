@@ -880,6 +880,80 @@ def test_validate_zarr_requires_zarr_python_3(
 
 
 @pytest.mark.ai_generated
+def test_validate_deep_zarr_without_zarr_python(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    zarr_path = tmp_path / "foo.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    mkpaths(zarr_path, "a/b/c/d/e/f/g/h.txt")
+    monkeypatch.setitem(sys.modules, "zarr", None)
+    assert [r.id for r in dandi_file(zarr_path).get_validation_errors()] == [
+        "dandi_zarr.tree_depth_exceeded",
+        "dandi_zarr.zarr_python_required",
+    ]
+
+
+@pytest.mark.ai_generated
+def test_pytest_plugin_loads_without_zarr() -> None:
+    # pytest loads dandi's plugin through its `pytest11` entry point in any
+    # environment that has dandi installed, with or without the `zarr` extra
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.modules['zarr'] = None; import dandi.pytest_plugin",
+        ],
+        check=True,
+    )
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "zarr_format, meta_name, result_id",
+    [
+        (2, ".zarray", "zarr.invalid_metadata"),
+        (3, "zarr.json", "zarr.invalid_zarr_json"),
+    ],
+)
+def test_validate_zarr_broken_metadata_symlink(
+    tmp_path: Path, zarr_format: int, meta_name: str, result_id: str
+) -> None:
+    # For example, git-annex content that has not been fetched
+    zarr_path = tmp_path / "example.zarr"
+    group = zarr.open_group(zarr_path, mode="w", zarr_format=zarr_format)
+    group.create_array("x", shape=(4,), dtype="int8")
+    meta_path = zarr_path / "x" / meta_name
+    meta_path.unlink()
+    try:
+        meta_path.symlink_to(tmp_path / "absent")
+    except OSError as exc:
+        pytest.skip(f"Cannot create symlink: {exc}")
+    assert [r.id for r in dandi_file(zarr_path).get_validation_errors()] == [result_id]
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("not json", id="not-json"),
+        pytest.param(json.dumps({"zarr_consolidated_format": 1}), id="no-metadata-key"),
+    ],
+)
+def test_validate_zarr2_invalid_consolidated_metadata(
+    tmp_path: Path, content: str
+) -> None:
+    zarr_path = tmp_path / "example.zarr"
+    group = zarr.open_group(zarr_path, mode="w", zarr_format=2)
+    group.create_array("x", shape=(4,), dtype="int8")
+    zarr.consolidate_metadata(zarr_path, zarr_format=2)
+    assert dandi_file(zarr_path).get_validation_errors() == []
+    (zarr_path / ".zmetadata").write_text(content)
+    assert [r.id for r in dandi_file(zarr_path).get_validation_errors()] == [
+        "zarr.invalid_metadata"
+    ]
+
+
+@pytest.mark.ai_generated
 @pytest.mark.parametrize("ds", ["ds", ""], ids=["subdir", "dandiset-root"])
 @pytest.mark.parametrize(
     "content, problem, bids_version",
