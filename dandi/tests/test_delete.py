@@ -30,6 +30,13 @@ def _setup_delete_spy(
     return api.instance_id, spy
 
 
+def _deletion_methods(request_spy: Any) -> set[str]:
+    """Return the methods able to delete assets (POST for bulk deletion, DELETE
+    for single-asset deletion) among the requests recorded by ``request_spy``,
+    a spy on `RESTFullAPIClient.request`"""
+    return {c.args[1] for c in request_spy.call_args_list} & {"POST", "DELETE"}
+
+
 def _assert_remaining_assets(
     text_dandiset: SampleDandiset, tmp_path: Path, remaining: list[Path]
 ) -> None:
@@ -115,8 +122,8 @@ def test_delete_path_confirm(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, bulk_delete_spy = _setup_delete_spy(
-        mocker, monkeypatch, text_dandiset.api, "post"
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
     )
     dandiset_id = text_dandiset.dandiset_id
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
@@ -125,9 +132,9 @@ def test_delete_path_confirm(
         f"Delete 1 assets on server from Dandiset {dandiset_id}?"
     )
     if confirm:
-        bulk_delete_spy.assert_called()
+        assert "POST" in _deletion_methods(request_spy)
     else:
-        bulk_delete_spy.assert_not_called()
+        assert not _deletion_methods(request_spy)
 
 
 def test_delete_path_pyout(
@@ -206,8 +213,8 @@ def test_delete_dandiset_mismatch(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, bulk_delete_spy = _setup_delete_spy(
-        mocker, monkeypatch, text_dandiset.api, "post"
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
     )
     dandiset_id = text_dandiset.dandiset_id
     not_dandiset = str(int(dandiset_id) - 1).zfill(6)
@@ -226,7 +233,7 @@ def test_delete_dandiset_mismatch(
         assert (
             str(excinfo.value) == "Cannot delete assets from multiple Dandisets at once"
         )
-        bulk_delete_spy.assert_not_called()
+        assert not _deletion_methods(request_spy)
 
 
 def test_delete_instance_mismatch(
@@ -235,8 +242,8 @@ def test_delete_instance_mismatch(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, bulk_delete_spy = _setup_delete_spy(
-        mocker, monkeypatch, text_dandiset.api, "post"
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
     )
     dandiset_id = text_dandiset.dandiset_id
     for paths in [
@@ -255,14 +262,14 @@ def test_delete_instance_mismatch(
             str(excinfo.value)
             == "Cannot delete assets from multiple API instances at once"
         )
-        bulk_delete_spy.assert_not_called()
+        assert not _deletion_methods(request_spy)
 
 
 def test_delete_nonexistent_dandiset(
     local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    instance, bulk_delete_spy = _setup_delete_spy(
-        mocker, monkeypatch, local_dandi_api, "post"
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, local_dandi_api, "request"
     )
     with pytest.raises(NotFoundError) as excinfo:
         delete(
@@ -275,14 +282,14 @@ def test_delete_nonexistent_dandiset(
         "No such Dandiset: '999999'. "
         "Verify the Dandiset ID is correct and that you have access. "
     )
-    bulk_delete_spy.assert_not_called()
+    assert not _deletion_methods(request_spy)
 
 
 def test_delete_nonexistent_dandiset_skip_missing(
     local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    instance, bulk_delete_spy = _setup_delete_spy(
-        mocker, monkeypatch, local_dandi_api, "post"
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, local_dandi_api, "request"
     )
     delete(
         [f"dandi://{instance}/999999/subdir1/apple.txt"],
@@ -291,33 +298,33 @@ def test_delete_nonexistent_dandiset_skip_missing(
         force=True,
         skip_missing=True,
     )
-    bulk_delete_spy.assert_not_called()
+    assert not _deletion_methods(request_spy)
 
 
+@pytest.mark.parametrize(
+    "existing,missing",
+    [("file.txt", "subdir3/mango.txt"), ("subdir1/", "subdir3/")],
+)
 def test_delete_nonexistent_asset(
     mocker: MockerFixture,
     monkeypatch: pytest.MonkeyPatch,
     text_dandiset: SampleDandiset,
+    existing: str,
+    missing: str,
 ) -> None:
-    instance, bulk_delete_spy = _setup_delete_spy(
-        mocker, monkeypatch, text_dandiset.api, "post"
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
     )
-    dandiset_id = text_dandiset.dandiset_id
+    url_prefix = f"dandi://{instance}/{text_dandiset.dandiset_id}/"
     with pytest.raises(NotFoundError) as excinfo:
         delete(
-            [
-                f"dandi://{instance}/{dandiset_id}/file.txt",
-                f"dandi://{instance}/{dandiset_id}/subdir3/mango.txt",
-            ],
+            [url_prefix + existing, url_prefix + missing],
             dandi_instance=instance,
             devel_debug=True,
             force=True,
         )
-    assert (
-        str(excinfo.value)
-        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/mango.txt"
-    )
-    bulk_delete_spy.assert_not_called()
+    assert str(excinfo.value) == f"No assets found for {url_prefix}{missing}"
+    assert not _deletion_methods(request_spy)
 
 
 def test_delete_nonexistent_asset_skip_missing(
@@ -350,32 +357,6 @@ def test_delete_nonexistent_asset_skip_missing(
             Path("subdir2", "coconut.txt"),
         ],
     )
-
-
-def test_delete_nonexistent_asset_folder(
-    mocker: MockerFixture,
-    monkeypatch: pytest.MonkeyPatch,
-    text_dandiset: SampleDandiset,
-) -> None:
-    instance, bulk_delete_spy = _setup_delete_spy(
-        mocker, monkeypatch, text_dandiset.api, "post"
-    )
-    dandiset_id = text_dandiset.dandiset_id
-    with pytest.raises(NotFoundError) as excinfo:
-        delete(
-            [
-                f"dandi://{instance}/{dandiset_id}/subdir1/",
-                f"dandi://{instance}/{dandiset_id}/subdir3/",
-            ],
-            dandi_instance=instance,
-            devel_debug=True,
-            force=True,
-        )
-    assert (
-        str(excinfo.value)
-        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/"
-    )
-    bulk_delete_spy.assert_not_called()
 
 
 def test_delete_nonexistent_asset_folder_skip_missing(
@@ -549,7 +530,7 @@ def test_delete_no_dandiset(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    bulk_delete_spy = mocker.spy(RESTFullAPIClient, "post")
+    request_spy = mocker.spy(RESTFullAPIClient, "request")
     with pytest.raises(RuntimeError) as excinfo:
         delete(
             ["dir/file.txt"],
@@ -561,7 +542,7 @@ def test_delete_no_dandiset(
         f"Found no {dandiset_metadata_file} anywhere.  "
         "Use 'dandi download' or 'organize' first"
     )
-    bulk_delete_spy.assert_not_called()
+    request_spy.assert_not_called()
 
 
 def test_delete_zarr_path(
