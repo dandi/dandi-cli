@@ -1,26 +1,50 @@
 from __future__ import annotations
 
+import ast
+import logging
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from pytest_mock import MockerFixture
+import requests
+import responses
 
-from .fixtures import DandiAPI, SampleDandiset
+from .fixtures import DandiAPI, SampleDandiset, bulk_delete_supported
+from .test_dandiapi import (
+    _add_bulk_delete_response,
+    _add_fallback_responses,
+    _bulk_delete_dandiset,
+    _bulk_delete_request_ids,
+    _single_delete_url,
+    _single_delete_urls,
+)
+from .. import delete as delete_mod
 from ..consts import DRAFT, dandiset_metadata_file
-from ..dandiapi import RESTFullAPIClient
+from ..dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from ..delete import delete, is_same_url
 from ..download import download
-from ..exceptions import NotFoundError
+from ..exceptions import BulkDeleteUnsupportedError, HTTP404Error, NotFoundError
 from ..utils import list_paths
 
 
 def _setup_delete_spy(
-    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, api: DandiAPI
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    api: DandiAPI,
+    method: str = "delete",
 ) -> tuple[str, Any]:
     api.monkeypatch_set_api_key_env(monkeypatch)
-    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
-    return api.instance_id, delete_spy
+    spy = mocker.spy(RESTFullAPIClient, method)
+    return api.instance_id, spy
+
+
+def _deletion_methods(request_spy: Any) -> set[str]:
+    """Return the methods able to delete assets (POST for bulk deletion, DELETE
+    for single-asset deletion) among the requests recorded by ``request_spy``,
+    a spy on `RESTFullAPIClient.request`"""
+    return {c.args[1] for c in request_spy.call_args_list} & {"POST", "DELETE"}
 
 
 def _assert_remaining_assets(
@@ -86,7 +110,9 @@ def test_delete_paths(
     remainder: list[Path],
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
+    instance, bulk_delete_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "post"
+    )
     dandiset_id = text_dandiset.dandiset_id
     delete(
         [p.format(instance=instance, dandiset_id=dandiset_id) for p in paths],
@@ -94,7 +120,7 @@ def test_delete_paths(
         devel_debug=True,
         force=True,
     )
-    delete_spy.assert_called()
+    bulk_delete_spy.assert_called()
     _assert_remaining_assets(text_dandiset, tmp_path, remainder)
 
 
@@ -106,7 +132,9 @@ def test_delete_path_confirm(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
+    )
     dandiset_id = text_dandiset.dandiset_id
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
     delete(["subdir2/coconut.txt"], dandi_instance=instance, devel_debug=True)
@@ -114,9 +142,9 @@ def test_delete_path_confirm(
         f"Delete 1 assets on server from Dandiset {dandiset_id}?"
     )
     if confirm:
-        delete_spy.assert_called()
+        assert "POST" in _deletion_methods(request_spy)
     else:
-        delete_spy.assert_not_called()
+        assert not _deletion_methods(request_spy)
 
 
 def test_delete_path_pyout(
@@ -125,9 +153,11 @@ def test_delete_path_pyout(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
+    instance, bulk_delete_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "post"
+    )
     delete(["subdir2/coconut.txt"], dandi_instance=instance, force=True)
-    delete_spy.assert_called()
+    bulk_delete_spy.assert_called()
 
 
 @pytest.mark.parametrize(
@@ -193,7 +223,9 @@ def test_delete_dandiset_mismatch(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
+    )
     dandiset_id = text_dandiset.dandiset_id
     not_dandiset = str(int(dandiset_id) - 1).zfill(6)
     for paths in [
@@ -211,7 +243,7 @@ def test_delete_dandiset_mismatch(
         assert (
             str(excinfo.value) == "Cannot delete assets from multiple Dandisets at once"
         )
-        delete_spy.assert_not_called()
+        assert not _deletion_methods(request_spy)
 
 
 def test_delete_instance_mismatch(
@@ -220,7 +252,9 @@ def test_delete_instance_mismatch(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
+    )
     dandiset_id = text_dandiset.dandiset_id
     for paths in [
         [
@@ -238,13 +272,15 @@ def test_delete_instance_mismatch(
             str(excinfo.value)
             == "Cannot delete assets from multiple API instances at once"
         )
-        delete_spy.assert_not_called()
+        assert not _deletion_methods(request_spy)
 
 
 def test_delete_nonexistent_dandiset(
     local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, local_dandi_api)
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, local_dandi_api, "request"
+    )
     with pytest.raises(NotFoundError) as excinfo:
         delete(
             [f"dandi://{instance}/999999/subdir1/apple.txt"],
@@ -256,13 +292,15 @@ def test_delete_nonexistent_dandiset(
         "No such Dandiset: '999999'. "
         "Verify the Dandiset ID is correct and that you have access. "
     )
-    delete_spy.assert_not_called()
+    assert not _deletion_methods(request_spy)
 
 
 def test_delete_nonexistent_dandiset_skip_missing(
     local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, local_dandi_api)
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, local_dandi_api, "request"
+    )
     delete(
         [f"dandi://{instance}/999999/subdir1/apple.txt"],
         dandi_instance=instance,
@@ -270,31 +308,33 @@ def test_delete_nonexistent_dandiset_skip_missing(
         force=True,
         skip_missing=True,
     )
-    delete_spy.assert_not_called()
+    assert not _deletion_methods(request_spy)
 
 
+@pytest.mark.parametrize(
+    "existing,missing",
+    [("file.txt", "subdir3/mango.txt"), ("subdir1/", "subdir3/")],
+)
 def test_delete_nonexistent_asset(
     mocker: MockerFixture,
     monkeypatch: pytest.MonkeyPatch,
     text_dandiset: SampleDandiset,
+    existing: str,
+    missing: str,
 ) -> None:
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
-    dandiset_id = text_dandiset.dandiset_id
+    instance, request_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "request"
+    )
+    url_prefix = f"dandi://{instance}/{text_dandiset.dandiset_id}/"
     with pytest.raises(NotFoundError) as excinfo:
         delete(
-            [
-                f"dandi://{instance}/{dandiset_id}/file.txt",
-                f"dandi://{instance}/{dandiset_id}/subdir3/mango.txt",
-            ],
+            [url_prefix + existing, url_prefix + missing],
             dandi_instance=instance,
             devel_debug=True,
             force=True,
         )
-    assert (
-        str(excinfo.value)
-        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/mango.txt"
-    )
-    delete_spy.assert_not_called()
+    assert str(excinfo.value) == f"No assets found for {url_prefix}{missing}"
+    assert not _deletion_methods(request_spy)
 
 
 def test_delete_nonexistent_asset_skip_missing(
@@ -303,7 +343,9 @@ def test_delete_nonexistent_asset_skip_missing(
     text_dandiset: SampleDandiset,
     tmp_path: Path,
 ) -> None:
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
+    instance, bulk_delete_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "post"
+    )
     dandiset_id = text_dandiset.dandiset_id
     delete(
         [
@@ -315,7 +357,7 @@ def test_delete_nonexistent_asset_skip_missing(
         force=True,
         skip_missing=True,
     )
-    delete_spy.assert_called()
+    bulk_delete_spy.assert_called()
     _assert_remaining_assets(
         text_dandiset,
         tmp_path,
@@ -327,37 +369,15 @@ def test_delete_nonexistent_asset_skip_missing(
     )
 
 
-def test_delete_nonexistent_asset_folder(
-    mocker: MockerFixture,
-    monkeypatch: pytest.MonkeyPatch,
-    text_dandiset: SampleDandiset,
-) -> None:
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
-    dandiset_id = text_dandiset.dandiset_id
-    with pytest.raises(NotFoundError) as excinfo:
-        delete(
-            [
-                f"dandi://{instance}/{dandiset_id}/subdir1/",
-                f"dandi://{instance}/{dandiset_id}/subdir3/",
-            ],
-            dandi_instance=instance,
-            devel_debug=True,
-            force=True,
-        )
-    assert (
-        str(excinfo.value)
-        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/"
-    )
-    delete_spy.assert_not_called()
-
-
 def test_delete_nonexistent_asset_folder_skip_missing(
     mocker: MockerFixture,
     monkeypatch: pytest.MonkeyPatch,
     text_dandiset: SampleDandiset,
     tmp_path: Path,
 ) -> None:
-    instance, delete_spy = _setup_delete_spy(mocker, monkeypatch, text_dandiset.api)
+    instance, bulk_delete_spy = _setup_delete_spy(
+        mocker, monkeypatch, text_dandiset.api, "post"
+    )
     dandiset_id = text_dandiset.dandiset_id
     delete(
         [
@@ -369,7 +389,7 @@ def test_delete_nonexistent_asset_folder_skip_missing(
         force=True,
         skip_missing=True,
     )
-    delete_spy.assert_called()
+    bulk_delete_spy.assert_called()
     _assert_remaining_assets(
         text_dandiset,
         tmp_path,
@@ -409,6 +429,7 @@ def test_delete_within_zarr_refused(mocker: MockerFixture, suffix: str) -> None:
     `AssetZarrEntryURL.get_assets()` yields the Zarr asset itself, so without
     a guard the deletion would take every entry, not the named ones.
     """
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotImplementedError) as excinfo:
         delete(
@@ -418,14 +439,108 @@ def test_delete_within_zarr_refused(mocker: MockerFixture, suffix: str) -> None:
             force=True,
         )
     assert "Cannot delete individual entries within a Zarr asset" in str(excinfo.value)
+    post_spy.assert_not_called()
     delete_spy.assert_not_called()
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "url",
+    [
+        "dandi://dandi/000108@0.210812.1448/sub-1/file.nwb",
+        "dandi://dandi/000108@0.210812.1448/sub-1/",
+        "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
+        "/assets/9e1a4a8d-fb5d-4a0f-9a0d-6d6ec5bc4b61/",
+        "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
+        "/assets/?path=sub-1",
+    ],
+)
+def test_delete_published_version_assets_refused(
+    mocker: MockerFixture, url: str
+) -> None:
+    """Asset URLs naming a published version are rejected before any request.
+
+    Published versions share asset IDs with the draft, so deleting the assets
+    found in the published version would remove them from the draft.
+    """
+    request_spy = mocker.spy(RESTFullAPIClient, "request")
+    with pytest.raises(NotImplementedError) as excinfo:
+        delete([url], dandi_instance="dandi", devel_debug=True, force=True)
+    assert str(excinfo.value) == (
+        "Cannot delete assets from published version 0.210812.1448 of Dandiset"
+        " 000108; only the draft version can be modified.  Use a URL for the"
+        " draft version or one without a version."
+    )
+    request_spy.assert_not_called()
+
+
+@pytest.mark.ai_generated
+def test_delete_non_draft_assets_not_deleted(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+) -> None:
+    """`Deleter.process_assets()` never sends a non-draft asset's ID to the
+    draft; it reports an error for it and still deletes the other assets."""
+    dandiset = text_dandiset.dandiset
+    deleter = delete_mod.Deleter(client=dandiset.client, dandiset=dandiset)
+    published = dandiset.get_asset_by_path("file.txt").model_copy(
+        update={"version_id": "0.210812.1448"}
+    )
+    other = dandiset.get_asset_by_path("subdir1/apple.txt")
+    deleter.add_asset(published)
+    deleter.add_asset(other)
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    records = {r["path"]: r for r in deleter.process_assets()}
+    assert records == {
+        "file.txt": {
+            "path": "file.txt",
+            "status": "Error",
+            "message": (
+                f"Asset belongs to {dandiset.identifier}/0.210812.1448,"
+                f" not {dandiset.identifier}/{DRAFT}"
+            ),
+        },
+        "subdir1/apple.txt": {"path": "subdir1/apple.txt", "status": "Deleted"},
+    }
+    sent_ids = [
+        aid for c in post_spy.call_args_list for aid in c.kwargs["json"]["asset_ids"]
+    ] + [c.args[1].rstrip("/").rsplit("/", 1)[-1] for c in delete_spy.call_args_list]
+    assert published.identifier not in sent_ids
+    assert other.identifier in sent_ids
+    assert {a.path for a in dandiset.get_assets()} == {
+        "file.txt",
+        "subdir2/banana.txt",
+        "subdir2/coconut.txt",
+    }
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("jobs", [None, 4])
+def test_delete_jobs_deprecated(mocker: MockerFixture, jobs: int | None) -> None:
+    """Passing the ignored ``jobs`` argument emits a `DeprecationWarning`.
+
+    pytest turns warnings into errors, so the call without ``jobs`` also
+    checks that no warning is emitted then.  The URL is rejected before any
+    request, so no server is needed.
+    """
+    request_spy = mocker.spy(RESTFullAPIClient, "request")
+    url = "dandi://dandi/000108@0.210812.1448/sub-1/file.nwb"
+    with pytest.raises(NotImplementedError, match="published version"):
+        if jobs is None:
+            delete([url], dandi_instance="dandi", force=True)
+        else:
+            with pytest.warns(DeprecationWarning, match="jobs argument"):
+                delete([url], dandi_instance="dandi", jobs=jobs, force=True)
+    request_spy.assert_not_called()
 
 
 def test_delete_no_dandiset(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    request_spy = mocker.spy(RESTFullAPIClient, "request")
     with pytest.raises(RuntimeError) as excinfo:
         delete(
             ["dir/file.txt"],
@@ -437,7 +552,7 @@ def test_delete_no_dandiset(
         f"Found no {dandiset_metadata_file} anywhere.  "
         "Use 'dandi download' or 'organize' first"
     )
-    delete_spy.assert_not_called()
+    request_spy.assert_not_called()
 
 
 def test_delete_zarr_path(
@@ -449,9 +564,9 @@ def test_delete_zarr_path(
     monkeypatch.chdir(zarr_dandiset.dspath)
     zarr_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     instance = zarr_dandiset.api.instance_id
-    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    bulk_delete_spy = mocker.spy(RESTFullAPIClient, "post")
     delete(["sample.zarr"], dandi_instance=instance, devel_debug=True, force=True)
-    delete_spy.assert_called()
+    bulk_delete_spy.assert_called()
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml"
@@ -476,6 +591,9 @@ def test_delete_zarr_url_at_boundary(
     """
     zarr_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     instance = zarr_dandiset.api.instance_id
+    # The asset is deleted with a bulk deletion request, or with a single-asset
+    # deletion request on servers without bulk deletion
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(
         [f"dandi://{instance}/{zarr_dandiset.dandiset_id}/sample.zarr{suffix}"],
@@ -483,10 +601,349 @@ def test_delete_zarr_url_at_boundary(
         devel_debug=True,
         force=True,
     )
-    delete_spy.assert_called()
+    assert post_spy.called or delete_spy.called
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml"
+    ]
+
+
+def _debug_records(output: str) -> dict[str, dict]:
+    """Parse the status records printed by ``delete(..., devel_debug=True)``"""
+    records = [ast.literal_eval(line) for line in output.splitlines() if line]
+    return {r["path"]: r for r in records}
+
+
+def _setup_batched_delete(
+    monkeypatch: pytest.MonkeyPatch, text_dandiset: SampleDandiset
+) -> None:
+    """Prepare to delete assets of ``text_dandiset`` in batches of two"""
+    monkeypatch.chdir(text_dandiset.dspath)
+    text_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
+    monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
+
+
+def _delete_all_with_one_gone(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+    gone_path: str,
+) -> dict[str, dict]:
+    """Delete all assets of ``text_dandiset``, the one at ``gone_path`` being
+    deleted in the meantime, and return the status records of the deletion"""
+    dandiset = text_dandiset.dandiset
+    gone = dandiset.get_asset_by_path(gone_path)
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets have been looked up and
+        # before any are deleted, so delete one of them in the meantime
+        dandiset.client.delete(f"{dandiset.version_api_path}assets/{gone.identifier}/")
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    # Discard output from setting up the Dandiset
+    capsys.readouterr()
+    delete(
+        ["file.txt", "subdir1", "subdir2"],
+        dandi_instance=text_dandiset.api.instance_id,
+        devel_debug=True,
+    )
+    return _debug_records(capsys.readouterr().out)
+
+
+@pytest.mark.ai_generated
+def test_delete_multiple_batches(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    _setup_batched_delete(monkeypatch, text_dandiset)
+    supported = bulk_delete_supported(text_dandiset.dandiset)
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    # Discard output from setting up the Dandiset
+    capsys.readouterr()
+    delete(
+        ["file.txt", "subdir1", "subdir2"],
+        dandi_instance=text_dandiset.api.instance_id,
+        devel_debug=True,
+        force=True,
+    )
+    bulk_calls = [c for c in post_spy.call_args_list if "/bulk-delete/" in c.args[1]]
+    if supported:
+        # One bulk deletion request per batch
+        assert len(bulk_calls) == 2
+        assert delete_spy.call_count == 0
+    else:
+        # The bulk deletion endpoint is only tried for the first batch, after
+        # which the assets are deleted one at a time
+        assert len(bulk_calls) == 1
+        assert delete_spy.call_count == 4
+    records = _debug_records(capsys.readouterr().out)
+    assert {p: r["status"] for p, r in records.items()} == {
+        "file.txt": "Deleted",
+        "subdir1/apple.txt": "Deleted",
+        "subdir2/banana.txt": "Deleted",
+        "subdir2/coconut.txt": "Deleted",
+    }
+    assert list(text_dandiset.dandiset.get_assets()) == []
+
+
+@pytest.mark.ai_generated
+def test_delete_asset_deleted_concurrently(
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    monkeypatch.chdir(text_dandiset.dspath)
+    text_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
+    gone = text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt")
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets have been looked up and
+        # before any are deleted, so delete one of them in the meantime
+        gone.delete()
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    # Discard output from setting up the Dandiset
+    capsys.readouterr()
+    delete(["subdir2"], dandi_instance=text_dandiset.api.instance_id, devel_debug=True)
+    records = _debug_records(capsys.readouterr().out)
+    assert records == {
+        "subdir2/banana.txt": {
+            "path": "subdir2/banana.txt",
+            "status": "Skipped",
+            "message": "already absent",
+        },
+        "subdir2/coconut.txt": {"path": "subdir2/coconut.txt", "status": "Deleted"},
+    }
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert sorted(a.path for a in text_dandiset.dandiset.get_assets()) == [
+        "file.txt",
+        "subdir1/apple.txt",
+    ]
+
+
+@pytest.mark.ai_generated
+def test_delete_failed_batch_continues(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    _setup_batched_delete(monkeypatch, text_dandiset)
+    real_delete_asset_batch = RemoteDandiset._delete_asset_batch
+    calls = 0
+
+    def flaky_delete_asset_batch(
+        self: RemoteDandiset, *args: Any, **kwargs: Any
+    ) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("boom")
+        return real_delete_asset_batch(self, *args, **kwargs)
+
+    monkeypatch.setattr(RemoteDandiset, "_delete_asset_batch", flaky_delete_asset_batch)
+    # Discard output from setting up the Dandiset
+    capsys.readouterr()
+    delete(
+        ["file.txt", "subdir1", "subdir2"],
+        dandi_instance=text_dandiset.api.instance_id,
+        devel_debug=True,
+        force=True,
+    )
+    records = _debug_records(capsys.readouterr().out)
+    assert {p: (r["status"], r.get("message")) for p, r in records.items()} == {
+        "file.txt": ("Error", "RuntimeError: boom"),
+        "subdir1/apple.txt": ("Error", "RuntimeError: boom"),
+        "subdir2/banana.txt": ("Deleted", None),
+        "subdir2/coconut.txt": ("Deleted", None),
+    }
+    assert sorted(a.path for a in text_dandiset.dandiset.get_assets()) == [
+        "file.txt",
+        "subdir1/apple.txt",
+    ]
+
+
+@pytest.mark.ai_generated
+def test_delete_bulk_reports_per_asset(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    # Emulate a server with the bulk deletion endpoint, whatever the server
+    # actually is, so that reporting the results of successful bulk deletion
+    # requests is always exercised
+    _setup_batched_delete(monkeypatch, text_dandiset)
+
+    def fake_bulk_delete_assets(
+        self: RemoteDandiset, asset_ids: list[str]
+    ) -> list[str]:
+        # Delete those of the assets that belong to the version and return
+        # their IDs, as the endpoint does
+        removed = []
+        for aid in asset_ids:
+            try:
+                self.client.delete(
+                    f"{self.version_api_path}assets/{aid}/", quiet_statuses=[404]
+                )
+            except HTTP404Error:
+                continue
+            removed.append(aid)
+        return removed
+
+    bulk_delete = mocker.patch.object(
+        RemoteDandiset,
+        "_bulk_delete_assets",
+        autospec=True,
+        side_effect=fake_bulk_delete_assets,
+    )
+    records = _delete_all_with_one_gone(
+        capsys, mocker, text_dandiset, "subdir1/apple.txt"
+    )
+    assert bulk_delete.call_count == 2
+    assert {p: (r["status"], r.get("message")) for p, r in records.items()} == {
+        "file.txt": ("Deleted", None),
+        "subdir1/apple.txt": ("Skipped", "already absent"),
+        "subdir2/banana.txt": ("Deleted", None),
+        "subdir2/coconut.txt": ("Deleted", None),
+    }
+    assert list(text_dandiset.dandiset.get_assets()) == []
+
+
+@pytest.mark.ai_generated
+def test_delete_fallback_reports_per_asset(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    _setup_batched_delete(monkeypatch, text_dandiset)
+    # Simulate a server that does not support bulk deletion
+    bulk_delete = mocker.patch.object(
+        RemoteDandiset,
+        "_bulk_delete_assets",
+        side_effect=BulkDeleteUnsupportedError("no bulk deletion"),
+    )
+    failing = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    real_delete = RESTFullAPIClient.delete
+
+    def flaky_delete(self: RESTFullAPIClient, path: str, **kwargs: Any) -> Any:
+        if path.endswith(f"/assets/{failing.identifier}/"):
+            raise requests.HTTPError("boom")
+        return real_delete(self, path, **kwargs)
+
+    monkeypatch.setattr(RESTFullAPIClient, "delete", flaky_delete)
+    records = _delete_all_with_one_gone(
+        capsys, mocker, text_dandiset, "subdir2/banana.txt"
+    )
+    # The bulk deletion endpoint is only tried for the first batch
+    assert bulk_delete.call_count == 1
+    # A failure only affects the asset concerned, even within the first batch
+    assert {p: (r["status"], r.get("message")) for p, r in records.items()} == {
+        "file.txt": ("Error", "HTTPError: boom"),
+        "subdir1/apple.txt": ("Deleted", None),
+        "subdir2/banana.txt": ("Skipped", "already absent"),
+        "subdir2/coconut.txt": ("Deleted", None),
+    }
+    assert [a.path for a in text_dandiset.dandiset.get_assets()] == ["file.txt"]
+
+
+def _mock_deleter(
+    paths: list[str], published_path: str
+) -> tuple[delete_mod.Deleter, dict[str, RemoteAsset]]:
+    """Return a `Deleter` for the mocked draft Dandiset of
+    `_bulk_delete_dandiset()`, and a `dict` of its registered assets by path:
+    assets of the draft at ``paths``, and one of a published version at
+    ``published_path``.  They are registered in reverse order, to check that
+    they are deleted in path order."""
+    dandiset = _bulk_delete_dandiset()
+    published = RemoteDandiset(dandiset.client, dandiset.identifier, "0.210812.1448")
+    assets = {}
+    for ds, path in [(dandiset, p) for p in paths] + [(published, published_path)]:
+        assets[path] = RemoteAsset.from_data(
+            ds,
+            {
+                "asset_id": str(uuid4()),
+                "path": path,
+                "size": 0,
+                "created": "2020-01-01T00:00:00Z",
+                "modified": "2020-01-01T00:00:00Z",
+                "blob": str(uuid4()),
+            },
+        )
+    deleter = delete_mod.Deleter(client=dandiset.client, dandiset=dandiset)
+    for asset in reversed(assets.values()):
+        deleter.add_asset(asset)
+    return deleter, assets
+
+
+_PUBLISHED_ERROR = {
+    "path": "p.txt",
+    "status": "Error",
+    "message": "Asset belongs to 000001/0.210812.1448, not 000001/draft",
+}
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_deleter_process_assets_bulk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Assets are deleted in path order in batches of
+    `BULK_DELETE_BATCH_SIZE`, and an asset not in the draft is never sent"""
+    monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
+    deleter, assets = _mock_deleter(["a.txt", "b.txt", "c.txt"], "p.txt")
+    ids = {path: a.identifier for path, a in assets.items()}
+    _add_bulk_delete_response(missing=[ids["b.txt"]])
+    assert list(deleter.process_assets()) == [
+        _PUBLISHED_ERROR,
+        {"path": "a.txt", "status": "Deleted"},
+        {"path": "b.txt", "status": "Skipped", "message": "already absent"},
+        {"path": "c.txt", "status": "Deleted"},
+    ]
+    assert _bulk_delete_request_ids() == [
+        [ids["a.txt"], ids["b.txt"]],
+        [ids["c.txt"]],
+    ]
+    assert _single_delete_urls() == []
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_deleter_process_assets_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On a server without bulk deletion, assets are deleted one at a time, a
+    failure only affects the asset concerned, and an asset not in the draft is
+    never sent"""
+    monkeypatch.setattr(delete_mod, "BULK_DELETE_BATCH_SIZE", 2)
+    deleter, assets = _mock_deleter(["a.txt", "b.txt", "c.txt", "d.txt"], "p.txt")
+    ids = {path: a.identifier for path, a in assets.items()}
+    _add_fallback_responses(
+        [ids[p] for p in ["a.txt", "b.txt", "d.txt"]], missing=[ids["b.txt"]]
+    )
+    responses.add(responses.DELETE, _single_delete_url(ids["c.txt"]), status=403)
+    assert list(deleter.process_assets()) == [
+        _PUBLISHED_ERROR,
+        {"path": "a.txt", "status": "Deleted"},
+        {"path": "b.txt", "status": "Skipped", "message": "already absent"},
+        {
+            "path": "c.txt",
+            "status": "Error",
+            "message": (
+                "HTTPError: Error 403 while sending DELETE request to"
+                f" {_single_delete_url(ids['c.txt'])}: "
+            ),
+        },
+        {"path": "d.txt", "status": "Deleted"},
+    ]
+    # The bulk deletion endpoint is only tried for the first batch
+    assert _bulk_delete_request_ids() == [[ids["a.txt"], ids["b.txt"]]]
+    assert _single_delete_urls() == [
+        _single_delete_url(ids[p]) for p in ["a.txt", "b.txt", "c.txt", "d.txt"]
     ]
 
 

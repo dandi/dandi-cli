@@ -357,12 +357,16 @@ Examples in the code (links are to the 0.81.0 release):
 - `mkzarr()` in
   [`dandi/files/zarr.py`](https://github.com/dandi/dandi-cli/blob/0.81.0/dandi/files/zarr.py#L603-L612)
   reuses an existing Zarr on either the old or the new server error message.
-
-Bulk asset deletion
-([dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960), using the
-endpoint from [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920))
-is in progress; it falls back to deleting assets one at a time on servers
-without the endpoint.
+- Bulk asset deletion
+  ([dandi-cli#1960](https://github.com/dandi/dandi-cli/pull/1960), using the
+  endpoint from [dandi-archive#2920](https://github.com/dandi/dandi-archive/pull/2920),
+  released in dandi-archive 1.2.1) senses the endpoint from the response to
+  the first bulk deletion request.  A 404 is only taken to mean that the
+  endpoint is missing once a request for the Dandiset version succeeds; the
+  result is remembered on the `DandiAPIClient`, and the assets are then
+  deleted one at a time with the single-asset endpoint, logging the fallback
+  at INFO level.  See `RemoteDandiset._bulk_delete_assets()` in
+  `dandi/dandiapi.py`.
 
 ## Test infrastructure
 
