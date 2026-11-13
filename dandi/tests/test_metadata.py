@@ -48,6 +48,7 @@ from ..consts import dandiset_metadata_file, metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
 from ..files import NWBBIDSAsset, dandi_file, find_bids_dataset_description
 from ..metadata import nwb as metadata_nwb
+from ..metadata.brain_areas import herd_anatomy_to_models
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
@@ -93,6 +94,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     target_metadata["nd_types"] = []
     target_metadata["external_file_objects"] = []
     target_metadata["brain_locations"] = []
+    target_metadata["herd_anatomy"] = []
     # we do not populate any subject fields in our simple1_nwb
     for f in metadata_nwb_subject_fields:
         target_metadata[f] = None
@@ -1024,6 +1026,174 @@ def test_brain_anatomy_unmatched_tokens_only() -> None:
     result = extract_wasDerivedFrom(metadata)
     # No matching anatomy → no synthetic BioSample created
     assert result is None
+
+
+_skip_no_in_file_herd = pytest.mark.skipif(
+    not hasattr(NWBFile, "get_external_resources"),
+    reason="this pynwb cannot store HERD in the NWB file",
+)
+
+
+def _write_nwb_with_herd(
+    nwb_path: Path, species: str, group_location: str, electrode_locations: list[str]
+) -> dict[str, str]:
+    """Write an NWB file whose HERD links locations (and Subject fields) to UBERON.
+
+    Returns the mapping of electrode location value to the linked UBERON ID.
+    """
+    nwbfile = NWBFile(
+        session_description="test herd",
+        identifier="test_herd_123",
+        session_start_time=datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc()),
+        subject=Subject(subject_id="sub01", species=species, sex="U", age="P90D"),
+    )
+    device = nwbfile.create_device(name="device")
+    group = nwbfile.create_electrode_group(
+        name="group", description="d", location=group_location, device=device
+    )
+    for loc in electrode_locations:
+        nwbfile.add_electrode(group=group, location=loc)
+    uberon = {
+        "S1_Tr": "UBERON:0008933",
+        "M1_anterior": "UBERON:0001384",
+        "VISp": "UBERON:0002436",
+        "EMG": "UBERON:0002380",
+    }
+    herd = nwbfile.get_external_resources()
+    # Subject links must not become anatomy, even though age uses UBERON
+    herd.add_ref(
+        container=nwbfile.subject,
+        attribute="age",
+        key="P90D",
+        entity_id="UBERON:0000113",
+        entity_uri="http://purl.obolibrary.org/obo/UBERON_0000113",
+    )
+    herd.add_ref(
+        container=nwbfile.subject,
+        attribute="species",
+        key=species,
+        entity_id="NCBITaxon:10116",
+        entity_uri="http://purl.obolibrary.org/obo/NCBITaxon_10116",
+    )
+    herd.add_ref(
+        container=group,
+        attribute="location",
+        key=group_location,
+        entity_id="UBERON:0000956",
+        entity_uri="http://purl.obolibrary.org/obo/UBERON_0000956",
+    )
+    for loc in dict.fromkeys(electrode_locations):
+        uid = uberon[loc]
+        herd.add_ref(
+            container=nwbfile.electrodes["location"],
+            key=loc,
+            entity_id=uid,
+            entity_uri="http://purl.obolibrary.org/obo/" + uid.replace(":", "_"),
+        )
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+    return uberon
+
+
+def _deepest_anatomy_ids(asset: Any) -> list[str]:
+    assert asset.wasDerivedFrom is not None
+    sample = asset.wasDerivedFrom[0]
+    while sample.wasDerivedFrom:
+        sample = sample.wasDerivedFrom[0]
+    assert sample.anatomy is not None
+    return [str(a.identifier) for a in sample.anatomy]
+
+
+@_skip_no_in_file_herd
+@pytest.mark.ai_generated
+def test_brain_anatomy_from_herd_non_mouse(tmp_path: Path) -> None:
+    """HERD-linked anatomy is used for any species and skips Subject links."""
+    nwb_path = tmp_path / "test_herd_rat.nwb"
+    _write_nwb_with_herd(
+        nwb_path,
+        species="Rattus norvegicus",
+        group_location="cortex",
+        electrode_locations=["S1_Tr", "M1_anterior", "S1_Tr"],
+    )
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert _deepest_anatomy_ids(asset) == [
+        "http://purl.obolibrary.org/obo/UBERON_0000956",
+        "http://purl.obolibrary.org/obo/UBERON_0008933",
+        "http://purl.obolibrary.org/obo/UBERON_0001384",
+    ]
+    assert asset.wasDerivedFrom is not None
+    sample = asset.wasDerivedFrom[0]
+    assert sample.identifier == "brain-region-sample"
+    assert sample.anatomy is not None
+    assert [a.name for a in sample.anatomy] == ["cortex", "S1_Tr", "M1_anterior"]
+
+
+@_skip_no_in_file_herd
+@pytest.mark.ai_generated
+def test_brain_anatomy_herd_takes_precedence_over_string_matching(
+    tmp_path: Path,
+) -> None:
+    """For a mouse, HERD links win over Allen CCF matching of location strings."""
+    nwb_path = tmp_path / "test_herd_mouse.nwb"
+    _write_nwb_with_herd(
+        nwb_path,
+        species="Mus musculus",
+        group_location="cortex",
+        electrode_locations=["VISp"],
+    )
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    ids = _deepest_anatomy_ids(asset)
+    assert "http://purl.obolibrary.org/obo/UBERON_0002436" in ids
+    assert not any("MBA_" in i for i in ids)
+
+
+@pytest.mark.ai_generated
+def test_herd_anatomy_to_models_labels_and_dedup() -> None:
+    """Names come from bundled tables, else the longest linked key."""
+    anatomy = herd_anatomy_to_models(
+        [
+            {
+                "identifier": "http://purl.obolibrary.org/obo/MBA_385",
+                "entity_id": "MBA:385",
+                "keys": ["V1"],
+            },
+            {
+                "identifier": "http://purl.obolibrary.org/obo/UBERON_0002380",
+                "entity_id": "UBERON:0002380",
+                "keys": ["EMG", "trapezius muscle"],
+            },
+            {
+                "identifier": "http://purl.obolibrary.org/obo/UBERON_0002380",
+                "entity_id": "UBERON:0002380",
+                "keys": ["EMG"],
+            },
+            {"identifier": "UBERON:0000956", "entity_id": "UBERON:0000956", "keys": []},
+        ]
+    )
+    assert [(str(a.identifier), a.name) for a in anatomy] == [
+        ("http://purl.obolibrary.org/obo/MBA_385", "Primary visual area"),
+        ("http://purl.obolibrary.org/obo/UBERON_0002380", "trapezius muscle"),
+        ("UBERON:0000956", "UBERON:0000956"),
+    ]
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_herd_without_species() -> None:
+    """HERD anatomy needs no species and attaches to a synthetic BioSample."""
+    metadata = {
+        "herd_anatomy": [
+            {
+                "identifier": "http://purl.obolibrary.org/obo/UBERON_0001384",
+                "entity_id": "UBERON:0001384",
+                "keys": ["M1_anterior"],
+            }
+        ],
+    }
+    result = extract_wasDerivedFrom(metadata)
+    assert result is not None
+    assert result[0].identifier == "brain-region-sample"
+    assert result[0].anatomy is not None
+    assert [a.name for a in result[0].anatomy] == ["M1_anterior"]
 
 
 @mark_xfail_ontobee
