@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-import traceback
 from typing import IO, Any, Generic
 from xml.etree.ElementTree import fromstring
 
@@ -601,157 +600,12 @@ def _get_nwb_asset_metadata(
     return metadata
 
 
-def _inspect_nwbfile(filepath: Path, ignore: list[str] | None) -> Iterator[Any]:
-    """Inspect an NWB file, stored as HDF5 or Zarr, with NWB Inspector,
-    yielding its ``InspectorMessage``\\s"""
-    # Avoid heavy import by importing within function:
-    from nwbinspector import (
-        Importance,
-        InspectorMessage,
-        inspect_nwbfile,
-        inspect_nwbfile_object,
-        load_config,
-    )
-
-    # Avoid heavy import by importing within function:
-    from dandi.pynwb_utils import is_nwb_zarr, open_nwb_zarr
-
-    kwargs: dict[str, Any] = {
-        "config": load_config(filepath_or_keyword="dandi"),
-        "ignore": ignore,
-        "importance_threshold": Importance.BEST_PRACTICE_VIOLATION,
-    }
-    if is_nwb_zarr(filepath):
-        # nwbinspector opens Zarr with NWBZarrIO, which reads only Zarr v3 as
-        # of hdmf-zarr 0.14 (Zarr v2 needs NWBZarrV2IO)
-
-        def read_error(e: Exception) -> InspectorMessage:
-            # As inspect_nwbfile() reports it
-            return InspectorMessage(
-                message=traceback.format_exc(),
-                importance=Importance.ERROR,
-                check_function_name=(
-                    "During io.read(), an error occurred: "
-                    f"{type(e).__module__}.{type(e).__name__}. This indicates "
-                    "that PyNWB was unable to read the file. See the traceback "
-                    "message for more details."
-                ),
-                file_path=str(filepath),
-            )
-
-        try:
-            io = open_nwb_zarr(filepath)
-        except Exception as e:
-            yield read_error(e)
-            return
-        with io:
-            try:
-                nwbfile = io.read()
-            except Exception as e:
-                yield read_error(e)
-                return
-            yield from inspect_nwbfile_object(nwbfile_object=nwbfile, **kwargs)
-    else:
-        yield from inspect_nwbfile(nwbfile_path=filepath, skip_validate=True, **kwargs)
-
-
-def _get_nwb_validation_errors(
-    asset: LocalAsset,
-    schema_version: str | None = None,
-    devel_debug: bool = False,
-    missing_file_content: MissingFileContent | None = None,
-    nwbinspector_ignore: list[str] | None = None,
-    validate_metadata: bool = True,
-) -> list[ValidationResult]:
+class NWBMixin(LocalAsset):
     """
-    Validate an asset which is an NWB file, stored as HDF5 or Zarr
-
-    If ``schema_version`` was provided, we only validate basic metadata,
-    and completely skip validation using nwbinspector.inspect_nwbfile.
-
-    If ``missing_file_content`` is ``only-non-data``, content-dependent
-    validators (pynwb, nwbinspector) are skipped and only path-layout
-    validation is performed.
-
-    ``nwbinspector_ignore`` lists the names of NWB Inspector checks not to
-    run.
-
-    ``validate_metadata`` is whether to validate the asset's metadata against
-    ``schema_version`` (if provided), which `ZarrAsset.get_validation_errors()`
-    does already for NWB files stored as Zarr.
+    What makes an asset an NWB file, whether stored as HDF5 (`NWBAsset`) or
+    as Zarr (`NWBZarrAsset`): its metadata is extracted from the NWB file,
+    which is validated with PyNWB and NWB Inspector
     """
-    errors: list[ValidationResult] = []
-
-    if missing_file_content == MissingFileContent.only_non_data:
-        # Skip content-dependent validators (pynwb, nwbinspector).
-        # The warning for the user is emitted centrally in _core.validate().
-        pass
-    else:
-        # Avoid heavy import by importing within function:
-        from dandi.pynwb_utils import validate as pynwb_validate
-
-        errors.extend(pynwb_validate(asset.filepath, devel_debug=devel_debug))
-        if schema_version is not None:
-            if validate_metadata:
-                errors.extend(
-                    LocalAsset.get_validation_errors(
-                        asset, schema_version=schema_version, devel_debug=devel_debug
-                    )
-                )
-        else:
-            # make sure that we have some basic metadata fields we require
-            try:
-                origin_validation_nwbinspector = Origin(
-                    type=OriginType.VALIDATION,
-                    validator=Validator.nwbinspector,
-                    validator_version=str(_get_nwb_inspector_version()),
-                )
-
-                for error in _inspect_nwbfile(asset.filepath, nwbinspector_ignore):
-                    severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance.name]
-                    # Not set when inspecting an open NWB file stored as Zarr
-                    file_path = error.file_path or str(asset.filepath)
-                    kw: Any = {}
-                    if error.location:
-                        kw["within_asset_paths"] = {
-                            file_path: error.location,
-                        }
-                    errors.append(
-                        ValidationResult(
-                            origin=origin_validation_nwbinspector,
-                            severity=severity,
-                            id=f"NWBI.{error.check_function_name}",
-                            scope=Scope.FILE,
-                            origin_result=error,
-                            path=Path(file_path),
-                            message=error.message,
-                            dataset_path=Path(file_path).parent.parent,
-                            dandiset_path=Path(file_path).parent,
-                            **kw,
-                        )
-                    )
-            except Exception as e:
-                if devel_debug:
-                    raise
-                # TODO: might reraise instead of making it into an error
-                return _pydantic_errors_to_validation_results(
-                    [e], asset.filepath, scope=Scope.FILE
-                )
-
-    # Avoid circular imports by importing within function:
-    from .bids import BIDSAsset
-    from ..organize import validate_organized_path
-
-    # Path-layout validation always runs (doesn't need content)
-    if not isinstance(asset, BIDSAsset) and asset.dandiset_path is not None:
-        errors.extend(
-            validate_organized_path(asset.path, asset.filepath, asset.dandiset_path)
-        )
-    return errors
-
-
-class NWBAsset(LocalFileAsset):
-    """Representation of a local NWB file"""
 
     def get_metadata(
         self,
@@ -777,9 +631,90 @@ class NWBAsset(LocalFileAsset):
         validators (pynwb, nwbinspector) are skipped and only path-layout
         validation is performed.
         """
-        return _get_nwb_validation_errors(
-            self, schema_version, devel_debug, missing_file_content
+        errors: list[ValidationResult] = []
+
+        if missing_file_content == MissingFileContent.only_non_data:
+            # Skip content-dependent validators (pynwb, nwbinspector).
+            # The warning for the user is emitted centrally in _core.validate().
+            pass
+        else:
+            # Avoid heavy import by importing within function:
+            from dandi.pynwb_utils import validate as pynwb_validate
+
+            errors.extend(pynwb_validate(self.filepath, devel_debug=devel_debug))
+            if schema_version is not None:
+                errors.extend(
+                    super().get_validation_errors(
+                        schema_version=schema_version, devel_debug=devel_debug
+                    )
+                )
+            else:
+                # make sure that we have some basic metadata fields we require
+                try:
+                    origin_validation_nwbinspector = Origin(
+                        type=OriginType.VALIDATION,
+                        validator=Validator.nwbinspector,
+                        validator_version=str(_get_nwb_inspector_version()),
+                    )
+
+                    for error in self._inspect_nwbfile():
+                        severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[
+                            error.importance.name
+                        ]
+                        kw: Any = {}
+                        if error.location:
+                            kw["within_asset_paths"] = {
+                                error.file_path: error.location,
+                            }
+                        errors.append(
+                            ValidationResult(
+                                origin=origin_validation_nwbinspector,
+                                severity=severity,
+                                id=f"NWBI.{error.check_function_name}",
+                                scope=Scope.FILE,
+                                origin_result=error,
+                                path=Path(error.file_path),
+                                message=error.message,
+                                dataset_path=Path(error.file_path).parent.parent,
+                                dandiset_path=Path(error.file_path).parent,
+                                **kw,
+                            )
+                        )
+                except Exception as e:
+                    if devel_debug:
+                        raise
+                    # TODO: might reraise instead of making it into an error
+                    return _pydantic_errors_to_validation_results(
+                        [e], self.filepath, scope=Scope.FILE
+                    )
+
+        # Avoid circular imports by importing within function:
+        from .bids import NWBBIDSAsset
+        from ..organize import validate_organized_path
+
+        # Path-layout validation always runs (doesn't need content)
+        if not isinstance(self, NWBBIDSAsset) and self.dandiset_path is not None:
+            errors.extend(
+                validate_organized_path(self.path, self.filepath, self.dandiset_path)
+            )
+        return errors
+
+    def _inspect_nwbfile(self) -> Iterator[Any]:
+        """Inspect the NWB file with NWB Inspector, as configured for DANDI,
+        yielding its ``InspectorMessage``\\s"""
+        # Avoid heavy import by importing within function:
+        from nwbinspector import Importance, inspect_nwbfile, load_config
+
+        yield from inspect_nwbfile(
+            nwbfile_path=self.filepath,
+            skip_validate=True,
+            config=load_config(filepath_or_keyword="dandi"),
+            importance_threshold=Importance.BEST_PRACTICE_VIOLATION,
         )
+
+
+class NWBAsset(NWBMixin, LocalFileAsset):
+    """Representation of a local NWB file"""
 
 
 class VideoAsset(LocalFileAsset):
