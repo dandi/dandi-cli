@@ -16,7 +16,7 @@ import os.path
 from pathlib import Path
 import random
 from time import sleep
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 import urllib.parse
 
 if TYPE_CHECKING:
@@ -31,6 +31,7 @@ from dandi import __version__ as dandi_version
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
+    NWB_ZARR_SUFFIX,
     S3_MAX_SINGLE_PART_UPLOAD,
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
@@ -56,7 +57,13 @@ from dandi.utils import (
     pre_upload_size_check,
 )
 
-from .bases import LocalDirectoryAsset, _add_data_standard
+from .bases import (
+    LocalDirectoryAsset,
+    _add_data_standard,
+    _get_nwb_asset_metadata,
+    _get_nwb_inspector_version,
+    _get_nwb_validation_errors,
+)
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     MissingFileContent,
@@ -596,12 +603,25 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        if self.is_nwb:
+            metadata = _get_nwb_asset_metadata(self, digest, ignore_errors)
+            # As for any Zarr asset; dataStandard says it is NWB
+            metadata.encodingFormat = ZARR_MIME_TYPE
+            return metadata
         metadata = get_default_metadata(self.filepath, digest=digest)
         metadata.encodingFormat = ZARR_MIME_TYPE
         metadata.path = self.path
         if self.path.endswith(".ome.zarr"):
             _add_data_standard(metadata, StandardsType(**ome_ngff_standard))
         return metadata
+
+    @property
+    def is_nwb(self) -> bool:
+        """Whether the Zarr is an NWB file (:file:`*.nwb.zarr`), whose metadata
+        is extracted from it, and which is validated as an NWB file as well
+        (reading it needs hdmf-zarr >= 0.14, and thus Python >= 3.12: the
+        optional ``nwb-zarr`` dependency)"""
+        return self.filepath.name.endswith(NWB_ZARR_SUFFIX)
 
     def get_validation_errors(
         self,
@@ -660,7 +680,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     ),
                 )
             )
-            return errors + super().get_validation_errors(
+            return errors + self._get_content_validation_errors(
                 schema_version=schema_version,
                 devel_debug=devel_debug,
                 missing_file_content=missing_file_content,
@@ -722,16 +742,61 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         message="Zarr group is empty.",
                     )
                 )
-        return errors + super().get_validation_errors(
+        return errors + self._get_content_validation_errors(
             schema_version=schema_version,
             devel_debug=devel_debug,
             missing_file_content=missing_file_content,
         )
 
+    def _get_content_validation_errors(
+        self,
+        schema_version: str | None,
+        devel_debug: bool,
+        missing_file_content: MissingFileContent | None,
+    ) -> list[ValidationResult]:
+        """
+        Validate the asset's metadata and, if the Zarr is an NWB file, the NWB
+        file (but for the asset's metadata, already validated)
+        """
+        errors = super().get_validation_errors(
+            schema_version=schema_version,
+            devel_debug=devel_debug,
+            missing_file_content=missing_file_content,
+        )
+        if self.is_nwb:
+            errors += _get_nwb_zarr_validation_errors(
+                self, schema_version, devel_debug, missing_file_content
+            )
+        return errors
+
     def _is_too_deep(self) -> bool:
-        for e in self.iterfiles():
-            if len(e.parts) >= MAX_ZARR_DEPTH + 1:
+        """
+        Whether a file in the Zarr is more than `MAX_ZARR_DEPTH` directories
+        deep, counting all chunks of an array as files directly in its
+        directory
+
+        The chunk keys of an array span as many directories as it has
+        dimensions (plus one, ``c``) with Zarr v3's default encoding (e.g.
+        ``data/c/1/0``), or with ``"/"`` as dimension separator in Zarr v2,
+        and so do not tell how deep the Zarr hierarchy is.  Hence the depth of
+        an array's chunks is not counted, and arrays are not even listed
+        (which spares listing their chunks).
+        """
+        dirs = [self.filetree]
+        while dirs:
+            d = dirs.pop()
+            # A file in d has len(d.parts) + 1 parts
+            too_deep = len(d.parts) >= MAX_ZARR_DEPTH
+            if _is_zarr_array_dir(d.filepath):
+                # Holds its metadata file, and its chunks count as files in it
+                if too_deep:
+                    return True
+                continue
+            entries = list(d.iterdir())
+            subdirs = [e for e in entries if e.is_dir()]
+            if too_deep and len(subdirs) < len(entries):
                 return True
+            dirs.extend(subdirs)
         return False
 
     def iter_upload(
@@ -1151,6 +1216,139 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         else:
             lgr.info("%s: Asset successfully uploaded", asset_path)
             yield {"status": "done", "asset": a}
+
+
+class ZarrNode(NamedTuple):
+    """The type, attributes and metadata of a Zarr group or array"""
+
+    #: ``"group"`` or ``"array"``
+    node_type: str
+    #: The attributes of the node
+    attributes: dict[str, Any]
+    #: The metadata of the node: the content of :file:`zarr.json` for Zarr v3,
+    #: and of :file:`.zgroup` or :file:`.zarray` for Zarr v2
+    metadata: dict[str, Any]
+
+
+def read_zarr_node(dirpath: Path) -> ZarrNode | None:
+    """
+    Read the type, attributes and metadata of the Zarr (v2 or v3) node at
+    ``dirpath``, or return `None` if it is not one
+
+    The JSON files are read directly, so that neither zarr nor hdmf-zarr is
+    needed for them, and nothing but metadata is read.
+    """
+
+    def load(path: Path) -> dict[str, Any]:
+        with path.open(encoding="utf-8") as fp:
+            data = json.load(fp)
+        if not isinstance(data, dict):
+            raise ValueError(f"{path} does not hold a JSON object")
+        return data
+
+    if (zarr_json := dirpath / "zarr.json").is_file():
+        metadata = load(zarr_json)
+        return ZarrNode(
+            str(metadata.get("node_type")), metadata.get("attributes") or {}, metadata
+        )
+    for name, node_type in ((".zgroup", "group"), (".zarray", "array")):
+        if (metadata_file := dirpath / name).is_file():
+            zattrs = dirpath / ".zattrs"
+            return ZarrNode(
+                node_type,
+                load(zattrs) if zattrs.is_file() else {},
+                load(metadata_file),
+            )
+    return None
+
+
+def _is_zarr_array_dir(path: Path) -> bool:
+    """Whether the directory ``path`` holds a Zarr (v2 or v3) array"""
+    if (path / ".zarray").is_file():
+        # Zarr v2, whatever its .zattrs
+        return True
+    try:
+        node = read_zarr_node(path)
+    except (OSError, ValueError):
+        # Not valid Zarr metadata, which validation reports otherwise
+        return False
+    return node is not None and node.node_type == "array"
+
+
+def _get_nwb_zarr_validation_errors(
+    asset: ZarrAsset,
+    schema_version: str | None,
+    devel_debug: bool,
+    missing_file_content: MissingFileContent | None,
+) -> list[ValidationResult]:
+    """Validate the NWB file stored as Zarr ``asset``, as any NWB file is, but
+    for the asset's metadata, which `ZarrAsset.get_validation_errors()`
+    validates"""
+    # Avoid heavy import by importing within function:
+    from dandi.pynwb_utils import get_nwb_zarr_reading_problem
+
+    if missing_file_content == MissingFileContent.only_non_data:
+        # Only the path layout is validated
+        return _get_nwb_validation_errors(
+            asset,
+            schema_version,
+            devel_debug,
+            missing_file_content,
+            validate_metadata=False,
+        )
+    if problem := get_nwb_zarr_reading_problem(asset.filepath):
+        # Not validating the NWB content at all, rather than with an error
+        # from each validator failing to read it, but still its path
+        return [
+            ValidationResult(
+                origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                severity=Severity.ERROR,
+                id="dandi_zarr.nwb_unreadable",
+                scope=Scope.FILE,
+                path=asset.filepath,
+                message=f"Cannot validate NWB file stored as Zarr: {problem}",
+            )
+        ] + _get_nwb_validation_errors(
+            asset,
+            schema_version,
+            devel_debug,
+            missing_file_content=MissingFileContent.only_non_data,
+            validate_metadata=False,
+        )
+    return _get_nwb_validation_errors(
+        asset,
+        schema_version=schema_version,
+        devel_debug=devel_debug,
+        missing_file_content=missing_file_content,
+        # NWB Inspector runs only without a schema_version
+        nwbinspector_ignore=(
+            _get_nwbinspector_ignore(asset.filepath) if schema_version is None else None
+        ),
+        validate_metadata=False,
+    )
+
+
+def _get_nwbinspector_ignore(filepath: Path) -> list[str] | None:
+    """Names of NWB Inspector checks which crash on the NWB file stored as Zarr
+    at ``filepath``, which would be reported as an ERROR"""
+    # Stop ignoring it once nwbinspector > 0.7.2 is required
+    if (
+        _get_nwb_inspector_version() > Version("0.7.2")
+        or get_zarr_format_version(filepath) != "3"
+    ):
+        return None
+    # check_large_dataset_compression crashes on Zarr v3 arrays (`compressor`
+    # is not available for Zarr format 3 arrays); fixed by
+    # https://github.com/NeurodataWithoutBorders/nwbinspector/pull/767
+    ignore = ["check_large_dataset_compression"]
+    lgr.debug(
+        "%s: not running NWB Inspector's %s, which nwbinspector %s cannot run on"
+        " Zarr v3",
+        filepath,
+        ", ".join(ignore),
+        _get_nwb_inspector_version(),
+    )
+    return ignore
 
 
 def _handle_failed_items_and_raise(

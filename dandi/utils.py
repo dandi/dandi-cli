@@ -345,7 +345,7 @@ def find_files(
             if not exclude_path(p):
                 if op.islink(p) and op.isdir(p):
                     lgr.warning(
-                        "%s: Ignoring unsupported symbolic link to directory", path
+                        "%s: Ignoring unsupported symbolic link to directory", p
                     )
                 else:
                     yield p
@@ -372,8 +372,8 @@ def list_paths(
 _cp_supports_reflink: bool | None = False if on_windows else None
 
 
-def copy_file(src: AnyPath, dst: AnyPath) -> None:
-    """Copy file from src to dst"""
+def _cp_reflink() -> bool:
+    """Whether ``cp`` supports ``--reflink``"""
     global _cp_supports_reflink
     if _cp_supports_reflink is None:
         r = subprocess.run(
@@ -385,12 +385,29 @@ def copy_file(src: AnyPath, dst: AnyPath) -> None:
         # Ignore command failures (e.g., if cp doesn't support --help), as the
         # command will still likely output its usage info.
         _cp_supports_reflink = "--reflink" in r.stdout
-    if _cp_supports_reflink:
+    return _cp_supports_reflink
+
+
+def copy_file(src: AnyPath, dst: AnyPath) -> None:
+    """Copy file from src to dst"""
+    if _cp_reflink():
         subprocess.run(
             ["cp", "-f", "--reflink=auto", "--", str(src), str(dst)], check=True
         )
     else:
         shutil.copy2(src, dst)
+
+
+def copy_tree(src: AnyPath, dst: AnyPath) -> None:
+    """Copy the directory src to dst, which must not exist, copying the files
+    which symlinks in it point to (e.g. git-annex'), as `copy_file` does"""
+    if _cp_reflink():
+        subprocess.run(
+            ["cp", "-R", "-L", "--reflink=auto", "--", str(src), str(dst)],
+            check=True,
+        )
+    else:
+        shutil.copytree(src, dst)
 
 
 def move_file(src: AnyPath, dst: AnyPath) -> Any:

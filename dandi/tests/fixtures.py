@@ -114,6 +114,16 @@ def simple1_nwb(
     )
 
 
+def _simple2_subject() -> pynwb.file.Subject:
+    return pynwb.file.Subject(
+        subject_id="mouse001",
+        date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
+        sex="U",
+        species="Mus musculus",
+        strain="C57BL/6J",
+    )
+
+
 @pytest.fixture(scope="session")
 def simple2_nwb(
     simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
@@ -121,14 +131,64 @@ def simple2_nwb(
     """With a subject"""
     return make_nwb_file(
         tmp_path_factory.mktemp("simple2") / "simple2.nwb",
-        subject=pynwb.file.Subject(
-            subject_id="mouse001",
-            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
-            sex="U",
-            species="Mus musculus",
-            strain="C57BL/6J",
-        ),
+        subject=_simple2_subject(),
         **simple1_nwb_metadata,
+    )
+
+
+@pytest.fixture(scope="session")
+def simple2_nwb_zarr(
+    simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    """Like ``simple2_nwb``, but stored as Zarr; needs hdmf-zarr >= 0.14"""
+    pytest.importorskip("hdmf_zarr", minversion="0.14")
+    return make_nwb_file(
+        tmp_path_factory.mktemp("simple2_zarr") / "simple2.nwb.zarr",
+        # As real files do; also tests reading their specifications
+        cache_spec=True,
+        subject=_simple2_subject(),
+        **simple1_nwb_metadata,
+    )
+
+
+@pytest.fixture(scope="session")
+def ecephys_v2_nwb_zarr(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A copy of the NWB file stored as Zarr v2 by hdmf-zarr < 0.14 (whose
+    electrodes table stores its ``group`` column with the pickle codec) at
+    ``$DANDI_TESTS_NWB_ZARR_V2``, as written by
+    :file:`data/nwb_zarr/make_ecephys_v2.py`, which the tests cannot run; needs
+    hdmf-zarr >= 0.14"""
+    pytest.importorskip("hdmf_zarr", minversion="0.14")
+    if not (src := os.environ.get("DANDI_TESTS_NWB_ZARR_V2")):
+        pytest.skip(
+            "DANDI_TESTS_NWB_ZARR_V2 is not set (see"
+            " dandi/tests/data/nwb_zarr/make_ecephys_v2.py)"
+        )
+    dest = tmp_path_factory.mktemp("ecephys_v2") / "ecephys_v2.nwb.zarr"
+    shutil.copytree(src, dest)
+    return dest
+
+
+@pytest.fixture
+def allow_pickle_decoding(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Allow decoding data stored with the pickle codec, as numcodecs (and
+    dandi) allow it"""
+    # This module is loaded through dandi's pytest plugin wherever dandi is
+    # installed, which numcodecs (which comes with zarr-python) may not be
+    numcodecs_pickles = pytest.importorskip("numcodecs.pickles")
+    monkeypatch.setenv("NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE", "1")
+    monkeypatch.setattr(
+        numcodecs_pickles, "ALLOW_UNSAFE_PICKLE_DECODE", True, raising=False
+    )
+
+
+@pytest.fixture
+def disallow_pickle_decoding(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disallow decoding data stored with the pickle codec, as by default"""
+    numcodecs_pickles = pytest.importorskip("numcodecs.pickles")
+    monkeypatch.delenv("NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE", raising=False)
+    monkeypatch.setattr(
+        numcodecs_pickles, "ALLOW_UNSAFE_PICKLE_DECODE", False, raising=False
     )
 
 

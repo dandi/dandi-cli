@@ -21,19 +21,21 @@ import os.path as op
 from pathlib import Path, PurePosixPath
 import posixpath
 import re
+import shutil
 import traceback
 import uuid
 
 import ruamel.yaml
 
 from . import get_logger
-from .consts import dandi_layout_fields
+from .consts import NWB_ZARR_SUFFIX, dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .utils import (
     AnyPath,
     Parallel,
     copy_file,
+    copy_tree,
     delayed,
     ensure_datetime,
     find_files,
@@ -75,12 +77,21 @@ class CopyMode(StrEnum):
     HARDLINK = "hardlink"
 
     def copy(self, old_path: AnyPath, new_path: AnyPath) -> None:
+        """Copy, move, or link the file or directory (e.g. an NWB file stored
+        as Zarr) ``old_path`` to ``new_path``"""
         if self is CopyMode.SYMLINK:
             os.symlink(old_path, new_path)
         elif self is CopyMode.HARDLINK:
-            os.link(old_path, new_path)
+            if op.isdir(old_path):
+                # A directory cannot be hard-linked, but its files can
+                shutil.copytree(old_path, new_path, copy_function=os.link)
+            else:
+                os.link(old_path, new_path)
         elif self is CopyMode.COPY:
-            copy_file(old_path, new_path)
+            if op.isdir(old_path):
+                copy_tree(old_path, new_path)
+            else:
+                copy_file(old_path, new_path)
         elif self is CopyMode.MOVE:
             move_file(old_path, new_path)
         else:
@@ -215,7 +226,10 @@ def create_unique_filenames_from_metadata(
     # And some initial sanitization
     for r in metadata:
         # extract File name extension and place them into the records
-        r["extension"] = op.splitext(r["path"])[1]
+        if r["path"].endswith(NWB_ZARR_SUFFIX):
+            r["extension"] = NWB_ZARR_SUFFIX
+        else:
+            r["extension"] = op.splitext(r["path"])[1]
         # since those might be used in dandi_path
         for field in "subject_id", "session_id":
             value = r.get(field, None)
@@ -770,16 +784,62 @@ def _get_non_unique_paths(metadata):
     return non_unique
 
 
-def detect_link_type(srcfile: AnyPath, destdir: AnyPath) -> FileOperationMode:
+def find_nwb_paths(paths: Sequence[AnyPath]) -> list[str]:
+    """Find NWB files (:file:`*.nwb`) and NWB files stored as Zarr
+    (:file:`*.nwb.zarr` directories) among and under ``paths``
+
+    The files within NWB files stored as Zarr are not looked into, and
+    directories named like an NWB file (:file:`*.nwb`) are ignored with a
+    warning, as an NWB file stored as Zarr must be named :file:`*.nwb.zarr`.
+    """
+    nwb_regex = r"\.nwb(\.zarr)?\Z"
+    found: list[str] = []
+
+    def add(path: str) -> None:
+        if not op.isdir(path):
+            if path.endswith(".nwb"):
+                found.append(path)
+        elif path.endswith(NWB_ZARR_SUFFIX):
+            found.append(path)
+        else:
+            lgr.warning(
+                "%s: ignoring directory named like an NWB file; an NWB file"
+                " stored as Zarr must be named *%s",
+                path,
+                NWB_ZARR_SUFFIX,
+            )
+
+    for p in map(str, paths):
+        if op.isdir(p) and re.search(nwb_regex, p.rstrip("/" + os.sep)):
+            add(p.rstrip("/" + os.sep))
+        else:
+            for q in find_files(nwb_regex, paths=[p], dirs=True, dirs_avoid=nwb_regex):
+                add(q)
+    return found
+
+
+def detect_link_type(
+    srcfile: AnyPath, destdir: AnyPath, symlinks: bool = True
+) -> FileOperationMode:
     """
     Determine what type of links the filesystem will let us make from the file
-    ``srcfile`` to the directory ``destdir``.  If symlinks are allowed, returns
-    ``"symlink"``.  Otherwise, if hard links are allowed, returns
-    ``"hardlink"``.  Otherwise, returns ``"copy"``.
+    ``srcfile`` to the directory ``destdir``.  If symlinks are allowed (and
+    ``symlinks`` is true), returns ``"symlink"``.  Otherwise, if hard links are
+    allowed, returns ``"hardlink"``.  Otherwise, returns ``"copy"``.
+
+    If ``srcfile`` is a directory (an NWB file stored as Zarr), links are
+    tested with a file in it, as only files can be hard-linked.
     """
+    if op.isdir(srcfile):
+        srcfile = next(
+            (op.join(root, f) for root, _, files in os.walk(srcfile) for f in files),
+            srcfile,
+        )
     destfile = Path(destdir, f".dandi.{os.getpid()}.dest")
     try:
         try:
+            if not symlinks:
+                raise OSError("Not testing symlinks")
             os.symlink(srcfile, destfile)
         except OSError:
             try:
@@ -886,7 +946,7 @@ def organize(
         metadata = load_jsonl(paths[0])
         link_test_file = metadata[0]["path"]
     else:
-        paths = list(find_files(r"\.nwb\Z", paths=paths))
+        paths = find_nwb_paths(paths)
         duplicates = [path for path, count in Counter(paths).items() if count > 1]
         if duplicates:
             msg = ", ".join(duplicates[:3])
@@ -898,7 +958,10 @@ def organize(
                 msg,
             )
             paths = list(set(paths))
-        link_test_file = paths[0] if paths else None
+        # A regular file, if any, as a directory cannot be hard-linked
+        link_test_file = next(
+            (p for p in paths if not op.isdir(p)), paths[0] if paths else None
+        )
         lgr.info("Loading metadata from %d files", len(paths))
         # Done here so we could still reuse cached 'get_metadata'
         # without having two types of invocation and to guard against
@@ -973,11 +1036,43 @@ def organize(
         else:
             raise AssertionError(f"Unhandled OrganizeInvalid member: {invalid!r}")
 
+    # NWB files stored as Zarr, which are directories
+    zarr_paths = {m["path"] for m in metadata if op.isdir(m["path"])}
+    if files_mode is FileOperationMode.SYMLINK and zarr_paths:
+        raise ValueError(
+            "NWB files stored as Zarr cannot be organized as symlinks, which "
+            "`dandi upload` and `dandi validate` do not follow for directories: "
+            f"{', '.join(sorted(zarr_paths))}.  Use another --files-mode"
+        )
+    if zarr_with_media := [
+        m["path"]
+        for m in metadata
+        if m["path"] in zarr_paths and m.get("external_file_objects")
+    ]:
+        raise NotImplementedError(
+            "Organizing NWB files stored as Zarr which refer to external media "
+            "files (whose paths --update-external-file-paths would update) is not "
+            f"supported yet: {', '.join(zarr_with_media)}"
+        )
+
     if not op.lexists(dandiset_path):
         act(os.makedirs, dandiset_path)
 
     if files_mode is FileOperationMode.AUTO:
         files_mode = detect_link_type(link_test_file, dandiset_path)
+        if files_mode is FileOperationMode.SYMLINK and zarr_paths:
+            # Directories are not symlinked, see above
+            zarr_files_mode = detect_link_type(
+                min(zarr_paths), dandiset_path, symlinks=False
+            )
+            lgr.info(
+                "Setting files_mode=%r for NWB files stored as Zarr",
+                str(zarr_files_mode),
+            )
+        else:
+            zarr_files_mode = files_mode
+    else:
+        zarr_files_mode = files_mode
 
     metadata = create_unique_filenames_from_metadata(
         metadata, required_fields=required_fields
@@ -1072,13 +1167,15 @@ def organize(
 
         e_path = e["path"]
         e_abs_path = e_path
+        # In auto mode, NWB files stored as Zarr may not be symlinked like files
+        mode = zarr_files_mode if e["path"] in zarr_paths else files_mode
 
         if not op.isabs(e_path):
             e_abs_path = op.abspath(e_path)
             if use_abs_paths:
                 e_path = e_abs_path
             elif (
-                files_mode is FileOperationMode.SYMLINK
+                mode is FileOperationMode.SYMLINK
             ):  # path should be relative to the target
                 e_path = op.relpath(e_abs_path, dandi_dirpath)
 
@@ -1086,7 +1183,7 @@ def organize(
             lgr.debug("Skipping %s since the same in source/destination", e_path)
             skip_same.append(e)
             continue
-        elif files_mode is FileOperationMode.SYMLINK and op.realpath(
+        elif mode is FileOperationMode.SYMLINK and op.realpath(
             dandi_abs_fullpath
         ) == op.realpath(e_abs_path):
             lgr.debug(
@@ -1106,7 +1203,7 @@ def organize(
             if files_mode is FileOperationMode.SIMULATE:
                 os.symlink(e_path, dandi_fullpath)
             else:
-                files_mode.as_copy_mode().copy(e_path, dandi_fullpath)
+                mode.as_copy_mode().copy(e_path, dandi_fullpath)
                 acted_upon.append(e)
 
     if acted_upon and in_place:
@@ -1155,7 +1252,7 @@ ORGANIZED_FILENAME_REGEX = (
     rf"(_ses-{LABELREGEX})?"
     rf"(_(tis|slice|cell|desc|probe|obj)-{LABELREGEX})*"
     r"(_[a-z]+(\+[a-z]+)*)?"
-    r"\.nwb"
+    r"\.nwb(\.zarr)?"
 )
 ORGANIZED_FOLDER_REGEX = rf"sub-{LABELREGEX}"
 
@@ -1175,7 +1272,7 @@ def validate_organized_path(
         `ValidationResult` objects)
     """
     path = PurePosixPath(asset_path)
-    if path.suffix != ".nwb":
+    if path.suffix != ".nwb" and not path.name.endswith(NWB_ZARR_SUFFIX):
         return []
     errors = []
     if not re.fullmatch(ORGANIZED_FILENAME_REGEX, path.name):

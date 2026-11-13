@@ -39,6 +39,11 @@ or
 
     conda install -c conda-forge dandi
 
+To validate and upload NWB files stored as Zarr (`*.nwb.zarr`), which needs
+Python >= 3.12, install the optional `nwb-zarr` dependencies as well:
+
+    pip install "dandi[nwb-zarr]"
+
 
 ## CLI Tool
 

@@ -10,10 +10,11 @@ import weakref
 from dandi.consts import (
     BIDS_DATASET_DESCRIPTION,
     IMAGE_FILE_EXTENSIONS,
+    NWB_ZARR_SUFFIX,
     VIDEO_FILE_EXTENSIONS,
     ZARR_EXTENSIONS,
 )
-from dandi.exceptions import UnknownAssetError
+from dandi.exceptions import NWBDirectoryError, UnknownAssetError
 
 from .bases import DandiFile, GenericAsset, ImageAsset, LocalAsset, NWBAsset, VideoAsset
 from .bids import (
@@ -43,7 +44,13 @@ class DandiFileType(Enum):
             if path.suffix in ZARR_EXTENSIONS:
                 if is_empty_zarr(path):
                     raise UnknownAssetError("Empty directories cannot be Zarr assets")
+                # Including NWB files stored as Zarr (*.nwb.zarr)
                 return DandiFileType.ZARR
+            if path.suffix == ".nwb":
+                raise NWBDirectoryError(
+                    f"Directory has NWB file extension {path.suffix!r}; an NWB"
+                    f" file stored as Zarr must be named *{NWB_ZARR_SUFFIX}"
+                )
             raise UnknownAssetError(
                 f"Directory has unrecognized suffix {path.suffix!r}"
             )
@@ -89,6 +96,8 @@ class BIDSFileFactory(DandiFileFactory):
 
     CLASSES: ClassVar[Mapping[DandiFileType, type[BIDSAsset]]] = {
         DandiFileType.NWB: NWBBIDSAsset,
+        # TODO: extract the NWB metadata of NWB files stored as Zarr in BIDS
+        # datasets too (they are validated as NWB files)
         DandiFileType.ZARR: ZarrBIDSAsset,
         DandiFileType.VIDEO: GenericBIDSAsset,
         DandiFileType.IMAGE: GenericBIDSAsset,
