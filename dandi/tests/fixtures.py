@@ -26,7 +26,6 @@ import pynwb.image
 from pynwb.ophys import ImageSeries
 import pytest
 import requests
-import zarr
 
 from .skip import skipif
 from .. import get_logger
@@ -685,6 +684,9 @@ def text_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 @pytest.fixture()
 def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
+    # zarr-python is an optional dependency (the `zarr` extra), and this module
+    # is loaded through dandi's pytest plugin wherever dandi is installed
+    zarr = pytest.importorskip("zarr")
     zarr.save(
         new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from base64 import b64encode
 from collections import Counter
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import Enum
+from importlib.util import find_spec
 import json
 import math
 import os
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from ..upload import ZarrMode
 
 from dandischema.models import BareAsset, DigestType, StandardsType, ome_ngff_standard
-from pydantic import BaseModel, ConfigDict, ValidationError
+from packaging.version import Version
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
 
@@ -71,21 +72,6 @@ from ..validate._types import (
 lgr = get_logger()
 
 
-class _Zarr3Metadata(BaseModel):
-    """
-    Metadata for Zarr format V3 stored in the zarr.json file
-
-    Note
-    ----
-        This will not be needed once the upgrade to zarr-python 3.x is done and
-        should be removed.
-    """
-
-    node_type: str
-
-    model_config = ConfigDict(strict=True)
-
-
 def get_zarr_format_version(path: Path) -> Optional[str]:
     """
     Get the Zarr format version from a Zarr object, a Zarr group or array
@@ -127,9 +113,9 @@ def get_zarr_format_version(path: Path) -> Optional[str]:
     return None
 
 
-def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[ValidationResult]:
+def _validate_zarr3(path: Path, devel_debug: bool = False) -> list[ValidationResult]:
     """
-    Validate a Zarr format V3 LocalStore with the tensorstore package
+    Validate a Zarr format V3 LocalStore with zarr-metadata and zarr-python
 
     Parameters
     ----------
@@ -151,13 +137,18 @@ def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[Validation
 
     Note
     ----
-        Since tensorstore does not support the concept of a Zarr group, this function
-        validates a Zarr format V3 LocalStore by opening all the contained arrays with
-        tensorstore individually.
-
-        This function will no longer be needed once the upgrade to zarr-python 3.x is
-        done and should be removed.
+        zarr-python can partially open a malformed Zarr format V3 store (e.g. valid
+        root metadata, bad child metadata), so this function validates a Zarr format
+        V3 LocalStore by opening all the contained arrays individually.
     """
+
+    # zarr-metadata is an optional dependency (the `zarr` extra)
+    import zarr_metadata
+    from zarr_metadata.model import (
+        ZarrV3ArrayMetadataReading,
+        read_repaired_node_metadata_v3,
+    )
+    from zarr_metadata.problems import MetadataValidationError
 
     if not path.is_dir():
         raise ValueError(f"Path {path} is not a directory")
@@ -190,10 +181,9 @@ def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[Validation
     for root, dirs, files in os.walk(path):
         if meta_fname in files:
             meta_path = Path(root) / meta_fname
-            meta_text = meta_path.read_text()
             try:
-                meta = _Zarr3Metadata.model_validate_json(meta_text)
-            except ValidationError as e:
+                meta = json.loads(meta_path.read_text())
+            except (OSError, ValueError) as e:
                 if devel_debug:
                     raise
                 results.append(
@@ -213,20 +203,42 @@ def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[Validation
                         path=meta_path,
                     )
                 )
-            else:
-                # Check if the directory is a Zarr array
-                if meta.node_type == "array":
-                    results.extend(_ts_validate_zarr3_array(Path(root), devel_debug))
-                    dirs.clear()  # Skip subdirectories
+                continue
+            # Known writer bugs, such as the `"consolidated_metadata": null`
+            # that zarr-python wrote before 3.1.4, are repaired, not reported
+            reading = read_repaired_node_metadata_v3(meta).reading
+            if reading.problems and devel_debug:
+                raise MetadataValidationError(reading.problems)
+            for problem in reading.problems:
+                results.append(
+                    ValidationResult(
+                        id="zarr.invalid_zarr_json",
+                        origin=Origin(
+                            type=OriginType.VALIDATION,
+                            validator=Validator.zarr_metadata,
+                            validator_version=zarr_metadata.__version__,
+                            standard=Standard.ZARR,
+                            standard_version="3",
+                        ),
+                        scope=Scope.FILE,
+                        severity=Severity.ERROR,
+                        message=f"Invalid zarr.json file: {problem}",
+                        path=meta_path,
+                    )
+                )
+            # Check if the directory is a Zarr array
+            if isinstance(reading, ZarrV3ArrayMetadataReading):
+                results.extend(_validate_zarr3_array(Path(root), devel_debug))
+                dirs.clear()  # Skip subdirectories
 
     return results
 
 
-def _ts_validate_zarr3_array(
+def _validate_zarr3_array(
     path: Path, devel_debug: bool = False
 ) -> list[ValidationResult]:
     """
-    Validate a Zarr format V3 array in a LocalStore with the tensorstore package
+    Validate a Zarr format V3 array in a LocalStore with zarr-python
 
     Parameters
     ----------
@@ -239,46 +251,167 @@ def _ts_validate_zarr3_array(
     -------
     list[ValidationResult]
         A list of validation results representing validation errors encountered
-
-    Note
-    ----
-        This function will no longer be needed once the upgrade to zarr-python 3.x is
-        done and should be removed.
     """
     # Avoid heavy import by importing within function
-    from importlib.metadata import version
-
-    import tensorstore as ts  # type: ignore[import]
+    import zarr
 
     results: list[ValidationResult] = []
 
-    # TensorStore spec describing where and how to read the Zarr array
-    spec = {"driver": "zarr3", "kvstore": {"driver": "file", "path": str(path)}}
-
     try:
-        ts.open(spec, read=True, write=False).result()
+        zarr.open_array(path, mode="r", zarr_format=3)
     except Exception as e:
         if devel_debug:
             raise
         results.append(
             ValidationResult(
-                id="zarr.tensorstore_cannot_open",
+                id="zarr.cannot_open",
                 origin=Origin(
                     type=OriginType.INTERNAL,
-                    validator=Validator.tensorstore,
-                    validator_version=version("tensorstore"),
+                    validator=Validator.zarr,
+                    validator_version=zarr.__version__,
                     standard=Standard.ZARR,
                     standard_version="3",
                 ),
                 scope=Scope.FILE,
                 origin_result=e,
                 severity=Severity.ERROR,
-                message="Error opening Zarr array with tensorstore",
+                message="Error opening Zarr array",
                 path=path,
             )
         )
 
     return results
+
+
+def _validate_zarr2(path: Path, devel_debug: bool = False) -> list[ValidationResult]:
+    """
+    Validate the metadata of a Zarr format V2 store with zarr-metadata
+
+    Parameters
+    ----------
+    path : The path to the Zarr format V2 store in the filesystem
+    devel_debug : bool
+        If True, re-raise an exception instead of returning it packaged in a
+        `ValidationResult` object
+
+    Returns
+    -------
+    list[ValidationResult]
+        A list of validation results representing validation errors encountered
+    """
+    # zarr-metadata is an optional dependency (the `zarr` extra)
+    from zarr_metadata.model import (
+        read_repaired_consolidated_metadata_v2,
+        read_repaired_node_metadata_v2,
+    )
+
+    results: list[ValidationResult] = []
+
+    for root, dirs, files in os.walk(path):
+        if Path(root) == path and ".zmetadata" in files:
+            # Readers such as hdmf-zarr open stores through it
+            zmetadata_path = path / ".zmetadata"
+            results.extend(
+                _validate_zarr2_metadata(
+                    lambda: json.loads(zmetadata_path.read_text()),
+                    read_repaired_consolidated_metadata_v2,
+                    zmetadata_path,
+                    "Zarr consolidated metadata",
+                    devel_debug,
+                )
+            )
+        node_files = [f for f in (".zarray", ".zgroup", ".zattrs") if f in files]
+        if ".zarray" not in node_files and ".zgroup" not in node_files:
+            continue
+        results.extend(
+            _validate_zarr2_metadata(
+                lambda: {
+                    f: json.loads((Path(root) / f).read_text()) for f in node_files
+                },
+                read_repaired_node_metadata_v2,
+                Path(root),
+                "Zarr metadata",
+                devel_debug,
+            )
+        )
+        if ".zarray" in node_files:
+            dirs.clear()  # Skip the chunks
+
+    return results
+
+
+def _validate_zarr2_metadata(
+    load: Callable[[], Any],
+    read: Callable[[Any], Any],
+    path: Path,
+    label: str,
+    devel_debug: bool = False,
+) -> list[ValidationResult]:
+    """
+    Validate Zarr format V2 metadata with zarr-metadata
+
+    Parameters
+    ----------
+    load : Loads the metadata from its JSON file or files
+    read : The zarr-metadata function that reads and repairs the metadata
+    path : The path reported in the validation results
+    label : What the metadata is, used in the messages of the validation results
+    devel_debug : bool
+        If True, re-raise an exception instead of returning it packaged in a
+        `ValidationResult` object
+
+    Returns
+    -------
+    list[ValidationResult]
+        A list of validation results representing validation errors encountered
+    """
+    # zarr-metadata is an optional dependency (the `zarr` extra)
+    import zarr_metadata
+    from zarr_metadata.problems import MetadataValidationError
+
+    try:
+        meta = load()
+    except (OSError, ValueError) as e:
+        if devel_debug:
+            raise
+        return [
+            ValidationResult(
+                id="zarr.invalid_metadata",
+                origin=Origin(
+                    type=OriginType.VALIDATION,
+                    validator=Validator.dandi_zarr,
+                    validator_version=dandi_version,
+                    standard=Standard.ZARR,
+                    standard_version="2",
+                ),
+                scope=Scope.FILE,
+                origin_result=e,
+                severity=Severity.ERROR,
+                message=f"Invalid {label}",
+                path=path,
+            )
+        ]
+    # Known writer bugs are repaired, not reported
+    reading = read(meta).reading
+    if reading.problems and devel_debug:
+        raise MetadataValidationError(reading.problems)
+    return [
+        ValidationResult(
+            id="zarr.invalid_metadata",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.zarr_metadata,
+                validator_version=zarr_metadata.__version__,
+                standard=Standard.ZARR,
+                standard_version="2",
+            ),
+            scope=Scope.FILE,
+            severity=Severity.ERROR,
+            message=f"Invalid {label}: {problem}",
+            path=path,
+        )
+        for problem in reading.problems
+    ]
 
 
 def _is_empty_group(group: Any) -> bool:
@@ -476,10 +609,63 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
-        # Avoid heavy import by importing within function:
-        import zarr
-
         errors: list[ValidationResult] = []
+        # The depth check needs neither zarr-python nor zarr-metadata
+        if self._is_too_deep():
+            msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
+            if devel_debug:
+                raise ValueError(msg)
+            errors.append(
+                ValidationResult(
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                    severity=Severity.ERROR,
+                    id="dandi_zarr.tree_depth_exceeded",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message=msg,
+                )
+            )
+
+        # zarr-python and zarr-metadata are optional dependencies (the `zarr`
+        # extra), and only zarr-python 3.x can read Zarr format V3.
+        zarr_version: str | None
+        try:
+            # Avoid heavy import by importing within function:
+            import zarr
+        except ImportError:
+            zarr_version = None
+        else:
+            zarr_version = zarr.__version__
+        if (
+            zarr_version is None
+            or Version(zarr_version).major < 3
+            or find_spec("zarr_metadata") is None
+        ):
+            found = (
+                "it is not installed"
+                if zarr_version is None
+                else f"found {zarr_version}"
+            )
+            errors.append(
+                ValidationResult(
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                    severity=Severity.ERROR,
+                    id="dandi_zarr.zarr_python_required",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message=(
+                        f"Validating Zarr assets requires zarr-python 3.x ({found}) "
+                        "and zarr-metadata. Install them with "
+                        "`pip install 'dandi[zarr]'`."
+                    ),
+                )
+            )
+            return errors + super().get_validation_errors(
+                schema_version=schema_version,
+                devel_debug=devel_debug,
+                missing_file_content=missing_file_content,
+            )
+
         origin_internal_zarr: Origin = Origin(
             type=OriginType.INTERNAL,
             validator=Validator.zarr,
@@ -487,20 +673,24 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             standard=Standard.ZARR,
         )
 
-        # Zarr V3 stores are validated by `_ts_validate_zarr3` regardless of
-        # zarr-python version. With zarr-python 2.x, `zarr.open()` cannot
-        # handle V3 at all (raises `PathNotFoundError`); with zarr-python 3.x
-        # it can sometimes partially open malformed V3 stores (e.g. valid
-        # root metadata, bad child metadata), which would cause us to miss
-        # the `_ts_validate_zarr3` path. Detecting the format up front keeps
-        # the validation behaviour consistent across versions.
+        # Zarr V3 stores are validated by `_validate_zarr3`, which opens every
+        # array individually: `zarr.open()` can sometimes partially open
+        # malformed V3 stores (e.g. valid root metadata, bad child metadata),
+        # which would cause us to miss errors.
         format_version = get_zarr_format_version(self.filepath)
         if format_version == "3":
-            errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
+            errors.extend(_validate_zarr3(self.filepath, devel_debug))
             data = None
         else:
+            if format_version == "2":
+                errors.extend(_validate_zarr2(self.filepath, devel_debug))
             try:
-                data = zarr.open(str(self.filepath), mode="r")
+                # Consolidated metadata is skipped because zarr-python 3.x
+                # cannot parse some V2 array metadata written by zarr-python
+                # 2.x, such as object arrays with a fill value of 0 or the
+                # `json2` codec, both found in NWB files written by hdmf-zarr.
+                # `_is_empty_group` already tolerates such members.
+                data = zarr.open(str(self.filepath), mode="r", use_consolidated=False)
             except Exception as e:
                 if devel_debug:
                     raise
@@ -532,20 +722,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         message="Zarr group is empty.",
                     )
                 )
-        if self._is_too_deep():
-            msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
-            if devel_debug:
-                raise ValueError(msg)
-            errors.append(
-                ValidationResult(
-                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
-                    severity=Severity.ERROR,
-                    id="dandi_zarr.tree_depth_exceeded",
-                    scope=Scope.FILE,
-                    path=self.filepath,
-                    message=msg,
-                )
-            )
         return errors + super().get_validation_errors(
             schema_version=schema_version,
             devel_debug=devel_debug,
