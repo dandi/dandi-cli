@@ -109,6 +109,12 @@ def organize(
     of "object_id" is added if the aforementioned keys and the list of
     modalities are not sufficient to disambiguate different files.
 
+    NWB files stored as Zarr, i.e. .nwb.zarr directories (reading which needs
+    Python >= 3.12 and `pip install 'dandi[nwb-zarr]'`), are organized
+    likewise, keeping their .nwb.zarr extension.  As `dandi upload` does not
+    follow symbolic links to directories, they are never symlinked: the auto
+    mode hard-links or copies them, and the symlink mode refuses them.
+
     You can visit https://dandiarchive.org for a growing collection of
     (re)organized dandisets.
     """

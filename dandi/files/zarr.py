@@ -15,7 +15,7 @@ import os.path
 from pathlib import Path
 import random
 from time import sleep
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 import urllib.parse
 
 if TYPE_CHECKING:
@@ -553,9 +553,33 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         )
 
     def _is_too_deep(self) -> bool:
-        for e in self.iterfiles():
-            if len(e.parts) >= MAX_ZARR_DEPTH + 1:
+        """
+        Whether a file in the Zarr is more than `MAX_ZARR_DEPTH` directories
+        deep, counting all chunks of an array as files directly in its
+        directory
+
+        The chunk keys of an array span as many directories as it has
+        dimensions (plus one, ``c``) with Zarr v3's default encoding (e.g.
+        ``data/c/1/0``), or with ``"/"`` as dimension separator in Zarr v2,
+        and so do not tell how deep the Zarr hierarchy is.  Hence the depth of
+        an array's chunks is not counted, and arrays are not even listed
+        (which spares listing their chunks).
+        """
+        dirs = [self.filetree]
+        while dirs:
+            d = dirs.pop()
+            # A file in d has len(d.parts) + 1 parts
+            too_deep = len(d.parts) >= MAX_ZARR_DEPTH
+            if _is_zarr_array_dir(d.filepath):
+                # Holds its metadata file, and its chunks count as files in it
+                if too_deep:
+                    return True
+                continue
+            entries = list(d.iterdir())
+            subdirs = [e for e in entries if e.is_dir()]
+            if too_deep and len(subdirs) < len(entries):
                 return True
+            dirs.extend(subdirs)
         return False
 
     def iter_upload(
@@ -975,6 +999,63 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         else:
             lgr.info("%s: Asset successfully uploaded", asset_path)
             yield {"status": "done", "asset": a}
+
+
+class ZarrNode(NamedTuple):
+    """The type, attributes and metadata of a Zarr group or array"""
+
+    #: ``"group"`` or ``"array"``
+    node_type: str
+    #: The attributes of the node
+    attributes: dict[str, Any]
+    #: The metadata of the node: the content of :file:`zarr.json` for Zarr v3,
+    #: and of :file:`.zgroup` or :file:`.zarray` for Zarr v2
+    metadata: dict[str, Any]
+
+
+def read_zarr_node(dirpath: Path) -> ZarrNode | None:
+    """
+    Read the type, attributes and metadata of the Zarr (v2 or v3) node at
+    ``dirpath``, or return `None` if it is not one
+
+    The JSON files are read directly, so that neither zarr nor hdmf-zarr is
+    needed for them, and nothing but metadata is read.
+    """
+
+    def load(path: Path) -> dict[str, Any]:
+        with path.open(encoding="utf-8") as fp:
+            data = json.load(fp)
+        if not isinstance(data, dict):
+            raise ValueError(f"{path} does not hold a JSON object")
+        return data
+
+    if (zarr_json := dirpath / "zarr.json").is_file():
+        metadata = load(zarr_json)
+        return ZarrNode(
+            str(metadata.get("node_type")), metadata.get("attributes") or {}, metadata
+        )
+    for name, node_type in ((".zgroup", "group"), (".zarray", "array")):
+        if (metadata_file := dirpath / name).is_file():
+            zattrs = dirpath / ".zattrs"
+            return ZarrNode(
+                node_type,
+                load(zattrs) if zattrs.is_file() else {},
+                load(metadata_file),
+            )
+    return None
+
+
+def _is_zarr_array_dir(path: Path) -> bool:
+    """Whether the directory ``path`` holds a Zarr (v2 or v3) array"""
+    if (path / ".zarray").is_file():
+        # Zarr v2, whatever its .zattrs
+        return True
+    try:
+        node = read_zarr_node(path)
+    except (OSError, ValueError):
+        # Not valid Zarr metadata, which validation reports otherwise
+        return False
+    return node is not None and node.node_type == "array"
 
 
 def _handle_failed_items_and_raise(

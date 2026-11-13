@@ -199,6 +199,9 @@ IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif"]
 
 ZARR_EXTENSIONS = [".ngff", ".zarr"]
 
+#: The suffix of (the directory of) an NWB file stored as Zarr
+NWB_ZARR_SUFFIX = ".nwb.zarr"
+
 #: Maximum allowed depth of a Zarr directory tree
 MAX_ZARR_DEPTH = 7
 

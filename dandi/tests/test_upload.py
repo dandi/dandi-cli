@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import os
 from pathlib import Path
-from shutil import copyfile, rmtree
+from shutil import copyfile, copytree, rmtree
 from typing import Any
 from unittest.mock import Mock
 from urllib.parse import urlparse
@@ -32,6 +32,7 @@ from ..dandiset import Dandiset
 from ..download import download
 from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
+from ..files import zarr as files_zarr
 from ..files.zarr import ZarrAsset
 from ..pynwb_utils import make_nwb_file
 from ..upload import UploadExisting, UploadValidation
@@ -464,6 +465,32 @@ def test_upload_bids_zarr(
     assert asset.path.endswith(".zarr")
     # Test that uploading again without any changes works:
     bids_zarr_dandiset.upload()
+
+
+@pytest.mark.ai_generated
+def test_upload_nwb_zarr(
+    new_dandiset: SampleDandiset,
+    simple2_nwb_zarr: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An NWB file stored as Zarr is uploaded as a Zarr asset with its NWB
+    metadata"""
+    # tensorstore cannot validate the string arrays of every NWB file stored
+    # as Zarr v3 (https://github.com/dandi/dandi-cli/issues/1918), for as long
+    # as Zarr v3 is validated with it
+    monkeypatch.setattr(
+        files_zarr, "_ts_validate_zarr3", lambda *_a, **_kw: [], raising=False
+    )
+    path = "sub-mouse001/sub-mouse001.nwb.zarr"
+    copytree(simple2_nwb_zarr, new_dandiset.dspath / path)
+    new_dandiset.upload()
+    (asset,) = new_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.asset_type is AssetType.ZARR
+    assert asset.path == path
+    metadata = asset.get_raw_metadata()
+    assert metadata["encodingFormat"] == ZARR_MIME_TYPE
+    assert metadata["wasAttributedTo"][0]["identifier"] == "mouse001"
 
 
 def _replace_zarr_and_check(
