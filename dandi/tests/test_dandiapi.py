@@ -246,6 +246,13 @@ def test_authenticate_bad_key_keyring_good_key_input(
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")
 
 
+def _fetch_content(client: DandiAPIClient, url: str, tmp_path: Path) -> None:
+    r = client.get(url, stream=True, json_resp=False)
+    with open(tmp_path / "asset.nwb", "wb") as fp:
+        for chunk in r.iter_content(chunk_size=8192):
+            fp.write(chunk)
+
+
 @mark.skipif_no_network
 def test_get_content_url(tmp_path: Path) -> None:
     with DandiAPIClient.for_dandi_instance("dandi") as client:
@@ -259,10 +266,7 @@ def test_get_content_url(tmp_path: Path) -> None:
             + UUID_PATTERN.rstrip("$") + "/download/?$",
             url,
         )
-        r = client.get(url, stream=True, json_resp=False)
-        with open(tmp_path / "asset.nwb", "wb") as fp:
-            for chunk in r.iter_content(chunk_size=8192):
-                fp.write(chunk)
+        _fetch_content(client, url, tmp_path)
 
 
 @mark.skipif_no_network
@@ -272,10 +276,7 @@ def test_get_content_url_regex(tmp_path: Path) -> None:
             "sub-RAT123/sub-RAT123.nwb"
         )
         url = asset.get_content_url(r"amazonaws.com/.*blobs/")
-        r = client.get(url, stream=True, json_resp=False)
-        with open(tmp_path / "asset.nwb", "wb") as fp:
-            for chunk in r.iter_content(chunk_size=8192):
-                fp.write(chunk)
+        _fetch_content(client, url, tmp_path)
 
 
 @mark.skipif_no_network
@@ -727,6 +728,25 @@ def test_search_get_dandisets(
     assert ds.dandiset_id not in [d.identifier for d in dandisets]
 
 
+def _assert_dandiset_fields(
+    dandiset: RemoteDandiset, version_id: str, most_recent_published: str | None
+) -> None:
+    assert dandiset.version_id == version_id
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == version_id
+    if most_recent_published is None:
+        assert dandiset.most_recent_published_version is None
+    else:
+        assert isinstance(dandiset.most_recent_published_version, Version)
+        assert (
+            dandiset.most_recent_published_version.identifier == most_recent_published
+        )
+    assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
+
+
 def test_get_dandiset_lazy(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
@@ -739,13 +759,7 @@ def test_get_dandiset_lazy(
     assert isinstance(dandiset.created, datetime)
     get_spy.assert_called_once()
     get_spy.reset_mock()
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert dandiset.most_recent_published_version is None
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, None)
     get_spy.assert_not_called()
 
 
@@ -759,30 +773,14 @@ def test_get_dandiset_non_lazy(
     get_spy.reset_mock()
     assert dandiset.version_id == DRAFT
     get_spy.assert_not_called()
-    assert isinstance(dandiset.created, datetime)
-    get_spy.assert_not_called()
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert dandiset.most_recent_published_version is None
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, None)
     get_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("lazy", [True, False])
 def test_get_dandiset_no_version_id(lazy: bool, text_dandiset: SampleDandiset) -> None:
     dandiset = text_dandiset.client.get_dandiset(text_dandiset.dandiset_id, lazy=lazy)
-    assert dandiset.version_id == DRAFT
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert dandiset.most_recent_published_version is None
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, None)
     versions = list(dandiset.get_versions())
     assert len(versions) == 1
     assert versions[0].identifier == DRAFT
@@ -794,16 +792,7 @@ def test_get_dandiset_published(lazy: bool, text_dandiset: SampleDandiset) -> No
     d.wait_until_valid()
     v = d.publish().version.identifier
     dandiset = text_dandiset.client.get_dandiset(d.identifier, v, lazy=lazy)
-    assert dandiset.version_id == v
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == v
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, v, v)
     versions = list(dandiset.get_versions())
     assert len(versions) == 2
     assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
@@ -817,16 +806,7 @@ def test_get_dandiset_published_no_version_id(
     d.wait_until_valid()
     v = d.publish().version.identifier
     dandiset = text_dandiset.client.get_dandiset(d.identifier, lazy=lazy)
-    assert dandiset.version_id == v
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == v
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, v, v)
     versions = list(dandiset.get_versions())
     assert len(versions) == 2
     assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
@@ -840,16 +820,7 @@ def test_get_dandiset_published_draft(
     d.wait_until_valid()
     v = d.publish().version.identifier
     dandiset = text_dandiset.client.get_dandiset(d.identifier, DRAFT, lazy=lazy)
-    assert dandiset.version_id == DRAFT
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == DRAFT
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, DRAFT, v)
     versions = list(dandiset.get_versions())
     assert len(versions) == 2
     assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
@@ -870,16 +841,7 @@ def test_get_dandiset_published_other_version(
     assert v1 != v2
 
     dandiset = text_dandiset.client.get_dandiset(d.identifier, v1, lazy=lazy)
-    assert dandiset.version_id == v1
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.created, datetime)
-    assert isinstance(dandiset.modified, datetime)
-    assert isinstance(dandiset.version, Version)
-    assert dandiset.version.identifier == v1
-    assert isinstance(dandiset.most_recent_published_version, Version)
-    assert dandiset.most_recent_published_version.identifier == v2
-    assert isinstance(dandiset.draft_version, Version)
-    assert isinstance(dandiset.contact_person, str)
+    _assert_dandiset_fields(dandiset, v1, v2)
 
     versions = list(dandiset.get_versions())
     assert len(versions) == 3
@@ -1260,6 +1222,29 @@ def _add_bulk_delete_response(missing: Sequence[str] = ()) -> None:
     )
 
 
+def _add_fallback_responses(
+    ids: Sequence[str] = (), missing: Sequence[str] = (), **bulk_kwargs: Any
+) -> None:
+    # Respond as an archive without the bulk deletion endpoint does: with a
+    # 404 to bulk deletion requests, with the draft version to requests for it,
+    # and to single-asset deletion requests for `ids` with a 404 for those in
+    # `missing` and a 204 otherwise
+    if not bulk_kwargs:
+        bulk_kwargs = {"json": {"detail": "x"}}
+    responses.add(responses.POST, BULK_DELETE_URL, status=404, **bulk_kwargs)
+    responses.add(responses.GET, VERSION_URL, json={})
+    for aid in ids:
+        if aid in missing:
+            responses.add(
+                responses.DELETE,
+                _single_delete_url(aid),
+                status=404,
+                json={"detail": "Not found."},
+            )
+        else:
+            responses.add(responses.DELETE, _single_delete_url(aid), status=204)
+
+
 @pytest.mark.ai_generated
 @responses.activate
 def test_delete_assets_batches_and_deduplicates(
@@ -1295,13 +1280,21 @@ def test_delete_assets_empty() -> None:
 
 
 @pytest.mark.ai_generated
+@pytest.mark.parametrize("bulk_supported", [True, False])
 @responses.activate
-def test_delete_assets_skips_missing(caplog: pytest.LogCaptureFixture) -> None:
+def test_delete_assets_skips_missing(
+    caplog: pytest.LogCaptureFixture, bulk_supported: bool
+) -> None:
     ids = [str(uuid4()) for _ in range(3)]
-    _add_bulk_delete_response(missing=[ids[1]])
+    if bulk_supported:
+        _add_bulk_delete_response(missing=[ids[1]])
+    else:
+        _add_fallback_responses(ids, missing=[ids[1]])
     with caplog.at_level(logging.DEBUG, logger="dandi"):
         result = _bulk_delete_dandiset().delete_assets(ids)
     assert _bulk_delete_request_ids() == [ids]
+    if not bulk_supported:
+        assert _single_delete_urls() == [_single_delete_url(aid) for aid in ids]
     assert result == BulkDeleteResult(deleted=[ids[0], ids[2]], absent=[ids[1]])
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
@@ -1370,11 +1363,8 @@ def test_delete_assets_falls_back_on_404(
     kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
-    responses.add(responses.POST, BULK_DELETE_URL, status=404, **kwargs)
-    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(3)]
-    for aid in ids:
-        responses.add(responses.DELETE, _single_delete_url(aid), status=204)
+    _add_fallback_responses(ids, **kwargs)
     ds = _bulk_delete_dandiset()
     results = list(ds.iter_delete_assets(ids))
     assert results == [
@@ -1395,11 +1385,8 @@ def test_delete_assets_fallback_logged_once(
     # Use of the fallback is logged at INFO level (see "Compatibility with
     # dandi-archive instances" in DEVELOPMENT.md), and only once per client
     monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
-    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
-    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(3)]
-    for aid in ids:
-        responses.add(responses.DELETE, _single_delete_url(aid), status=204)
+    _add_fallback_responses(ids)
     ds = _bulk_delete_dandiset()
     with caplog.at_level(logging.DEBUG, logger="dandi"):
         ds.delete_assets(ids)
@@ -1430,11 +1417,8 @@ def test_delete_assets_404_for_missing_version() -> None:
 @pytest.mark.ai_generated
 @responses.activate
 def test_delete_assets_fallback_remembered_by_client() -> None:
-    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
-    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(2)]
-    for aid in ids:
-        responses.add(responses.DELETE, _single_delete_url(aid), status=204)
+    _add_fallback_responses(ids)
     ds = _bulk_delete_dandiset()
     ds.delete_assets([ids[0]])
     RemoteDandiset(ds.client, "000001", DRAFT).delete_assets([ids[1]])
@@ -1448,8 +1432,7 @@ def test_delete_assets_fallback_remembered_by_client() -> None:
 def test_delete_asset_batch_raise_if_unsupported() -> None:
     # With `raise_if_unsupported`, nothing is deleted on a server without bulk
     # deletion, whether that is found out by this call or already known
-    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
-    responses.add(responses.GET, VERSION_URL, json={})
+    _add_fallback_responses()
     ds = _bulk_delete_dandiset()
     for _ in range(2):
         with pytest.raises(BulkDeleteUnsupportedError):
@@ -1463,40 +1446,11 @@ def test_delete_asset_batch_raise_if_unsupported() -> None:
 
 @pytest.mark.ai_generated
 @responses.activate
-def test_delete_assets_fallback_skips_missing(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
-    responses.add(responses.GET, VERSION_URL, json={})
-    ids = [str(uuid4()) for _ in range(3)]
-    for aid in ids:
-        responses.add(
-            responses.DELETE,
-            _single_delete_url(aid),
-            status=404 if aid == ids[1] else 204,
-            json={"detail": "Not found."} if aid == ids[1] else None,
-        )
-    with caplog.at_level(logging.DEBUG, logger="dandi"):
-        result = _bulk_delete_dandiset().delete_assets(ids)
-    assert result == BulkDeleteResult(deleted=[ids[0], ids[2]], absent=[ids[1]])
-    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
-
-
-@pytest.mark.ai_generated
-@responses.activate
 def test_delete_assets_fallback_no_skip_missing() -> None:
     # As with bulk deletion, the whole batch is processed before the error is
     # raised
-    responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
-    responses.add(responses.GET, VERSION_URL, json={})
     ids = [str(uuid4()) for _ in range(4)]
-    for aid in ids:
-        responses.add(
-            responses.DELETE,
-            _single_delete_url(aid),
-            status=404 if aid in ids[1:3] else 204,
-            json={"detail": "Not found."} if aid in ids[1:3] else None,
-        )
+    _add_fallback_responses(ids, missing=ids[1:3])
     with pytest.raises(AssetsNotFoundError) as excinfo:
         _bulk_delete_dandiset().delete_assets(ids, skip_missing=False)
     assert excinfo.value.missing_asset_ids == set(ids[1:3])
