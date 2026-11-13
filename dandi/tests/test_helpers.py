@@ -1,6 +1,7 @@
+import json
 from operator import attrgetter
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from ..files.zarr import get_zarr_format_version
 
@@ -91,3 +92,29 @@ TWO_ARRAY_ZARR_LAYOUT: dict[str, TwoArrayZarrLayout] = {
         "root_meta": "zarr.json",
     },
 }
+
+
+def mkzarrnode(
+    path: Path,
+    node_type: str = "group",
+    attrs: dict[str, Any] | None = None,
+    zarr_format: int = 3,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Write just the metadata of a Zarr group or array, as far as dandi reads
+    it without zarr, with ``metadata`` added to that of the node (e.g. its
+    codecs)"""
+    path.mkdir(parents=True, exist_ok=True)
+    if zarr_format == 3:
+        node_metadata = {
+            "zarr_format": 3,
+            "node_type": node_type,
+            "attributes": attrs or {},
+            **(metadata or {}),
+        }
+        (path / "zarr.json").write_text(json.dumps(node_metadata))
+    else:
+        name = ".zgroup" if node_type == "group" else ".zarray"
+        (path / name).write_text(json.dumps({"zarr_format": 2, **(metadata or {})}))
+        if attrs:
+            (path / ".zattrs").write_text(json.dumps(attrs))

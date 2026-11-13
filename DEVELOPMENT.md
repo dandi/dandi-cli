@@ -202,7 +202,8 @@ dandi/
 - `ParsedDandiURL` (`dandiarchive.py`) — abstract base for URL parsing;
   subclasses `DandisetURL`, `SingleAssetURL`, `AssetItemURL`, `AssetDirURL`
 - `DandiFile` (`files/bases.py`) — abstract base for all file types;
-  subclasses `NWBAsset`, `ZarrAsset`, `GenericAsset`, `VideoAsset`
+  subclasses `NWBAsset`, `ZarrAsset`, `NWBZarrAsset` (an NWB file stored as
+  Zarr, `*.nwb.zarr`), `GenericAsset`, `VideoAsset`
 - `ValidationResult` (`validate/_types.py`) — Pydantic model: origin,
   severity, scope, message, paths
 - `Dandiset` (`dandiset.py`) — local dandiset representation wrapping
@@ -458,6 +459,11 @@ New markers must be registered in `pytest_configure()` in
 
 - `DANDI_TESTS_DJANGO_API_KEY` -- Admin DRF token for the externally-managed
   server pointed to by `DANDI_TESTS_API_URL`; required when the latter is set.
+
+- `DANDI_TESTS_NWB_ZARR_V2` -- The path to the NWB file stored as Zarr v2
+  that `dandi/tests/data/nwb_zarr/make_ecephys_v2.py` writes with
+  hdmf-zarr < 0.14, which the tests cannot write; the tests reading it are
+  skipped when it is not set.
 
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled

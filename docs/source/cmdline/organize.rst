@@ -35,6 +35,16 @@ In addition, an "obj" key with a value corresponding to the crc32 checksum of
 "object_id" is added if the aforementioned keys and the list of modalities are
 not sufficient to disambiguate different files.
 
+NWB files stored as Zarr, i.e. :file:`*.nwb.zarr` directories, are organized
+likewise, keeping their :file:`.nwb.zarr` extension.  Reading them needs the
+optional hdmf-zarr dependency (see :ref:`NWB files stored as Zarr <nwb_zarr>`).
+As ``dandi upload`` and ``dandi validate`` do not follow symbolic links to
+directories, they are not symlinked: the ``auto`` mode hard-links their files
+or copies them, and the ``symlink`` mode refuses them (the ``simulate`` mode
+symlinks them, as it does all files).  Organizing those which
+refer to external media files is not supported yet.  A directory named like an
+NWB file (:file:`*.nwb`) is ignored with a warning.
+
 You can visit https://dandiarchive.org for a growing collection of
 (re)organized dandisets.
 
@@ -52,7 +62,8 @@ Options
     How to relocate the files.
 
     - ``auto`` [default] — The first of ``symlink``, ``hardlink``, and ``copy``
-      that is supported by the local filesystem
+      that is supported by the local filesystem (but not ``symlink`` for NWB
+      files stored as Zarr)
 
     - ``dry`` — No action is performed, suggested renames are printed
 

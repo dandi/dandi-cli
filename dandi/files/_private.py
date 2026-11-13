@@ -10,10 +10,11 @@ import weakref
 from dandi.consts import (
     BIDS_DATASET_DESCRIPTION,
     IMAGE_FILE_EXTENSIONS,
+    NWB_ZARR_SUFFIX,
     VIDEO_FILE_EXTENSIONS,
     ZARR_EXTENSIONS,
 )
-from dandi.exceptions import UnknownAssetError
+from dandi.exceptions import NWBDirectoryError, UnknownAssetError
 
 from .bases import DandiFile, GenericAsset, ImageAsset, LocalAsset, NWBAsset, VideoAsset
 from .bids import (
@@ -24,6 +25,7 @@ from .bids import (
     ZarrBIDSAsset,
     is_bids_dataset_description,
 )
+from .nwb_zarr import NWBZarrAsset
 from .zarr import ZarrAsset
 
 
@@ -36,6 +38,8 @@ class DandiFileType(Enum):
     GENERIC = 4
     BIDS_DATASET_DESCRIPTION = 5
     IMAGE = 6
+    #: An NWB file stored as Zarr (:file:`*.nwb.zarr`)
+    NWB_ZARR = 7
 
     @staticmethod
     def classify(path: Path) -> DandiFileType:
@@ -43,7 +47,14 @@ class DandiFileType(Enum):
             if path.suffix in ZARR_EXTENSIONS:
                 if is_empty_zarr(path):
                     raise UnknownAssetError("Empty directories cannot be Zarr assets")
+                if path.name.endswith(NWB_ZARR_SUFFIX):
+                    return DandiFileType.NWB_ZARR
                 return DandiFileType.ZARR
+            if path.suffix == ".nwb":
+                raise NWBDirectoryError(
+                    f"Directory has NWB file extension {path.suffix!r}; an NWB"
+                    f" file stored as Zarr must be named *{NWB_ZARR_SUFFIX}"
+                )
             raise UnknownAssetError(
                 f"Directory has unrecognized suffix {path.suffix!r}"
             )
@@ -67,6 +78,7 @@ class DandiFileFactory:
     CLASSES: ClassVar[Mapping[DandiFileType, type[LocalAsset]]] = {
         DandiFileType.NWB: NWBAsset,
         DandiFileType.ZARR: ZarrAsset,
+        DandiFileType.NWB_ZARR: NWBZarrAsset,
         DandiFileType.VIDEO: VideoAsset,
         DandiFileType.IMAGE: ImageAsset,
         DandiFileType.GENERIC: GenericAsset,
@@ -90,6 +102,9 @@ class BIDSFileFactory(DandiFileFactory):
     CLASSES: ClassVar[Mapping[DandiFileType, type[BIDSAsset]]] = {
         DandiFileType.NWB: NWBBIDSAsset,
         DandiFileType.ZARR: ZarrBIDSAsset,
+        # TODO: extract NWB metadata from, and validate, NWB files stored as
+        # Zarr in BIDS datasets too
+        DandiFileType.NWB_ZARR: ZarrBIDSAsset,
         DandiFileType.VIDEO: GenericBIDSAsset,
         DandiFileType.IMAGE: GenericBIDSAsset,
         DandiFileType.GENERIC: GenericBIDSAsset,

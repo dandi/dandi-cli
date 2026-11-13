@@ -11,21 +11,26 @@ metadata from NWB files using PyNWB. Features include:
 
 from __future__ import annotations
 
-from collections import Counter
-from collections.abc import Callable
+from collections import Counter, deque
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import timedelta
+from functools import wraps
 import inspect
+import json
 import os
 import os.path as op
 from pathlib import Path, PurePosixPath
 import re
-from typing import IO, Any, TypeVar, cast
+import sys
+from typing import IO, Any, TypeGuard, TypeVar, cast
 import warnings
 
 import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
+from hdmf.backends.io import HDMFIO
 import numpy as np
 from packaging.version import InvalidVersion, Version
 import pynwb
@@ -42,8 +47,10 @@ from .consts import (
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
 )
+from .exceptions import NWBZarrReadError
+from .files.zarr import ZarrNode, get_zarr_format_version, read_zarr_node
 from .misctypes import Readable
-from .utils import get_module_version, is_url
+from .utils import get_module_version, is_url, pluralize
 from .validate._types import (
     Origin,
     OriginType,
@@ -72,6 +79,291 @@ validate_cache = PersistentCache(
     tokens=dandi_cache_tokens + [get_module_version(dandischema)],
     envvar="DANDI_CACHE",
 )
+
+#: How to install hdmf-zarr >= 0.14 (the first release reading Zarr v3, and
+#: Zarr v2 with zarr-python 3), the optional dependency for reading NWB files
+#: stored as Zarr, which requires Python >= 3.12
+NWB_ZARR_INSTALL_HINT = (
+    "NWB files stored as Zarr need hdmf-zarr >= 0.14: install it with "
+    "`pip install 'dandi[nwb-zarr]'`."
+    if sys.version_info >= (3, 12)
+    else "NWB files stored as Zarr need hdmf-zarr >= 0.14, and thus Python >= 3.12."
+)
+
+#: The environment variable with which numcodecs, and dandi, allow decoding
+#: data stored with the pickle codec
+PICKLE_DECODE_ENVVAR = "NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE"
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def is_nwb_zarr(path: str | Path | Readable) -> TypeGuard[str | Path]:
+    """Whether ``path`` is an NWB file stored as Zarr, i.e. a local directory
+
+    NWB files stored in HDF5 are regular files; those stored as Zarr
+    (:file:`*.nwb.zarr`) are directories.
+    """
+    return not isinstance(path, Readable) and op.isdir(path)
+
+
+def memoize_path_unless_dir(cache: PersistentCache) -> Callable[[F], F]:
+    """Like ``cache.memoize_path``, but not memoizing calls on a directory (an
+    NWB file stored as Zarr)
+
+    fscacher fingerprints a directory by stat-ing every file below it, i.e.
+    every chunk of every array of a Zarr, which takes longer than the calls it
+    would spare.
+    """
+
+    def decorator(f: F) -> F:
+        memoized = cache.memoize_path(f)
+
+        @wraps(f)
+        def wrapper(path: Any, *args: Any, **kwargs: Any) -> Any:
+            if is_nwb_zarr(path):
+                return f(path, *args, **kwargs)
+            return memoized(path, *args, **kwargs)
+
+        return cast(F, wrapper)
+
+    return decorator
+
+
+def pickle_decoding_allowed() -> bool:
+    """Whether decoding data stored with the pickle codec, which can execute
+    arbitrary code, was allowed as numcodecs allows it:
+    ``numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE``, set from the
+    ``NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE`` environment variable when
+    numcodecs is imported, or for numcodecs releases without it, that
+    environment variable"""
+    # Avoid heavy import by importing within function:
+    import numcodecs.pickles
+
+    if hasattr(numcodecs.pickles, "ALLOW_UNSAFE_PICKLE_DECODE"):
+        return bool(numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE)
+    return os.environ.get(PICKLE_DECODE_ENVVAR, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def get_nwb_zarr_reading_problem(path: str | Path) -> str | None:
+    """Why the NWB file stored as Zarr at ``path`` cannot be read, if it cannot
+
+    It cannot be read if hdmf-zarr >= 0.14, an optional dependency, is not
+    installed, or if it stores data with the pickle codec (as hdmf-zarr < 0.14
+    did for some columns, e.g. the ``group`` of the electrodes table) and
+    decoding such data, which can execute arbitrary code, was not allowed
+    (`pickle_decoding_allowed()`), which hdmf-zarr would otherwise report
+    less clearly, if at all.
+    """
+    try:
+        # Avoid heavy import by importing within function:
+        import hdmf_zarr
+    except ImportError as e:
+        return f"hdmf-zarr is not installed ({e}).  {NWB_ZARR_INSTALL_HINT}"
+    if not hasattr(hdmf_zarr, "NWBZarrV2IO"):
+        # Added in hdmf-zarr 0.14, which reads Zarr v3, and Zarr v2 with it
+        return f"hdmf-zarr {hdmf_zarr.__version__} is too old.  {NWB_ZARR_INSTALL_HINT}"
+    path = Path(path)
+    if pickle_decoding_allowed():
+        return None
+    try:
+        pickled = get_pickled_zarr_arrays(path)
+    except (OSError, ValueError) as e:
+        return f"its Zarr metadata cannot be read: {type(e).__name__}: {e}"
+    if pickled:
+        return (
+            f"it stores data with the pickle codec in "
+            f"{pluralize(len(pickled), 'array')} (e.g. {pickled[0]}), and decoding "
+            "it can execute arbitrary code.  If you trust this file, set the "
+            f"environment variable {PICKLE_DECODE_ENVVAR}=1 to allow it.  NWB "
+            "files stored as Zarr v3 (by hdmf-zarr >= 0.14) do not use the pickle "
+            "codec"
+        )
+    return None
+
+
+def open_nwb_zarr(path: str | Path) -> HDMFIO:
+    """Open the NWB file stored as Zarr at ``path`` for reading with its cached
+    namespaces, with the hdmf-zarr IO class for its Zarr format
+
+    :raises NWBZarrReadError:
+        if `get_nwb_zarr_reading_problem()` finds that it cannot be read
+    """
+    if (problem := get_nwb_zarr_reading_problem(path)) is not None:
+        raise NWBZarrReadError(f"Cannot read NWB file stored as Zarr {path}: {problem}")
+    # Avoid heavy import by importing within function:
+    import hdmf_zarr
+
+    if get_zarr_format_version(Path(path)) == "2":
+        # NWBZarrIO reads only Zarr v3
+        return cast(
+            HDMFIO,
+            hdmf_zarr.NWBZarrV2IO(
+                str(path),
+                mode="r",
+                load_namespaces=True,
+                allow_pickle=pickle_decoding_allowed(),
+            ),
+        )
+    return cast(HDMFIO, hdmf_zarr.NWBZarrIO(str(path), mode="r", load_namespaces=True))
+
+
+@contextmanager
+def _open_nwb_io(path: str | Path | Readable) -> Iterator[HDMFIO]:
+    """Open an NWB file stored as HDF5 or Zarr for reading with its cached
+    namespaces"""
+    if is_nwb_zarr(path):
+        with open_nwb_zarr(path) as io:
+            yield io
+    else:
+        with open_readable(path) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
+            file=h5, load_namespaces=True
+        ) as io:
+            yield io
+
+
+def _is_zarr_array(value: Any) -> bool:
+    """Whether ``value`` is a (lazily read) Zarr array"""
+    # Not importing zarr only for this check: it is imported (by hdmf-zarr)
+    # once an NWB file stored as Zarr is read
+    return (zarr := sys.modules.get("zarr")) is not None and isinstance(
+        value, zarr.Array
+    )
+
+
+def _get_zarr_group_attrs(dirpath: Path) -> dict[str, Any]:
+    """Attributes of the Zarr group at ``dirpath``"""
+    node = read_zarr_node(dirpath)
+    if node is None or node.node_type != "group":
+        raise ValueError(f"{dirpath} is not a Zarr group")
+    return node.attributes
+
+
+def _iter_zarr_children(dirpath: Path) -> Iterator[tuple[Path, ZarrNode]]:
+    """Yield the path and node of each Zarr group or array directly within the
+    Zarr group at ``dirpath``"""
+    for p in sorted(dirpath.iterdir()):
+        if p.is_dir() and (node := read_zarr_node(p)) is not None:
+            yield p, node
+
+
+def _iter_zarr_subgroups(dirpath: Path) -> Iterator[tuple[Path, dict[str, Any]]]:
+    """Yield the path and attributes of each Zarr group directly within the
+    Zarr group at ``dirpath``"""
+    for p, node in _iter_zarr_children(dirpath):
+        if node.node_type == "group":
+            yield p, node.attributes
+
+
+def _walk_zarr_nodes(dirpath: Path) -> Iterator[tuple[Path, ZarrNode]]:
+    """Yield the path and node of the Zarr group at ``dirpath`` and of all
+    groups and arrays below it, without descending into arrays (and their
+    chunks)"""
+    root = read_zarr_node(dirpath)
+    if root is None or root.node_type != "group":
+        raise ValueError(f"{dirpath} is not a Zarr group")
+    yield dirpath, root
+    queue = deque([dirpath])
+    while queue:
+        for p, node in _iter_zarr_children(queue.popleft()):
+            yield p, node
+            if node.node_type == "group":
+                queue.append(p)
+
+
+def _walk_zarr_groups(dirpath: Path) -> Iterator[tuple[Path, dict[str, Any]]]:
+    """Yield the path and attributes of the Zarr group at ``dirpath`` and of
+    all groups below it"""
+    for p, node in _walk_zarr_nodes(dirpath):
+        if node.node_type == "group":
+            yield p, node.attributes
+
+
+def _uses_pickle(array_metadata: dict[str, Any]) -> bool:
+    """Whether the Zarr array with the given metadata uses the pickle codec"""
+
+    def as_list(value: Any) -> list:
+        return value if isinstance(value, list) else []
+
+    def is_pickle(codec: Any) -> bool:
+        if not isinstance(codec, dict):
+            return False
+        if "pickle" in str(codec.get("id") or codec.get("name")):
+            return True
+        # The codecs nested in a codec, e.g. that of Zarr v3 sharding
+        configuration = codec.get("configuration")
+        return isinstance(configuration, dict) and any(
+            is_pickle(c)
+            for key in ("codecs", "index_codecs")
+            for c in as_list(configuration.get(key))
+        )
+
+    # Zarr v2 has a compressor and filters, Zarr v3 codecs
+    codecs = [
+        array_metadata.get("compressor"),
+        *as_list(array_metadata.get("filters")),
+        *as_list(array_metadata.get("codecs")),
+    ]
+    return any(is_pickle(c) for c in codecs)
+
+
+def _iter_consolidated_arrays(
+    metadata: dict[str, Any], prefix: str = ""
+) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Yield the path and metadata of each array in the (possibly nested)
+    consolidated metadata of a Zarr v3 group"""
+    consolidated = metadata.get("consolidated_metadata")
+    if not isinstance(consolidated, dict):
+        return
+    nodes = consolidated.get("metadata")
+    if not isinstance(nodes, dict):
+        return
+    for key, node in nodes.items():
+        if isinstance(node, dict):
+            path = f"{prefix}{key}"
+            if node.get("node_type") == "array":
+                yield path, node
+            else:
+                yield from _iter_consolidated_arrays(node, f"{path}/")
+
+
+def get_pickled_zarr_arrays(dirpath: str | Path) -> list[str]:
+    """Paths (within it) of the arrays of the Zarr group at ``dirpath`` that
+    store their data with the pickle codec, per their metadata, or per the
+    consolidated metadata of the group, by which zarr may open them instead
+
+    :raises OSError, ValueError: if the Zarr metadata cannot be read
+    """
+    dirpath = Path(dirpath)
+    pickled = set()
+    for p, node in _walk_zarr_nodes(dirpath):
+        if node.node_type == "array" and _uses_pickle(node.metadata):
+            pickled.add(p.relative_to(dirpath).as_posix())
+        if p == dirpath:
+            # Zarr v3 consolidated metadata, in the group's zarr.json
+            pickled.update(
+                path
+                for path, metadata in _iter_consolidated_arrays(node.metadata)
+                if _uses_pickle(metadata)
+            )
+    # Zarr v2 consolidated metadata
+    if (zmetadata := dirpath / ".zmetadata").is_file():
+        with zmetadata.open(encoding="utf-8") as fp:
+            consolidated = json.load(fp)
+        if not isinstance(consolidated, dict):
+            raise ValueError(f"{zmetadata} does not hold a JSON object")
+        entries = consolidated.get("metadata")
+        for key, metadata in (entries if isinstance(entries, dict) else {}).items():
+            if (
+                key.endswith(".zarray")
+                and isinstance(metadata, dict)
+                and _uses_pickle(metadata)
+            ):
+                pickled.add(PurePosixPath(key).parent.as_posix())
+    return sorted(pickled)
 
 
 def _sanitize_nwb_version(
@@ -139,6 +431,13 @@ def get_nwb_version(
         def _sanitize(v: Any) -> str:
             return str(v)
 
+    if is_nwb_zarr(filepath):
+        attrs = _get_zarr_group_attrs(Path(filepath))
+        if "nwb_version" in attrs:
+            return _sanitize(attrs["nwb_version"])
+        lgr.debug("%s has no nwb_version", filepath)
+        return None
+
     with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         # 2.x stored it as an attribute
         try:
@@ -159,16 +458,17 @@ _NWB_CORE_NAMESPACES = frozenset({"core", "hdmf-common", "hdmf-experimental"})
 
 
 def get_nwb_extensions(filepath: str | Path | Readable) -> dict[str, str]:
-    """Return NWB extensions embedded in an HDF5 file.
+    """Return NWB extensions embedded in an NWB file.
 
-    Reads the ``specifications`` group of an NWB HDF5 file and returns a
-    mapping of extension namespace names to their latest embedded version,
-    excluding core NWB/HDMF namespaces.
+    Reads the ``specifications`` group of an NWB file (stored as HDF5 or Zarr)
+    and returns a mapping of extension namespace names to their latest
+    embedded version, excluding core NWB/HDMF namespaces.
 
     Parameters
     ----------
     filepath
-        Path to an NWB ``.nwb`` HDF5 file, or a :class:`Readable`.
+        Path to an NWB ``.nwb`` HDF5 file or ``.nwb.zarr`` Zarr directory, or
+        a :class:`Readable`.
 
     Returns
     -------
@@ -177,27 +477,34 @@ def get_nwb_extensions(filepath: str | Path | Readable) -> dict[str, str]:
         found in the file's ``specifications`` group.  Empty dict if no
         extensions are present or the group does not exist.
     """
+    namespaces: dict[str, list[str]] = {}
+    if is_nwb_zarr(filepath):
+        specs_path = Path(filepath, "specifications")
+        if read_zarr_node(specs_path) is not None:
+            for ns_path, _ in _iter_zarr_subgroups(specs_path):
+                namespaces[ns_path.name] = [
+                    p.name for p, _ in _iter_zarr_subgroups(ns_path)
+                ]
+    else:
+        with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
+            if (specs := h5file.get("specifications")) is not None:
+                for name, ns_group in specs.items():
+                    if isinstance(ns_group, h5py.Group):
+                        namespaces[name] = list(ns_group)
     extensions: dict[str, str] = {}
-    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
-        specs = h5file.get("specifications")
-        if specs is None:
-            return extensions
-        for name in specs:
-            if name in _NWB_CORE_NAMESPACES:
-                continue
-            ns_group = specs[name]
-            if not isinstance(ns_group, h5py.Group) or not (versions := list(ns_group)):
-                continue
-            try:
-                extensions[name] = max(versions, key=Version)
-            except InvalidVersion:
-                lgr.debug(
-                    "Cannot parse versions %s of NWB extension %s, taking the "
-                    "lexicographically last",
-                    versions,
-                    name,
-                )
-                extensions[name] = max(versions)
+    for name, versions in namespaces.items():
+        if name in _NWB_CORE_NAMESPACES or not versions:
+            continue
+        try:
+            extensions[name] = max(versions, key=Version)
+        except InvalidVersion:
+            lgr.debug(
+                "Cannot parse versions %s of NWB extension %s, taking the "
+                "lexicographically last",
+                versions,
+                name,
+            )
+            extensions[name] = max(versions)
     return extensions
 
 
@@ -242,10 +549,17 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     return ndtypes
 
 
-@metadata_cache.memoize_path
+@memoize_path_unless_dir(metadata_cache)
 def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
-    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
-        all_pairs = _scan_neurodata_types(h5file)
+    if is_nwb_zarr(filepath):
+        all_pairs = [
+            (attrs["neurodata_type"], attrs.get("description", None))
+            for _, attrs in _walk_zarr_groups(Path(filepath))
+            if "neurodata_type" in attrs
+        ]
+    else:
+        with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
+            all_pairs = _scan_neurodata_types(h5file)
 
     # so far descriptions are useless so let's just output actual names only
     # with a count if there is multiple
@@ -273,9 +587,7 @@ def _scan_neurodata_types(grp: h5py.File) -> list[tuple[Any, Any]]:
 
 def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
     out = {}
-    with open_readable(path) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
-        file=h5, load_namespaces=True
-    ) as io:
+    with _open_nwb_io(path) as io:
         nwb = io.read()
         for key in metadata_nwb_file_fields:
             value = getattr(nwb, key)
@@ -283,6 +595,8 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
                 # serialize into a basic container (list), since otherwise
                 # it would be a closed Dataset upon return
                 value = list(value)
+            elif _is_zarr_array(value):
+                value = list(value[...])
             if isinstance(value, (list, tuple)) and all(
                 isinstance(v, bytes) for v in value
             ):
@@ -741,7 +1055,7 @@ def _rename_external_images(nwbfile_path: str, external_images: list[dict]) -> N
         f.visititems(rename_if_matched)
 
 
-@validate_cache.memoize_path
+@memoize_path_unless_dir(validate_cache)
 def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResult]:
     """Run validation on a file and return errors
 
@@ -812,7 +1126,16 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
     try:
         # Validates against the namespaces cached in the file; pynwb falls back
         # to its own namespaces if the file has none cached
-        error_outputs = pynwb.validate(path=path)
+        if is_nwb_zarr(path):
+            # pynwb.validate(path=...) cannot open Zarr: it passes HDF5
+            # arguments (driver, aws_region) to ZarrIO.load_namespaces() (as of
+            # pynwb 4.2.0 and hdmf-zarr 0.14.0), and opens Zarr v2 with the
+            # wrong class for hdmf-zarr >= 0.14, so give it an open io, for
+            # which it also validates against the namespaces cached in the file.
+            with open_nwb_zarr(path) as io:
+                error_outputs = pynwb.validate(io=io)
+        else:
+            error_outputs = pynwb.validate(path=path)
     except Exception as exc:
         if devel_debug:
             raise
@@ -874,6 +1197,11 @@ def ignore_benign_pynwb_warnings() -> None:
         "ignoring namespace '.*' because it already exists",
     ):
         warnings.filterwarnings("ignore", s, UserWarning)
+    # hdmf-zarr >= 0.14 warns about each of its fallbacks when zarr-python 3
+    # cannot read parts of an NWB file stored as Zarr v2
+    warnings.filterwarnings(
+        "ignore", category=UserWarning, module="hdmf_zarr.backend_zarrv2"
+    )
     _ignored_benign_pynwb_warnings = True
 
 
@@ -882,6 +1210,8 @@ def get_object_id(path: str | Path | Readable) -> Any:
 
     if not available -- would simply raise a corresponding exception
     """
+    if is_nwb_zarr(path):
+        return _get_zarr_group_attrs(Path(path))["object_id"]
     with open_readable(path) as fp, h5py.File(fp, "r") as f:
         return f.attrs["object_id"]
 
@@ -894,10 +1224,21 @@ def make_nwb_file(
 ) -> StrPath:
     """A little helper to produce an .nwb file in the path using NWBFile
 
+    If ``filename`` ends with ``.zarr``, the file is stored as Zarr (with
+    hdmf-zarr), and otherwise as HDF5.
+
     Note: it doesn't cache_spec by default
     """
     nwbfile = pynwb.NWBFile(*args, **kwargs)
-    with pynwb.NWBHDF5IO(filename, "w") as io:
+    io_class: type[HDMFIO]
+    if str(filename).endswith(".zarr"):
+        # Avoid heavy import by importing within function:
+        from hdmf_zarr import NWBZarrIO
+
+        io_class = NWBZarrIO
+    else:
+        io_class = pynwb.NWBHDF5IO
+    with io_class(str(filename), mode="w") as io:
         io.write(nwbfile, cache_spec=cache_spec)
     return filename
 
@@ -939,8 +1280,18 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     return str(dest)
 
 
-@metadata_cache.memoize_path
+@memoize_path_unless_dir(metadata_cache)
 def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
+    if is_nwb_zarr(filepath):
+        # hdmf-zarr records the links of a group in its "_LINKS" attribute
+        # ("zarr_link" before hdmf-zarr 0.14), with the path of the target's
+        # file relative to the linking file, i.e. "." within the same file, as
+        # their source
+        return any(
+            op.normpath(str(link.get("source", "."))) != "."
+            for _, attrs in _walk_zarr_groups(Path(filepath))
+            for link in (attrs.get("_LINKS") or attrs.get("zarr_link") or [])
+        )
     with open_readable(filepath) as f, h5py.File(f, "r") as fp:
         visited = set()
 
