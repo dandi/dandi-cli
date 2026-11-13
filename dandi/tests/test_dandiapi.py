@@ -1401,12 +1401,17 @@ def test_delete_assets_fallback_logged_once(
 
 @pytest.mark.ai_generated
 @responses.activate
-def test_delete_assets_404_for_missing_version() -> None:
+def test_delete_assets_404_for_missing_version(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     responses.add(responses.POST, BULK_DELETE_URL, status=404, json={"detail": "x"})
     responses.add(responses.GET, VERSION_URL, status=404, json={"detail": "Not found."})
     ds = _bulk_delete_dandiset()
-    with pytest.raises(NotFoundError, match="version not found"):
-        ds.delete_assets([str(uuid4())])
+    with caplog.at_level(logging.DEBUG, logger="dandi"):
+        with pytest.raises(NotFoundError, match="version not found"):
+            ds.delete_assets([str(uuid4())])
+    # The expected 404s are not logged as errors; the exception reports them
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert len(_bulk_delete_calls()) == 1
     assert _single_delete_urls() == []
     # A missing version says nothing about the endpoint, so the fallback is
@@ -1463,7 +1468,9 @@ def test_delete_assets_fallback_no_skip_missing() -> None:
 
 @pytest.mark.ai_generated
 @responses.activate
-def test_delete_assets_fallback_missing_version() -> None:
+def test_delete_assets_fallback_missing_version(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     # Once the client knows that the server lacks bulk deletion, a 404 from
     # the single-asset endpoint is checked against the version too
     responses.add(responses.GET, VERSION_URL, status=404, json={"detail": "Not found."})
@@ -1477,8 +1484,11 @@ def test_delete_assets_fallback_missing_version() -> None:
         )
     ds = _bulk_delete_dandiset()
     ds.client._bulk_delete_unsupported = True
-    with pytest.raises(NotFoundError, match="version not found"):
-        ds.delete_assets(ids)
+    with caplog.at_level(logging.DEBUG, logger="dandi"):
+        with pytest.raises(NotFoundError, match="version not found"):
+            ds.delete_assets(ids)
+    # The expected 404s are not logged as errors; the exception reports them
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert len(_bulk_delete_calls()) == 0
     assert _single_delete_urls() == [_single_delete_url(ids[0])]
     assert len(_version_calls()) == 1
