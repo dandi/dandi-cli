@@ -39,6 +39,13 @@ services:
       DJANGO_DANDI_INSTANCE_NAME: ${DANDI_TESTS_INSTANCE_NAME:-DANDI}
       DJANGO_DANDI_INSTANCE_IDENTIFIER: ${DANDI_TESTS_INSTANCE_IDENTIFIER:-RRID:ABC_123456}
       DJANGO_DANDI_DOI_API_PREFIX: ${DANDI_TESTS_DOI_PREFIX:-10.80507}
+      # dandi-archive defers ingestion of a Zarr until every upload URL that
+      # could still change it has expired
+      # (https://github.com/dandi/dandi-archive/pull/3018).  Shorten the expiry
+      # from the default hour so that tests which overwrite or delete recently
+      # uploaded Zarr entries do not wait that long.  Ignored by servers
+      # without that feature.
+      DJANGO_DANDI_ZARR_UPLOAD_URL_EXPIRATION: "30"
     ports:
       - "127.0.0.1:8000:8000"
 
