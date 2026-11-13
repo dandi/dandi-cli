@@ -85,6 +85,25 @@ class UnknownAssetError(ValueError):
     pass
 
 
+class NWBZarrReadError(RuntimeError):
+    """An NWB file stored as Zarr cannot be read here
+
+    hdmf-zarr is not installed, or too old for it, or it stores data with the
+    pickle codec and decoding such data was not allowed.
+    """
+
+    pass
+
+
+class NWBDirectoryError(UnknownAssetError):
+    """A directory is named like an NWB file (:file:`*.nwb`)
+
+    NWB files stored as Zarr must be named :file:`*.nwb.zarr` instead.
+    """
+
+    pass
+
+
 class HTTP404Error(requests.HTTPError):
     pass
 

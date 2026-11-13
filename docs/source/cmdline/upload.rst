@@ -21,6 +21,25 @@ Dandiset (ignoring directories starting with a period) will be considered for
 the upload.  You can point to specific files you would like to validate and
 have uploaded.
 
+.. _nwb_zarr:
+
+NWB files stored as Zarr must be named :file:`*.nwb.zarr`.  They are uploaded
+as Zarr assets, with their NWB metadata, and validated as NWB files (with
+PyNWB and NWB Inspector) as well as Zarr.  Reading them, whether stored as
+Zarr v2 or v3, needs the optional hdmf-zarr dependency, version 0.14 or later,
+and thus Python 3.12 or later: install it with
+``pip install 'dandi[nwb-zarr]'``.
+
+hdmf-zarr before 0.14 stored some data (e.g. the ``group`` column of the
+electrodes table) with the pickle codec, and decoding such data can execute
+arbitrary code.  Such files are only read (and thus validated and uploaded)
+if you trust them enough to set the ``NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE=1``
+environment variable, as numcodecs requires.
+
+Symbolic links to directories, and thus to NWB files stored as Zarr, are not
+followed.  A directory named like an NWB file (:file:`*.nwb`) is not
+uploaded.
+
 Options
 -------
 

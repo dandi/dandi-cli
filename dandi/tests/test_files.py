@@ -5,9 +5,11 @@ import json
 from operator import attrgetter
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import ANY
 
@@ -19,12 +21,12 @@ import pytest
 import zarr
 
 from .fixtures import SampleDandiset
-from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, zarr_format_of
+from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, mkzarrnode, zarr_format_of
 from .. import get_logger
 from ..bids_validator_deno import _bids_version, bids_validate
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
-from ..exceptions import UnknownAssetError
+from ..exceptions import NWBDirectoryError, NWBZarrReadError, UnknownAssetError
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -44,11 +46,13 @@ from ..files import (
 from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
 from ..files.bids import bids_dataset_description_problem
 from ..misctypes import DUMMY_DANDI_ETAG
-from ..pynwb_utils import get_nwb_version
+from ..pynwb_utils import NWB_ZARR_INSTALL_HINT, get_nwb_version, make_nwb_file
 from ..validate._types import (
+    MissingFileContent,
     Origin,
     OriginType,
     Scope,
+    Severity,
     Standard,
     ValidationResult,
     Validator,
@@ -333,6 +337,210 @@ def test_dandi_file_zarr_with_excluded_dotfiles(tmp_path: Path) -> None:
         os.fsync(fp.fileno())
     zf = dandi_file(zarr_path)
     assert isinstance(zf, ZarrAsset)
+
+
+@pytest.mark.ai_generated
+def test_dandi_file_nwb_zarr(simple2_nwb_zarr: Path, tmp_path: Path) -> None:
+    dandiset_path = tmp_path
+    (dandiset_path / dandiset_metadata_file).write_text("{}\n")
+    nwb_zarr = dandiset_path / "sub-mouse001" / "sub-mouse001.nwb.zarr"
+    shutil.copytree(simple2_nwb_zarr, nwb_zarr)
+    df = dandi_file(nwb_zarr, dandiset_path)
+    assert isinstance(df, ZarrAsset)
+    assert df.is_nwb
+    assert list(find_dandi_files(dandiset_path, dandiset_path=dandiset_path)) == [df]
+
+    metadata = df.get_metadata(digest=df.get_digest(), ignore_errors=False)
+    assert metadata.path == "sub-mouse001/sub-mouse001.nwb.zarr"
+    assert metadata.encodingFormat == ZARR_MIME_TYPE
+    assert metadata.contentSize == df.size
+    assert metadata.wasAttributedTo is not None
+    participant = metadata.wasAttributedTo[0]
+    assert participant.identifier == "mouse001"
+    assert participant.species is not None
+    assert participant.species.name == "Mus musculus - House mouse"
+    if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+        assert {name: s.version for name, s in _data_standards(metadata).items()} == {
+            "Neurodata Without Borders (NWB)": get_nwb_version(nwb_zarr)
+        }
+
+    assert df.get_validation_errors() == []
+    assert df.get_validation_errors(schema_version=get_schema_version()) == []
+
+
+@pytest.mark.ai_generated
+def test_validate_nwb_zarr_layout_and_content(
+    simple1_nwb_metadata: dict[str, Any], tmp_path: Path
+) -> None:
+    """An NWB file stored as Zarr is validated by NWB Inspector and for its
+    location in the Dandiset, like one stored as HDF5"""
+    pytest.importorskip("hdmf_zarr", minversion="0.14")
+    # Without a Subject
+    nwb_zarr = make_nwb_file(
+        tmp_path / "foo" / "simple1.nwb.zarr", **simple1_nwb_metadata
+    )
+    df = dandi_file(nwb_zarr, tmp_path)
+    assert isinstance(df, ZarrAsset) and df.is_nwb
+    assert sorted(e.id for e in df.get_validation_errors()) == [
+        "DANDI.NON_DANDI_FILENAME",
+        "DANDI.NON_DANDI_FOLDERNAME",
+        "NWBI.check_subject_exists",
+    ]
+
+
+@pytest.mark.ai_generated
+def test_validate_nwb_zarr_without_hdmf_zarr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    zarr_path = tmp_path / "foo" / "bar.nwb.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    df = dandi_file(zarr_path, tmp_path)
+    assert isinstance(df, ZarrAsset) and df.is_nwb
+    monkeypatch.setitem(sys.modules, "hdmf_zarr", None)
+    errors = df.get_validation_errors()
+    # Its path is still validated
+    assert [e.id for e in errors] == [
+        "dandi_zarr.nwb_unreadable",
+        "DANDI.NON_DANDI_FILENAME",
+        "DANDI.NON_DANDI_FOLDERNAME",
+    ]
+    assert "hdmf-zarr is not installed" in str(errors[0].message)
+    assert NWB_ZARR_INSTALL_HINT in str(errors[0].message)
+    # Content is not validated, so neither is its absence
+    assert [
+        e.id
+        for e in df.get_validation_errors(
+            missing_file_content=MissingFileContent.only_non_data
+        )
+    ] == ["DANDI.NON_DANDI_FILENAME", "DANDI.NON_DANDI_FOLDERNAME"]
+
+
+def _organized_nwb_zarr_asset(nwb_zarr: Path, dandiset_path: Path) -> ZarrAsset:
+    """The `ZarrAsset` of a copy of ``nwb_zarr`` organized in a Dandiset at
+    ``dandiset_path``"""
+    path = dandiset_path / "sub-mouse001" / "sub-mouse001_ecephys.nwb.zarr"
+    shutil.copytree(nwb_zarr, path)
+    df = dandi_file(path, dandiset_path)
+    assert isinstance(df, ZarrAsset) and df.is_nwb
+    return df
+
+
+@pytest.mark.ai_generated
+def test_validate_nwb_zarr_malformed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, disallow_pickle_decoding: None
+) -> None:
+    """Zarr metadata which cannot be read is reported, not raised, keeping the
+    other validation results"""
+    # As hdmf-zarr >= 0.14, so that the metadata is checked
+    monkeypatch.setitem(
+        sys.modules,
+        "hdmf_zarr",
+        SimpleNamespace(__version__="0.14.0", NWBZarrV2IO=object),
+    )
+    zarr_path = tmp_path / "foo" / "bar.nwb.zarr"
+    mkzarrnode(zarr_path)
+    (zarr_path / "group").mkdir()
+    (zarr_path / "group" / "zarr.json").write_text("{bad")
+    df = dandi_file(zarr_path, tmp_path)
+    assert isinstance(df, ZarrAsset) and df.is_nwb
+    ids = [e.id for e in df.get_validation_errors()]
+    assert "dandi_zarr.nwb_unreadable" in ids
+    assert {"DANDI.NON_DANDI_FILENAME", "DANDI.NON_DANDI_FOLDERNAME"} <= set(ids)
+
+
+@pytest.mark.ai_generated
+def test_validate_nwb_zarr_not_nwb(tmp_path: Path) -> None:
+    """A Zarr which PyNWB cannot read is reported like an HDF5 file it cannot
+    read, keeping the other validation results"""
+    pytest.importorskip("hdmf_zarr", minversion="0.14")
+    zarr_path = tmp_path / "foo" / "bar.nwb.zarr"
+    zarr.save(zarr_path, a=np.arange(10), b=np.arange(5))
+    df = dandi_file(zarr_path, tmp_path)
+    assert isinstance(df, ZarrAsset) and df.is_nwb
+    ids = [e.id for e in df.get_validation_errors()]
+    assert "pynwb.GENERIC" in ids
+    # With the same text as nwbinspector.inspect_nwbfile() for HDF5 files
+    assert any(
+        re.fullmatch(
+            r"NWBI\.During io\.read\(\), an error occurred: [\w.]+\. This"
+            r" indicates that PyNWB was unable to read the file\. See the"
+            r" traceback message for more details\.",
+            i,
+        )
+        for i in ids
+    )
+    assert {"DANDI.NON_DANDI_FILENAME", "DANDI.NON_DANDI_FOLDERNAME"} <= set(ids)
+
+
+@pytest.mark.ai_generated
+def test_validate_nwb_zarr_v2_pickled_disallowed(
+    ecephys_v2_nwb_zarr: Path, tmp_path: Path, disallow_pickle_decoding: None
+) -> None:
+    """An NWB file stored as Zarr with pickled data is not read unless allowed"""
+    df = _organized_nwb_zarr_asset(ecephys_v2_nwb_zarr, tmp_path)
+    errors = df.get_validation_errors()
+    assert [e.id for e in errors] == ["dandi_zarr.nwb_unreadable"]
+    assert "NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE=1" in str(errors[0].message)
+    with pytest.raises(NWBZarrReadError):
+        df.get_metadata(ignore_errors=False)
+
+
+@pytest.mark.ai_generated
+def test_validate_nwb_zarr_v2_pickled_allowed(
+    ecephys_v2_nwb_zarr: Path, tmp_path: Path, allow_pickle_decoding: None
+) -> None:
+    """An NWB file stored as Zarr v2 by hdmf-zarr < 0.14, with tables, is read
+    and validated with whichever hdmf-zarr, once decoding pickled data is
+    allowed, with no error from NWB Inspector"""
+    df = _organized_nwb_zarr_asset(ecephys_v2_nwb_zarr, tmp_path)
+    errors = df.get_validation_errors()
+    assert [e.id for e in errors if e.severity is Severity.ERROR] == []
+    assert "NWBI.check_units_resolution_is_set" in [e.id for e in errors]
+    metadata = df.get_metadata(digest=df.get_digest(), ignore_errors=False)
+    assert metadata.wasAttributedTo is not None
+    assert metadata.wasAttributedTo[0].identifier == "mouse001"
+    assert metadata.encodingFormat == ZARR_MIME_TYPE
+
+
+@pytest.mark.ai_generated
+def test_nwb_directory(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """A directory named like an NWB file is neither an asset nor a directory
+    of assets"""
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    zarr.save(tmp_path / "foo.nwb", np.arange(1000), np.arange(1000, 0, -1))
+    mkpaths(tmp_path, "foo.nwb/bar.nwb", "baz.txt")
+    with pytest.raises(NWBDirectoryError, match=r"\*\.nwb\.zarr"):
+        dandi_file(tmp_path / "foo.nwb", tmp_path)
+    found = find_dandi_files(tmp_path, dandiset_path=tmp_path, allow_all=True)
+    # In the (filesystem-dependent) order of the directory listing
+    assert sorted(df.filepath.relative_to(tmp_path).as_posix() for df in found) == [
+        "baz.txt",
+        dandiset_metadata_file,
+    ]
+    assert "foo.nwb: Directory has NWB file extension" in caplog.text
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("zarr_format", [2, 3])
+def test_validate_deep_zarr_chunk_keys(tmp_path: Path, zarr_format: int) -> None:
+    """The chunk keys of an array do not count towards the depth of a Zarr
+    (https://github.com/dandi/dandi-cli/issues/1919)"""
+    zarr_path = tmp_path / "foo.zarr"
+    groups = "processing/pose_estimation/RightCamera/PoseEstimationSeriesTubeTop"
+    parts = groups.split("/")
+    for i in range(len(parts) + 1):
+        mkzarrnode(zarr_path.joinpath(*parts[:i]), zarr_format=zarr_format)
+    array = zarr_path / groups / "data"
+    mkzarrnode(array, node_type="array", zarr_format=zarr_format)
+    # As with the default chunk key encoding of Zarr v3, or with "/" as
+    # dimension separator in Zarr v2
+    mkpaths(array, "c/1/0" if zarr_format == 3 else "1/0/0/0")
+    zf = ZarrAsset(filepath=zarr_path, path="foo.zarr", dandiset_path=None)
+    assert not zf._is_too_deep()
+    # But groups count: a file 8 directories deep is too deep
+    for subgroup in ("a", "a/b", "a/b/c"):
+        mkzarrnode(zarr_path / groups / subgroup, zarr_format=zarr_format)
+    assert zf._is_too_deep()
 
 
 def test_validate_simple1(simple1_nwb: Path) -> None:

@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import os
 from pathlib import Path
-from shutil import copyfile, rmtree
+from shutil import copyfile, copytree, rmtree
 from typing import Any
 from unittest.mock import Mock
 from urllib.parse import urlparse
@@ -464,6 +464,22 @@ def test_upload_bids_zarr(
     assert asset.path.endswith(".zarr")
     # Test that uploading again without any changes works:
     bids_zarr_dandiset.upload()
+
+
+@pytest.mark.ai_generated
+def test_upload_nwb_zarr(new_dandiset: SampleDandiset, simple2_nwb_zarr: Path) -> None:
+    """An NWB file stored as Zarr is uploaded as a Zarr asset with its NWB
+    metadata"""
+    path = "sub-mouse001/sub-mouse001.nwb.zarr"
+    copytree(simple2_nwb_zarr, new_dandiset.dspath / path)
+    new_dandiset.upload()
+    (asset,) = new_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.asset_type is AssetType.ZARR
+    assert asset.path == path
+    metadata = asset.get_raw_metadata()
+    assert metadata["encodingFormat"] == ZARR_MIME_TYPE
+    assert metadata["wasAttributedTo"][0]["identifier"] == "mouse001"
 
 
 def _replace_zarr_and_check(
