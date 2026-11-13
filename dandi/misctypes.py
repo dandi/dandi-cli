@@ -60,6 +60,53 @@ DUMMY_DANDI_ZARR_CHECKSUM = Digest(
     value=32 * "d" + "-1--1",
 )
 
+
+def _split_path(path: str) -> tuple[str, ...]:
+    """Split a path into its path components"""
+    if path.startswith("/"):
+        raise ValueError(f"Absolute paths not allowed: {path!r}")
+    return tuple(q for q in path.split("/") if q)
+
+
+def _match_parts(parts: tuple[str, ...], pattern: str) -> bool:
+    """Tests whether ``parts`` matches the glob pattern ``pattern``"""
+    patparts = _split_path(pattern)
+    if not patparts:
+        raise ValueError("Empty pattern")
+    if len(patparts) > len(parts):
+        return False
+    for part, pat in zip(reversed(parts), reversed(patparts)):
+        if not fnmatchcase(part, pat):
+            return False
+    return True
+
+
+def _path_suffix(name: str) -> str:
+    """The final file extension of ``name``, if any"""
+    i = name.rfind(".")
+    if 0 < i < len(name) - 1:
+        return name[i:]
+    else:
+        return ""
+
+
+def _path_suffixes(name: str) -> list[str]:
+    """A list of ``name``'s file extensions"""
+    if name.endswith("."):
+        return []
+    name = name.lstrip(".")
+    return ["." + suffix for suffix in name.split(".")[1:]]
+
+
+def _path_stem(name: str) -> str:
+    """``name`` without its final file extension, if any"""
+    i = name.rfind(".")
+    if 0 < i < len(name) - 1:
+        return name[:i]
+    else:
+        return name
+
+
 P = TypeVar("P", bound="BasePath")
 
 
@@ -103,7 +150,7 @@ class BasePath(ABC):
 
     def __truediv__(self: P, path: str) -> P:
         p = self
-        for q in self._split_path(path):
+        for q in _split_path(path):
             p = p._get_subpath(q)
         return p
 
@@ -116,13 +163,6 @@ class BasePath(ABC):
         for q in paths:
             p /= q
         return p
-
-    @staticmethod
-    def _split_path(path: str) -> tuple[str, ...]:
-        """Split a path into its path components"""
-        if path.startswith("/"):
-            raise ValueError(f"Absolute paths not allowed: {path!r}")
-        return tuple(q for q in path.split("/") if q)
 
     def is_root(self) -> bool:
         """
@@ -168,28 +208,17 @@ class BasePath(ABC):
     @property
     def suffix(self) -> str:
         """The final file extension of the basename, if any"""
-        i = self.name.rfind(".")
-        if 0 < i < len(self.name) - 1:
-            return self.name[i:]
-        else:
-            return ""
+        return _path_suffix(self.name)
 
     @property
     def suffixes(self) -> list[str]:
         """A list of the basename's file extensions"""
-        if self.name.endswith("."):
-            return []
-        name = self.name.lstrip(".")
-        return ["." + suffix for suffix in name.split(".")[1:]]
+        return _path_suffixes(self.name)
 
     @property
     def stem(self) -> str:
         """The basename without its final file extension, if any"""
-        i = self.name.rfind(".")
-        if 0 < i < len(self.name) - 1:
-            return self.name[:i]
-        else:
-            return self.name
+        return _path_stem(self.name)
 
     def with_stem(self: P, stem: str) -> P:
         """Returns a new path with the stem changed"""
@@ -209,15 +238,7 @@ class BasePath(ABC):
 
     def match(self, pattern: str) -> bool:
         """Tests whether the path matches the given glob pattern"""
-        patparts = self._split_path(pattern)
-        if not patparts:
-            raise ValueError("Empty pattern")
-        if len(patparts) > len(self.parts):
-            return False
-        for part, pat in zip(reversed(self.parts), reversed(patparts)):
-            if not fnmatchcase(part, pat):
-                return False
-        return True
+        return _match_parts(self.parts, pattern)
 
     @abstractmethod
     def exists(self) -> bool:

@@ -85,6 +85,29 @@ you can also run `tox` with `lint` and `typing`:
 tox -e lint,typing
 ```
 
+`tox -e lint` also checks for duplicated code (with
+[jscpd](https://github.com/kucherenko/jscpd), configured in `.jscpd.json`).
+To run only that check and see its statistics:
+```
+tox -e duplication
+```
+It fails if duplicated lines exceed the threshold in `.jscpd.json`, or on a
+clone missing from `.jscpd-baseline.json`, the clones accepted so far.  Editing
+code that is already duplicated changes its clone, so it is flagged too.
+Docstrings are not counted (`ignorePattern` in `.jscpd.json`): an overriding
+method may well repeat its base class's docstring.
+Either remove the duplication, or, if it is intended, accept it and commit the
+updated baseline:
+```
+pre-commit run --hook-stage manual jscpd-update-baseline --all-files
+```
+(pre-commit reports this hook as failed when it changes the baseline.)  As the
+baseline lists only fingerprints, say in the pull request which clones it
+accepts: the check printed them as `[NEW]`.  Do the same after bumping jscpd's
+version, which may fingerprint clones differently.  To resolve a merge conflict
+in `.jscpd-baseline.json`, take master's version
+(`git checkout master -- .jscpd-baseline.json`) and run the hook again.
+
 To build documentation:
 ```
 tox -e docs
@@ -244,6 +267,10 @@ The following hooks run on commit (`.pre-commit-config.yaml`):
 3. isort (import sorting)
 4. codespell (spell checking)
 5. flake8 (linting)
+6. reuse (license and copyright information, see `REUSE.toml`)
+7. jscpd (code duplication, as in `tox -e duplication`).  jscpd comes only as
+   wheels, which on Linux need glibc 2.34 or newer; on older systems, commit
+   with `SKIP=jscpd`.
 
 Because black and isort auto-fix files, a commit that triggers fixes will
 fail the first time.  Simply re-run `git commit` — the second attempt should
@@ -375,9 +402,13 @@ New markers must be registered in `pytest_configure()` in
 
 ## CI/CD
 
-- `run-tests.yml` — full test matrix: Python 3.10–3.13 × Ubuntu,
+- `run-tests.yml` — full test matrix: Python 3.11–3.14 × Ubuntu,
   macOS (M1 + Intel), Windows
-- `lint.yml` — codespell + flake8
+- `lint.yml` — codespell only, to annotate typos in the pull request diff
+- [pre-commit.ci](https://pre-commit.ci) — all pre-commit hooks (black,
+  isort, codespell, flake8, reuse, jscpd) on pull requests and pushes: the same
+  hooks `tox -e lint` runs locally.  It also opens a quarterly pull request
+  updating the hooks, which needs a label (e.g. `internal`) before merging.
 - `typing.yml` — mypy
 - `docs.yml` — Sphinx build
 - `release.yml` — automated release via `auto` (see below)
