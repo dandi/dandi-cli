@@ -94,6 +94,11 @@ class AssetsNotFoundError(HTTP404Error):
     An asset deletion request named assets that do not belong to the Dandiset
     version.  Other assets in the request may still have been deleted; see
     ``deleted_asset_ids``.
+
+    Unlike with other HTTP errors, its ``response`` is always `None`:
+    the bulk deletion endpoint reports missing assets in a successful
+    response, and a single-asset deletion request may have been followed by
+    others.
     """
 
     def __init__(
@@ -101,9 +106,8 @@ class AssetsNotFoundError(HTTP404Error):
         msg: str,
         missing_asset_ids: set[str],
         deleted_asset_ids: list[str] | None = None,
-        response: requests.Response | None = None,
     ) -> None:
-        super().__init__(msg, response=response)
+        super().__init__(msg)
         #: The IDs of the requested assets that do not belong to the version
         self.missing_asset_ids = missing_asset_ids
         #: The IDs of the other assets in the same batch that were deleted

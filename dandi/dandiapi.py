@@ -2487,7 +2487,9 @@ class RemoteAsset(BaseRemoteAsset):
         :raises ValueError:
             if the asset does not belong to the draft version of its Dandiset
         :raises ~dandi.exceptions.AssetsNotFoundError:
-            if the asset no longer belongs to the version
+            if the asset no longer belongs to the version.  This is an
+            `~dandi.exceptions.HTTP404Error`, like the error raised by earlier
+            versions of dandi-cli, but its ``response`` is `None`.
         :raises ~dandi.exceptions.NotFoundError:
             if the Dandiset version does not exist on the server
         """
