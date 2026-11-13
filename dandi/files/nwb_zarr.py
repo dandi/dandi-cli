@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+import traceback
+from typing import Any
+
 from dandischema.models import BareAsset
 from packaging.version import Version
 
@@ -9,11 +13,7 @@ from dandi import get_logger
 from dandi.consts import ZARR_MIME_TYPE
 from dandi.misctypes import Digest
 
-from .bases import (
-    _get_nwb_asset_metadata,
-    _get_nwb_inspector_version,
-    _get_nwb_validation_errors,
-)
+from .bases import NWBMixin, _get_nwb_inspector_version
 from .zarr import ZarrAsset, get_zarr_format_version
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
@@ -26,11 +26,11 @@ from ..validate._types import (
 lgr = get_logger()
 
 
-class NWBZarrAsset(ZarrAsset):
+class NWBZarrAsset(NWBMixin, ZarrAsset):
     """
     Representation of a local NWB file stored as Zarr (a :file:`*.nwb.zarr`
     directory): a Zarr asset whose metadata is extracted from the NWB file,
-    which is validated as well
+    which is validated as well, as for any NWB file (`NWBMixin`)
 
     Reading its NWB content requires hdmf-zarr >= 0.14, and thus Python >=
     3.12: the optional ``nwb-zarr`` dependency.
@@ -41,7 +41,7 @@ class NWBZarrAsset(ZarrAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        metadata = _get_nwb_asset_metadata(self, digest, ignore_errors)
+        metadata = super().get_metadata(digest, ignore_errors)
         # As for any Zarr asset; dataStandard says it is NWB
         metadata.encodingFormat = ZARR_MIME_TYPE
         return metadata
@@ -53,70 +53,104 @@ class NWBZarrAsset(ZarrAsset):
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         """
-        Validate the Zarr as any Zarr asset is (along with the asset's
-        metadata), and the NWB file it stores as
-        `NWBAsset.get_validation_errors()` does
+        Validate the NWB file as any NWB file is (`NWBMixin`), and the Zarr as
+        any Zarr asset is, along with the asset's metadata
         """
-        return super().get_validation_errors(
-            schema_version=schema_version,
-            devel_debug=devel_debug,
-            missing_file_content=missing_file_content,
-        ) + self._get_nwb_errors(
-            schema_version=schema_version,
-            devel_debug=devel_debug,
-            missing_file_content=missing_file_content,
-        )
-
-    def _get_nwb_errors(
-        self,
-        schema_version: str | None,
-        devel_debug: bool,
-        missing_file_content: MissingFileContent | None,
-    ) -> list[ValidationResult]:
-        """Validate the NWB file, but not the asset's metadata, which
-        `ZarrAsset.get_validation_errors()` validates"""
         # Avoid heavy import by importing within function:
         from dandi.pynwb_utils import get_nwb_zarr_reading_problem
 
-        if missing_file_content == MissingFileContent.only_non_data:
-            # Only the path layout is validated
-            return _get_nwb_validation_errors(
-                self,
-                schema_version,
-                devel_debug,
-                missing_file_content,
-                validate_metadata=False,
-            )
-        if problem := get_nwb_zarr_reading_problem(self.filepath):
+        kwargs: dict[str, Any] = {
+            "schema_version": schema_version,
+            "devel_debug": devel_debug,
+        }
+        content = missing_file_content != MissingFileContent.only_non_data
+        if content and (problem := get_nwb_zarr_reading_problem(self.filepath)):
             # Not validating the NWB content at all, rather than with an error
             # from each validator failing to read it, but still its path
-            return [
-                ValidationResult(
-                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
-                    severity=Severity.ERROR,
-                    id="dandi_zarr.nwb_unreadable",
-                    scope=Scope.FILE,
-                    path=self.filepath,
-                    message=f"Cannot validate NWB file stored as Zarr: {problem}",
+            return (
+                ZarrAsset.get_validation_errors(
+                    self, missing_file_content=missing_file_content, **kwargs
                 )
-            ] + _get_nwb_validation_errors(
-                self,
-                schema_version,
-                devel_debug,
-                missing_file_content=MissingFileContent.only_non_data,
-                validate_metadata=False,
+                + [
+                    ValidationResult(
+                        origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                        severity=Severity.ERROR,
+                        id="dandi_zarr.nwb_unreadable",
+                        scope=Scope.FILE,
+                        path=self.filepath,
+                        message=f"Cannot validate NWB file stored as Zarr: {problem}",
+                    )
+                ]
+                + super().get_validation_errors(
+                    missing_file_content=MissingFileContent.only_non_data, **kwargs
+                )
             )
-        return _get_nwb_validation_errors(
-            self,
-            schema_version=schema_version,
-            devel_debug=devel_debug,
-            missing_file_content=missing_file_content,
-            # NWB Inspector runs only without a schema_version
-            nwbinspector_ignore=(
-                self._get_nwbinspector_ignore() if schema_version is None else None
-            ),
-            validate_metadata=False,
+        errors = super().get_validation_errors(
+            missing_file_content=missing_file_content, **kwargs
         )
+        if schema_version is None or not content:
+            # Only with a schema_version, and the content, does NWBMixin
+            # validate the asset as its other base class, ZarrAsset, does
+            errors = (
+                ZarrAsset.get_validation_errors(
+                    self, missing_file_content=missing_file_content, **kwargs
+                )
+                + errors
+            )
+        return errors
+
+    def _inspect_nwbfile(self) -> Iterator[Any]:
+        """
+        Inspect the NWB file with NWB Inspector, as `NWBMixin` does, but
+        reading it with `open_nwb_zarr()`: nwbinspector opens Zarr with
+        NWBZarrIO, which reads only Zarr v3 as of hdmf-zarr 0.14 (Zarr v2
+        needs NWBZarrV2IO)
+        """
+        # Avoid heavy import by importing within function:
+        from nwbinspector import (
+            Importance,
+            InspectorMessage,
+            inspect_nwbfile_object,
+            load_config,
+        )
+
+        # Avoid heavy import by importing within function:
+        from dandi.pynwb_utils import open_nwb_zarr
+
+        def read_error(e: Exception) -> InspectorMessage:
+            # As inspect_nwbfile() reports it
+            return InspectorMessage(
+                message=traceback.format_exc(),
+                importance=Importance.ERROR,
+                check_function_name=(
+                    "During io.read(), an error occurred: "
+                    f"{type(e).__module__}.{type(e).__name__}. This indicates "
+                    "that PyNWB was unable to read the file. See the traceback "
+                    "message for more details."
+                ),
+                file_path=str(self.filepath),
+            )
+
+        try:
+            io = open_nwb_zarr(self.filepath)
+        except Exception as e:
+            yield read_error(e)
+            return
+        with io:
+            try:
+                nwbfile = io.read()
+            except Exception as e:
+                yield read_error(e)
+                return
+            for message in inspect_nwbfile_object(
+                nwbfile_object=nwbfile,
+                config=load_config(filepath_or_keyword="dandi"),
+                ignore=self._get_nwbinspector_ignore(),
+                importance_threshold=Importance.BEST_PRACTICE_VIOLATION,
+            ):
+                # As inspect_nwbfile() sets it
+                message.file_path = str(self.filepath)
+                yield message
 
     def _get_nwbinspector_ignore(self) -> list[str] | None:
         """Names of NWB Inspector checks which crash on this file, which would
