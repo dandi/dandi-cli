@@ -449,10 +449,14 @@ def test_delete_within_zarr_refused(mocker: MockerFixture, suffix: str) -> None:
     [
         "dandi://dandi/000108@0.210812.1448/sub-1/file.nwb",
         "dandi://dandi/000108@0.210812.1448/sub-1/",
-        "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
-        "/assets/9e1a4a8d-fb5d-4a0f-9a0d-6d6ec5bc4b61/",
-        "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
-        "/assets/?path=sub-1",
+        (
+            "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
+            "/assets/9e1a4a8d-fb5d-4a0f-9a0d-6d6ec5bc4b61/"
+        ),
+        (
+            "https://api.dandiarchive.org/api/dandisets/000108/versions/0.210812.1448"
+            "/assets/?path=sub-1"
+        ),
     ],
 )
 def test_delete_published_version_assets_refused(
