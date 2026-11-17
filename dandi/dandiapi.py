@@ -62,7 +62,12 @@ from .consts import (
     DandiInstance,
     EmbargoStatus,
 )
-from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
+from .exceptions import (
+    HTTP404Error,
+    NotFoundError,
+    SchemaVersionError,
+    ZarrIngestionError,
+)
 from .keyring_utils import keyring_lookup, keyring_save
 from .misctypes import (
     Digest,
@@ -124,6 +129,29 @@ def set_asset_schema_key(metadata: dict[str, Any]) -> None:
     The metadata is modified in place.
     """
     metadata["schemaKey"] = "Asset"
+
+
+def zarr_ingestion_deferred_until(zarr_data: dict[str, Any]) -> str | None:
+    """
+    Given a Zarr's data from the server (as returned by ``GET
+    /zarr/{zarr_id}/``), return the time until which the server deferred its
+    ingestion, or `None` if it did not.
+
+    dandi-archive#3018 defers the ingestion of a Zarr while any of its
+    unexpired upload URLs could still change it, leaving it ``"Uploaded"`` with
+    the time of the next attempt in ``"ingestion_deferred_until"``.  The field
+    stays set while that attempt runs (``"Ingesting"``), and is cleared once
+    the Zarr is ingested or modified.
+    """
+    # Servers without dandi-archive#3018 lack the field and never defer
+    # ingestion; .get() can be replaced by indexing once all known instances
+    # deploy that feature.
+    if zarr_data["status"] == "Uploaded" and (
+        deferred_until := zarr_data.get("ingestion_deferred_until")
+    ):
+        assert isinstance(deferred_until, str)
+        return deferred_until
+    return None
 
 
 class AssetType(Enum):
@@ -2073,7 +2101,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
 
         If ``reingest`` is true, after performing the deletion, the client
         triggers a recalculation of the Zarr's checksum and waits for it to
-        complete.
+        complete, unless the server defers it (see `wait_for_ingestion()`).
         """
         # Don't bother checking that the entries are actually files or even
         # belong to this Zarr, as if they're not, the server will return an
@@ -2085,11 +2113,47 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
             )
         if reingest:
             self.client.post(f"/zarr/{self.zarr}/finalize/")
-            while True:
-                sleep(2)
-                r = self.client.get(f"/zarr/{self.zarr}/")
-                if r["status"] == "Complete":
-                    break
+            r = self.wait_for_ingestion()
+            if deferred_until := zarr_ingestion_deferred_until(r):
+                lgr.info(
+                    "Server deferred ingestion of Zarr %s until %s",
+                    self.zarr,
+                    deferred_until,
+                )
+
+    def wait_for_ingestion(self) -> dict[str, Any]:
+        """
+        Wait for the server to finish ingesting the Zarr after it has been
+        finalized, or to defer its ingestion.
+
+        Returns the Zarr's data from the server (as returned by
+        ``GET /zarr/{zarr_id}/``) once its ``"status"`` is either
+        ``"Complete"``, in which case its ``"checksum"`` is set, or
+        ``"Uploaded"`` with ``"ingestion_deferred_until"`` set.  In the latter
+        case, the server ingests the Zarr on its own at the given time, so
+        there is no point in waiting for it.
+
+        Raises `ZarrIngestionError` if the Zarr becomes ``"Pending"`` again,
+        i.e., something else modified it in the meantime.
+        """
+        while True:
+            sleep(2)
+            r: dict[str, Any] = self.client.get(f"/zarr/{self.zarr}/")
+            status = r["status"]
+            if status == "Complete":
+                return r
+            if deferred_until := zarr_ingestion_deferred_until(r):
+                lgr.debug(
+                    "Server deferred ingestion of Zarr %s until %s",
+                    self.zarr,
+                    deferred_until,
+                )
+                return r
+            if status == "Pending":
+                raise ZarrIngestionError(
+                    f"Zarr {self.zarr} was modified while waiting for the"
+                    " server to ingest it"
+                )
 
 
 class RemoteAsset(BaseRemoteAsset):
