@@ -49,6 +49,7 @@ from ..validate._types import (
     Origin,
     OriginType,
     Scope,
+    Severity,
     Standard,
     ValidationResult,
     Validator,
@@ -817,6 +818,31 @@ def test_validate_deep_zarr_without_zarr_python(
         "dandi_zarr.tree_depth_exceeded",
         "dandi_zarr.zarr_python_required",
     ]
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "name, min_python, expected_ids",
+    [
+        ("example.nwb.zarr", (99, 0), ["dandi_zarr.nwb_zarr_python_version"]),
+        ("example.nwb.zarr", (3, 0), []),
+        ("example.zarr", (99, 0), []),
+    ],
+    ids=["nwb-zarr-old-python", "nwb-zarr-new-python", "plain-zarr"],
+)
+def test_validate_nwb_zarr_python_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    min_python: tuple[int, int],
+    expected_ids: list[str],
+) -> None:
+    monkeypatch.setattr("dandi.files.zarr.NWB_ZARR_MIN_PYTHON", min_python)
+    zarr_path = tmp_path / name
+    zarr.save(zarr_path, np.arange(10))
+    results = dandi_file(zarr_path).get_validation_errors()
+    assert [r.id for r in results] == expected_ids
+    assert all(r.severity is Severity.WARNING for r in results)
 
 
 @pytest.mark.ai_generated

@@ -15,6 +15,7 @@ import os
 import os.path
 from pathlib import Path
 import random
+import sys
 from time import sleep
 from typing import TYPE_CHECKING, Any, Optional
 import urllib.parse
@@ -70,6 +71,10 @@ from ..validate._types import (
 )
 
 lgr = get_logger()
+
+#: The Python version that NWB files stored as Zarr need: hdmf-zarr 0.14, the
+#: first release on zarr-python 3, requires it (dandi-cli#1920)
+NWB_ZARR_MIN_PYTHON = (3, 12)
 
 
 def get_zarr_format_version(path: Path) -> Optional[str]:
@@ -623,6 +628,24 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     scope=Scope.FILE,
                     path=self.filepath,
                     message=msg,
+                )
+            )
+
+        if self.path.endswith(".nwb.zarr") and sys.version_info < NWB_ZARR_MIN_PYTHON:
+            errors.append(
+                ValidationResult(
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                    severity=Severity.WARNING,
+                    id="dandi_zarr.nwb_zarr_python_version",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message=(
+                        "NWB files stored as Zarr need Python "
+                        f"{'.'.join(map(str, NWB_ZARR_MIN_PYTHON))} or newer and a "
+                        "newer dandi-cli to be validated as NWB. On Python "
+                        f"{sys.version_info.major}.{sys.version_info.minor} "
+                        "this file is validated only as a Zarr store."
+                    ),
                 )
             )
 
