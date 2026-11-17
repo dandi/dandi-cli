@@ -801,9 +801,12 @@ def test_validate_zarr_requires_zarr_python_3(
     else:
         monkeypatch.setattr(zarr, "__version__", zarr_version)
     zf = dandi_file(Path(__file__).parent / VALID_STORES_PATH / "single_array.zarr")
-    assert [r.id for r in zf.get_validation_errors()] == [
-        "dandi_zarr.zarr_python_required"
-    ]
+    results = zf.get_validation_errors()
+    assert [r.id for r in results] == ["dandi_zarr.zarr_python_required"]
+    # Installing the extra would replace the zarr-python 2 that another package
+    # in the environment may need
+    message = results[0].message or ""
+    assert ("separate environment" in message) == (zarr_version is not None)
 
 
 @pytest.mark.ai_generated

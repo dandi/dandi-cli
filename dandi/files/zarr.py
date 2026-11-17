@@ -669,6 +669,19 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 if zarr_version is None
                 else f"found {zarr_version}"
             )
+            message = (
+                f"Validating Zarr assets requires zarr-python 3.x ({found}) "
+                "and zarr-metadata. Install them with "
+                "`pip install 'dandi[zarr]'`."
+            )
+            if zarr_version is not None and Version(zarr_version).major < 3:
+                # Most likely kept by hdmf-zarr before 0.14, which requires zarr < 3
+                message += (
+                    " Zarr format 2 data is still supported. Installing them "
+                    "replaces zarr-python 2, so if another package in this "
+                    "environment needs it, such as hdmf-zarr before 0.14, validate "
+                    "and upload from a separate environment."
+                )
             errors.append(
                 ValidationResult(
                     origin=ORIGIN_VALIDATION_DANDI_ZARR,
@@ -676,11 +689,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     id="dandi_zarr.zarr_python_required",
                     scope=Scope.FILE,
                     path=self.filepath,
-                    message=(
-                        f"Validating Zarr assets requires zarr-python 3.x ({found}) "
-                        "and zarr-metadata. Install them with "
-                        "`pip install 'dandi[zarr]'`."
-                    ),
+                    message=message,
                 )
             )
             return errors + super().get_validation_errors(
