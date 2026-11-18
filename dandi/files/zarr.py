@@ -591,7 +591,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ``"skipped"`` with a ``"message"`` of ``"identical"`` and the same
             ``"asset"`` key.  If the server deferred ingesting the Zarr (see
             `RemoteZarrAsset.wait_for_ingestion()`), the upload does not wait
-            for it, the local checksum is not verified, and the terminal
+            for it, the local checksum is verified against one computed from
+            the remote file listing instead of the server's, and the terminal
             ``"message"`` says until when ingestion is deferred.
         """
         asset_path = metadata.setdefault("path", self.path)
@@ -673,6 +674,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             Wait for the server to ingest the Zarr, after finalizing it if
             ``finalize`` is true, and verify its checksum against the local
             one.  Returns whether they mismatch.
+
+            If the server defers ingesting the Zarr, it is not waited for, and
+            the local checksum is verified against one computed from the
+            remote file listing instead, which is what the server computes its
+            checksum from.
             """
             nonlocal deferred_until
             lgr.debug("%s: Waiting for server to calculate Zarr checksum", asset_path)
@@ -682,14 +688,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             r = a.wait_for_ingestion()
             if deferred_until := zarr_ingestion_deferred_until(r):
                 lgr.info(
-                    "%s: Server deferred ingestion until %s because upload"
-                    " URLs for entries that have since been changed or deleted"
-                    " have not expired yet; skipping local checksum"
-                    " verification",
+                    "%s: Server deferred ingestion until %s because some of the"
+                    " Zarr's upload URLs could still change it",
                     asset_path,
                     deferred_until,
                 )
-                return False
             if zarr_mode == "patch":
                 lgr.info(
                     "%s: Skipping local checksum verification (patch mode)",
@@ -697,15 +700,23 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 )
                 return False
             our_checksum = str(zcc.process())
-            server_checksum = r["checksum"]
-            if our_checksum == server_checksum:
+            if deferred_until is not None:
+                lgr.debug(
+                    "%s: Computing Zarr checksum from remote file listing", asset_path
+                )
+                remote_checksum = _remote_zarr_checksum(a)
+                source = "remote file listing"
+            else:
+                remote_checksum = r["checksum"]
+                source = "server"
+            if our_checksum == remote_checksum:
                 return False
             lgr.info(
-                "%s: Asset checksum mismatch (local: %s; server: %s);"
-                " redoing upload",
+                "%s: Asset checksum mismatch (local: %s; %s: %s); redoing upload",
                 asset_path,
                 our_checksum,
-                server_checksum,
+                source,
+                remote_checksum,
             )
             yield {"status": "Checksum mismatch"}
             return True
@@ -801,9 +812,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 if n_add == 0 and n_modify == 0 and n_delete == 0:
                     zarr_info = client.get(f"/zarr/{zarr_id}/")
                     status = zarr_info["status"]
-                    if status == "Complete" or (
-                        deferred_until := zarr_ingestion_deferred_until(zarr_info)
-                    ):
+                    deferred_until = zarr_ingestion_deferred_until(zarr_info)
+                    if status == "Complete" or deferred_until is not None:
                         mismatched = False
                         unchanged = True
                         break
@@ -1020,6 +1030,18 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             if deferral is not None:
                 done["message"] = deferral
             yield done
+
+
+def _remote_zarr_checksum(asset: RemoteZarrAsset) -> str:
+    """
+    Compute the DANDI Zarr checksum of a remote Zarr from the listing of its
+    files, which, unlike the checksum the server reports, does not have to
+    wait for the server to ingest the Zarr
+    """
+    tree = ZarrChecksumTree()
+    for entry in asset.iterfiles():
+        tree.add_leaf(Path(str(entry)), entry.size, entry.digest.value)
+    return str(tree.process())
 
 
 def _handle_failed_items_and_raise(

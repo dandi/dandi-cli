@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from base64 import b64encode
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, timezone
 import os
 from pathlib import Path
@@ -679,6 +680,35 @@ def test_zarr_upload_403_retry(
         assert "arr_1" not in url, f"URL {url} should have been retried but wasn't"
 
 
+def _fake_zarr_entry_uploads(
+    monkeypatch: pytest.MonkeyPatch,
+    fake: Callable[[str], tuple[int, bytes] | None],
+) -> None:
+    """
+    Make uploads of Zarr entries to storage get the status code and content
+    ``fake`` returns for their URL, unless it returns `None`.  The responses
+    are faked by `requests.Session.request`, below the retry logic of
+    `RESTFullAPIClient.request()`.
+    """
+    original_request = requests.Session.request
+
+    def mock_request(
+        self: requests.Session, method: str, url: str, *args: Any, **kwargs: Any
+    ) -> requests.Response:
+        if (
+            method == "PUT"
+            and "dandi-dandisets" in url
+            and (faked := fake(url)) is not None
+        ):
+            resp = requests.Response()
+            resp.status_code, resp._content = faked
+            resp.url = url
+            return resp
+        return original_request(self, method, url, *args, **kwargs)
+
+    monkeypatch.setattr(requests.Session, "request", mock_request)
+
+
 @pytest.mark.ai_generated
 def test_zarr_upload_400_timeout_retry(
     mocker: MockerFixture,
@@ -689,41 +719,31 @@ def test_zarr_upload_400_timeout_retry(
     A 400 RequestTimeout response to uploading a Zarr entry is retried by
     `RESTFullAPIClient.request()` (https://github.com/dandi/dandi-cli/issues/1662)
     """
-    zarr_path = new_dandiset.dspath / "test.zarr"
-    zarr.save(zarr_path, np.arange(100), np.arange(100, 0, -1))
+    zarr.save(new_dandiset.dspath / "test.zarr", np.arange(100), np.arange(100, 0, -1))
 
     # Attempts to upload each Zarr entry, by the path of its URL
     put_attempts: defaultdict[str, int] = defaultdict(int)
-    original_request = requests.Session.request
 
-    def mock_request(
-        self: requests.Session, method: str, url: str, *args: Any, **kwargs: Any
-    ) -> requests.Response:
+    def fake(url: str) -> tuple[int, bytes] | None:
         # Respond to the first attempt to upload each entry of arr_0 with a
-        # timeout, below the retry logic of RESTFullAPIClient.request(), so
-        # that it is retried there
-        if method == "PUT" and "dandi-dandisets" in url:
-            urlpath = urlparse(url).path
-            put_attempts[urlpath] += 1
-            if "arr_0" in urlpath and put_attempts[urlpath] == 1:
-                resp = requests.Response()
-                resp.status_code = 400
-                resp.reason = "Bad Request"
-                resp.url = url
-                resp._content = (
-                    b'<?xml version="1.0" encoding="UTF-8"?>\n'
-                    b"<Error><Code>RequestTimeout</Code>"
-                    b"<Message>Your socket connection to the server"
-                    b" was not read from or written to within the timeout period."
-                    b" Idle connections will be closed.</Message>"
-                    b"<RequestId>1111111111111111</RequestId>"
-                    b"<HostId>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</HostId>"
-                    b"</Error>"
-                )
-                return resp
-        return original_request(self, method, url, *args, **kwargs)
+        # timeout
+        urlpath = urlparse(url).path
+        put_attempts[urlpath] += 1
+        if "arr_0" in urlpath and put_attempts[urlpath] == 1:
+            return (
+                400,
+                b'<?xml version="1.0" encoding="UTF-8"?>\n'
+                b"<Error><Code>RequestTimeout</Code>"
+                b"<Message>Your socket connection to the server"
+                b" was not read from or written to within the timeout period."
+                b" Idle connections will be closed.</Message>"
+                b"<RequestId>1111111111111111</RequestId>"
+                b"<HostId>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</HostId>"
+                b"</Error>",
+            )
+        return None
 
-    monkeypatch.setattr(requests.Session, "request", mock_request)
+    _fake_zarr_entry_uploads(monkeypatch, fake)
     events = _spy_zarr_iter_upload(mocker)
 
     new_dandiset.upload()
@@ -747,6 +767,54 @@ def test_zarr_upload_400_timeout_retry(
     # Nor did the server defer ingesting the Zarr for upload URLs left unused
     # (dandi-archive#3018), as it would if they had not been retried
     assert events[-1] == {"status": "done", "asset": anys.AnyInstance(RemoteZarrAsset)}
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_lost_entry(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    new_dandiset: SampleDandiset,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """
+    An entry which the client believes it uploaded, but which is missing from
+    the remote Zarr, is detected by the Zarr's checksum and uploaded again.
+
+    Against a server which defers ingesting a Zarr with unused upload URLs
+    (dandi-archive#3018), as it does here for the lost entry's, the checksum
+    is computed from the remote file listing rather than by the server.
+    """
+    zarr_path = new_dandiset.dspath / "test.zarr"
+    zarr.save(zarr_path, np.arange(100), np.arange(100, 0, -1))
+    lost: list[str] = []
+
+    def fake(url: str) -> tuple[int, bytes] | None:
+        # Report success for the first upload of an entry of arr_0 without
+        # uploading it
+        if "arr_0" in (urlpath := urlparse(url).path) and not lost:
+            lost.append(urlpath)
+            return (200, b"")
+        return None
+
+    _fake_zarr_entry_uploads(monkeypatch, fake)
+    events = _spy_zarr_iter_upload(mocker)
+
+    new_dandiset.upload()
+
+    assert lost
+    assert [e["status"] for e in events].count("Checksum mismatch") == 1
+    asset = new_dandiset.dandiset.get_asset_by_path("test.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    zarr_info = new_dandiset.client.get(f"/zarr/{asset.zarr}/")
+    if "ingestion_deferred_until" in zarr_info:
+        assert "remote file listing" in caplog.text
+    # Once the lost entry is uploaded again, none of the Zarr's upload URLs can
+    # change it, so the server does not defer ingesting it
+    assert events[-1] == {"status": "done", "asset": anys.AnyInstance(RemoteZarrAsset)}
+    assert zarr_info["status"] == "Complete"
+    download(new_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(zarr_path, tmp_path / new_dandiset.dandiset_id / "test.zarr")
 
 
 @pytest.mark.ai_generated
