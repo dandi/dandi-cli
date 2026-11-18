@@ -469,13 +469,6 @@ def test_upload_bids_zarr(
     bids_zarr_dandiset.upload()
 
 
-#: Timeout for tests which rewrite or delete recently uploaded Zarr entries and
-#: then need the Zarr ingested (see `_wait_for_zarr_ingestion()`).  Shorten it
-#: once the test archive instance also shortens the interval for retrying
-#: deferred ingestion.
-ZARR_DEFERRED_INGESTION_TIMEOUT = 600
-
-
 def _wait_for_zarr_ingestion(
     sample_dandiset: SampleDandiset, path: str = "sample.zarr"
 ) -> None:
@@ -486,16 +479,18 @@ def _wait_for_zarr_ingestion(
     with are still valid makes dandi-archive#3018 defer ingesting it until
     those URLs expire, and ``dandi upload`` does not wait for that.  In the
     test archive instance, the URLs expire after 30 seconds, and deferred
-    ingestion is retried every 5 minutes.
+    ingestion is retried every 5 seconds, so this takes well under a minute.
+    The deadline leaves the rest of pytest's timeout for the test itself, so
+    that a Zarr which is never ingested fails with its status.
     """
     asset = sample_dandiset.dandiset.get_asset_by_path(path)
     assert isinstance(asset, RemoteZarrAsset)
-    deadline = monotonic() + ZARR_DEFERRED_INGESTION_TIMEOUT - 30
+    deadline = monotonic() + 180
     while (
         status := sample_dandiset.client.get(f"/zarr/{asset.zarr}/")["status"]
     ) != "Complete":
         assert monotonic() < deadline, f"Zarr {asset.zarr} still {status!r}"
-        sleep(5)
+        sleep(2)
 
 
 def _replace_zarr_and_check(
@@ -515,14 +510,12 @@ def _replace_zarr_and_check(
     )
 
 
-@pytest.mark.timeout(ZARR_DEFERRED_INGESTION_TIMEOUT)
 def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
     assert isinstance(asset, RemoteZarrAsset)
     _replace_zarr_and_check(tmp_path, zarr_dandiset, asset.zarr)
 
 
-@pytest.mark.timeout(ZARR_DEFERRED_INGESTION_TIMEOUT)
 def test_upload_loose_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
     assert isinstance(asset, RemoteZarrAsset)
@@ -531,7 +524,6 @@ def test_upload_loose_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> Non
     _replace_zarr_and_check(tmp_path, zarr_dandiset, zarr_id)
 
 
-@pytest.mark.timeout(ZARR_DEFERRED_INGESTION_TIMEOUT)
 def test_upload_different_zarr_entry_conflicts(
     tmp_path: Path, new_dandiset: SampleDandiset
 ) -> None:
@@ -555,7 +547,6 @@ def test_upload_different_zarr_entry_conflicts(
     assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
 
 
-@pytest.mark.timeout(ZARR_DEFERRED_INGESTION_TIMEOUT)
 def test_upload_different_zarr_file_to_parent_dir(
     tmp_path: Path, new_dandiset: SampleDandiset
 ) -> None:
