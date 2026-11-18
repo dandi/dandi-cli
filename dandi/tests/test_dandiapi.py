@@ -37,18 +37,21 @@ from ..consts import (
     dandiset_metadata_file,
 )
 from ..dandiapi import (
+    BaseRemoteZarrAsset,
     DandiAPIClient,
     RemoteAsset,
     RemoteBlobAsset,
     RemoteDandiset,
     RemoteZarrAsset,
+    RemoteZarrEntry,
     Version,
     VersionStatus,
 )
 from ..download import download
-from ..exceptions import NotFoundError, SchemaVersionError
+from ..exceptions import NotFoundError, SchemaVersionError, ZarrIngestionError
 from ..files import GenericAsset, dandi_file
 from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
+from ..misctypes import Digest
 from ..utils import list_paths
 
 # These tests exercise the 0.8.0 -> 0.7.0 downgrade wiring, which requires
@@ -1177,3 +1180,156 @@ def test_all_public_api() -> None:
     assert exported == names
     assert {"DandiAPIClient", "RemoteDandiset", "RemoteAsset"} <= names
     assert not {"APIBase", "RemoteDandisetData", "ZarrEntryServerData"} & names
+
+
+def _zarr_asset_for_mocked_server() -> BaseRemoteZarrAsset:
+    _mock_server_info(dandischema.consts.DANDI_SCHEMA_VERSION)
+    now = datetime.now(timezone.utc)
+    return BaseRemoteZarrAsset.model_validate(
+        {
+            "client": DandiAPIClient("https://test.nil/api"),
+            "asset_id": "abc",
+            "path": "sample.zarr",
+            "size": 0,
+            "created": now,
+            "modified": now,
+            "zarr": "zarr-id",
+        }
+    )
+
+
+_MOCK_ZARR_URL = "https://test.nil/api/zarr/zarr-id/"
+
+
+def _zarr_polls() -> int:
+    return sum(c.request.url == _MOCK_ZARR_URL for c in responses.calls)
+
+
+def _mock_zarr_states(*states: dict[str, Any]) -> None:
+    for state in states:
+        responses.add(
+            responses.GET,
+            _MOCK_ZARR_URL,
+            json={"zarr_id": "zarr-id", "checksum": None, **state},
+        )
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_wait_for_ingestion_without_deferral_support(
+    caplog: pytest.LogCaptureFixture, mocker: MockerFixture
+) -> None:
+    """A server without dandi-archive#3018 never defers; wait for "Complete"."""
+    mocker.patch.object(dandiapi, "sleep")
+    _mock_zarr_states(
+        {"status": "Uploaded"},
+        {"status": "Ingesting"},
+        {"status": "Complete", "checksum": "abc-1--1"},
+    )
+    r = _zarr_asset_for_mocked_server().wait_for_ingestion()
+    assert r["status"] == "Complete"
+    assert r["checksum"] == "abc-1--1"
+    assert _zarr_polls() == 3
+    assert "Server does not report deferred Zarr ingestion" in caplog.text
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_wait_for_ingestion_complete(
+    caplog: pytest.LogCaptureFixture, mocker: MockerFixture
+) -> None:
+    mocker.patch.object(dandiapi, "sleep")
+    _mock_zarr_states(
+        {"status": "Uploaded", "ingestion_deferred_until": None},
+        {"status": "Ingesting", "ingestion_deferred_until": None},
+        {
+            "status": "Complete",
+            "checksum": "abc-1--1",
+            "ingestion_deferred_until": None,
+        },
+    )
+    r = _zarr_asset_for_mocked_server().wait_for_ingestion()
+    assert r["status"] == "Complete"
+    assert _zarr_polls() == 3
+    assert "Server does not report deferred Zarr ingestion" not in caplog.text
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_wait_for_ingestion_deferred(mocker: MockerFixture) -> None:
+    """A deferred ingestion is not waited for."""
+    mocker.patch.object(dandiapi, "sleep")
+    deferred_until = "2026-11-17T13:00:00Z"
+    _mock_zarr_states(
+        {"status": "Uploaded", "ingestion_deferred_until": None},
+        {"status": "Ingesting", "ingestion_deferred_until": None},
+        {"status": "Uploaded", "ingestion_deferred_until": deferred_until},
+    )
+    r = _zarr_asset_for_mocked_server().wait_for_ingestion()
+    assert r["status"] == "Uploaded"
+    assert r["ingestion_deferred_until"] == deferred_until
+    assert _zarr_polls() == 3
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_wait_for_ingestion_retried_after_deferral(mocker: MockerFixture) -> None:
+    """
+    The server keeps "ingestion_deferred_until" while retrying a deferred
+    ingestion; a Zarr being ingested again is waited for.
+    """
+    mocker.patch.object(dandiapi, "sleep")
+    deferred_until = "2026-11-17T13:00:00Z"
+    _mock_zarr_states(
+        {"status": "Ingesting", "ingestion_deferred_until": deferred_until},
+        {
+            "status": "Complete",
+            "checksum": "abc-1--1",
+            "ingestion_deferred_until": None,
+        },
+    )
+    r = _zarr_asset_for_mocked_server().wait_for_ingestion()
+    assert r["status"] == "Complete"
+    assert _zarr_polls() == 2
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_wait_for_ingestion_modified_meanwhile(mocker: MockerFixture) -> None:
+    mocker.patch.object(dandiapi, "sleep")
+    _mock_zarr_states(
+        {"status": "Uploaded", "ingestion_deferred_until": None},
+        {"status": "Pending", "ingestion_deferred_until": None},
+    )
+    with pytest.raises(ZarrIngestionError, match="zarr-id was modified"):
+        _zarr_asset_for_mocked_server().wait_for_ingestion()
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_rmfiles_reingest_deferred(
+    caplog: pytest.LogCaptureFixture, mocker: MockerFixture
+) -> None:
+    """``rmfiles(reingest=True)`` does not wait for a deferred ingestion."""
+    mocker.patch.object(dandiapi, "sleep")
+    asset = _zarr_asset_for_mocked_server()
+    responses.add(responses.DELETE, f"{_MOCK_ZARR_URL}files/", status=204)
+    responses.add(responses.POST, f"{_MOCK_ZARR_URL}finalize/", status=204)
+    deferred_until = "2026-11-18T13:00:00Z"
+    _mock_zarr_states(
+        {"status": "Uploaded", "ingestion_deferred_until": deferred_until},
+    )
+    entry = RemoteZarrEntry(
+        client=asset.client,
+        zarr_id=asset.zarr,
+        parts=("arr_0", "c", "0"),
+        modified=datetime.now(timezone.utc),
+        digest=Digest(algorithm=DigestType.md5, value="0" * 32),
+        size=1,
+    )
+    asset.rmfiles([entry])
+    assert _zarr_polls() == 1
+    assert (
+        f"Server deferred ingestion of Zarr zarr-id until {deferred_until}"
+        in caplog.text
+    )

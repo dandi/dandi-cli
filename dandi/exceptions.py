@@ -97,3 +97,9 @@ class UploadValidationError(UploadError):
     """An upload could not proceed because an asset failed validation."""
 
     pass
+
+
+class ZarrIngestionError(RuntimeError):
+    """A finalized Zarr did not reach a state in which its ingestion is done or deferred."""
+
+    pass
