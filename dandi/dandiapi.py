@@ -2141,6 +2141,13 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
             r: dict[str, Any] = self.client.get(f"/zarr/{self.zarr}/")
             status = r["status"]
             if status == "Complete":
+                if "ingestion_deferred_until" not in r:
+                    # See zarr_ingestion_deferred_until() for when this can be
+                    # removed
+                    lgr.debug(
+                        "Server does not report deferred Zarr ingestion"
+                        " (dandi-archive#3018); assuming it never defers it"
+                    )
                 return r
             if deferred_until := zarr_ingestion_deferred_until(r):
                 lgr.debug(

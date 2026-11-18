@@ -1214,7 +1214,9 @@ def _mock_zarr_states(*states: dict[str, Any]) -> None:
 
 @pytest.mark.ai_generated
 @responses.activate
-def test_wait_for_ingestion_without_deferral_support(mocker: MockerFixture) -> None:
+def test_wait_for_ingestion_without_deferral_support(
+    caplog: pytest.LogCaptureFixture, mocker: MockerFixture
+) -> None:
     """A server without dandi-archive#3018 never defers; wait for "Complete"."""
     mocker.patch.object(dandiapi, "sleep")
     _mock_zarr_states(
@@ -1226,11 +1228,14 @@ def test_wait_for_ingestion_without_deferral_support(mocker: MockerFixture) -> N
     assert r["status"] == "Complete"
     assert r["checksum"] == "abc-1--1"
     assert _zarr_polls() == 3
+    assert "Server does not report deferred Zarr ingestion" in caplog.text
 
 
 @pytest.mark.ai_generated
 @responses.activate
-def test_wait_for_ingestion_complete(mocker: MockerFixture) -> None:
+def test_wait_for_ingestion_complete(
+    caplog: pytest.LogCaptureFixture, mocker: MockerFixture
+) -> None:
     mocker.patch.object(dandiapi, "sleep")
     _mock_zarr_states(
         {"status": "Uploaded", "ingestion_deferred_until": None},
@@ -1244,6 +1249,7 @@ def test_wait_for_ingestion_complete(mocker: MockerFixture) -> None:
     r = _zarr_asset_for_mocked_server().wait_for_ingestion()
     assert r["status"] == "Complete"
     assert _zarr_polls() == 3
+    assert "Server does not report deferred Zarr ingestion" not in caplog.text
 
 
 @pytest.mark.ai_generated
