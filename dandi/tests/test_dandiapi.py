@@ -43,6 +43,7 @@ from ..dandiapi import (
     RemoteBlobAsset,
     RemoteDandiset,
     RemoteZarrAsset,
+    RemoteZarrEntry,
     Version,
     VersionStatus,
 )
@@ -50,6 +51,7 @@ from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError, ZarrIngestionError
 from ..files import GenericAsset, dandi_file
 from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
+from ..misctypes import Digest
 from ..utils import list_paths
 
 # These tests exercise the 0.8.0 -> 0.7.0 downgrade wiring, which requires
@@ -1301,3 +1303,33 @@ def test_wait_for_ingestion_modified_meanwhile(mocker: MockerFixture) -> None:
     )
     with pytest.raises(ZarrIngestionError, match="zarr-id was modified"):
         _zarr_asset_for_mocked_server().wait_for_ingestion()
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_rmfiles_reingest_deferred(
+    caplog: pytest.LogCaptureFixture, mocker: MockerFixture
+) -> None:
+    """``rmfiles(reingest=True)`` does not wait for a deferred ingestion."""
+    mocker.patch.object(dandiapi, "sleep")
+    asset = _zarr_asset_for_mocked_server()
+    responses.add(responses.DELETE, f"{_MOCK_ZARR_URL}files/", status=204)
+    responses.add(responses.POST, f"{_MOCK_ZARR_URL}finalize/", status=204)
+    deferred_until = "2026-11-18T13:00:00Z"
+    _mock_zarr_states(
+        {"status": "Uploaded", "ingestion_deferred_until": deferred_until},
+    )
+    entry = RemoteZarrEntry(
+        client=asset.client,
+        zarr_id=asset.zarr,
+        parts=("arr_0", "c", "0"),
+        modified=datetime.now(timezone.utc),
+        digest=Digest(algorithm=DigestType.md5, value="0" * 32),
+        size=1,
+    )
+    asset.rmfiles([entry])
+    assert _zarr_polls() == 1
+    assert (
+        f"Server deferred ingestion of Zarr zarr-id until {deferred_until}"
+        in caplog.text
+    )

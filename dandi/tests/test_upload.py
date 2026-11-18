@@ -36,6 +36,7 @@ from ..dandiset import Dandiset
 from ..download import download
 from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
+from ..files import zarr as zarr_files
 from ..files.zarr import ZarrAsset
 from ..pynwb_utils import make_nwb_file
 from ..upload import UploadExisting, UploadValidation
@@ -815,6 +816,43 @@ def test_upload_zarr_lost_entry(
     assert zarr_info["status"] == "Complete"
     download(new_dandiset.dandiset.version_api_url, tmp_path)
     assert_dirtrees_eq(zarr_path, tmp_path / new_dandiset.dandiset_id / "test.zarr")
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_deferred_ingestion_faked(
+    mocker: MockerFixture, new_dandiset: SampleDandiset
+) -> None:
+    """
+    When the server defers ingesting a Zarr, the upload does not wait for it,
+    verifies the Zarr against its remote file listing instead, and reports the
+    deferral.  The deferral is faked, so that this also runs against servers
+    without dandi-archive#3018 (cf. `test_upload_zarr_deferred_ingestion`).
+    """
+    zarr.save(new_dandiset.dspath / "test.zarr", np.arange(100), np.arange(100, 0, -1))
+    deferred_until = "2026-11-18T13:00:00Z"
+    original_wait = RemoteZarrAsset.wait_for_ingestion
+
+    def wait_for_ingestion(self: RemoteZarrAsset) -> dict[str, Any]:
+        return {
+            **original_wait(self),
+            "status": "Uploaded",
+            "checksum": None,
+            "ingestion_deferred_until": deferred_until,
+        }
+
+    mocker.patch.object(RemoteZarrAsset, "wait_for_ingestion", wait_for_ingestion)
+    remote_checksum = mocker.spy(zarr_files, "_remote_zarr_checksum")
+    events = _spy_zarr_iter_upload(mocker)
+
+    new_dandiset.upload()
+
+    assert remote_checksum.call_count == 1
+    assert not any(e["status"] == "Checksum mismatch" for e in events)
+    assert events[-1] == {
+        "status": "done",
+        "message": f"server ingestion deferred until {deferred_until}",
+        "asset": anys.AnyInstance(RemoteZarrAsset),
+    }
 
 
 @pytest.mark.ai_generated
