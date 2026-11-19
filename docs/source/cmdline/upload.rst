@@ -69,6 +69,12 @@ Options
     - ``patch`` — upload new and changed entries only, without deleting
       anything on the server
 
+    A Zarr which is part of a published version of the Dandiset can no longer
+    be modified.  If the local Zarr differs from it, it is uploaded in full as
+    a new Zarr of the same path, which replaces the published one in the draft
+    version; published versions retain theirs.  This is not possible in
+    ``patch`` mode, which then fails with an error.
+
 
 Development Options
 -------------------
