@@ -1785,9 +1785,8 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
 
 
 @pytest.mark.timeout(120)
-@pytest.mark.xfail(reason="https://github.com/dandi/dandi-cli/issues/1450")
 def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
-    pytest.importorskip("fsspec")
+    pytest.importorskip("remfile")
     asset = nwb_dandiset.dandiset.get_asset_by_path("sub-mouse001/sub-mouse001.nwb")
     digest = asset.get_digest()
     mtime = ensure_datetime(asset.get_raw_metadata()["blobDateModified"])
@@ -1798,4 +1797,5 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
         digest_value=digest.value,
         path="sub-mouse001.nwb",
         blob_date_modified=mtime,
+        strain=StrainType(schemaKey="StrainType", name="C57BL/6J"),
     )
