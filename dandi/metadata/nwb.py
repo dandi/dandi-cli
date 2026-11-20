@@ -11,7 +11,7 @@ from dandischema import models
 from .core import add_common_metadata, prepare_metadata
 from .util import process_ndtypes
 from .. import get_logger
-from ..consts import metadata_all_fields
+from ..consts import NWB_ZARR_SUFFIX, metadata_all_fields
 from ..files import bids, dandi_file, find_bids_dataset_description
 from ..misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
 from ..pynwb_utils import (
@@ -19,6 +19,8 @@ from ..pynwb_utils import (
     get_neurodata_types,
     get_nwb_version,
     ignore_benign_pynwb_warnings,
+    is_nwb_zarr,
+    memoize_path_unless_dir,
     metadata_cache,
     nwb_has_external_links,
 )
@@ -28,7 +30,7 @@ lgr = get_logger()
 
 
 # Disable this for clean hacking
-@metadata_cache.memoize_path
+@memoize_path_unless_dir(metadata_cache)
 def get_metadata(
     path: str | Path | Readable, digest: Digest | None = None
 ) -> dict[str, Any]:
@@ -84,14 +86,19 @@ def get_metadata(
                     else:
                         meta[key] = value
 
-    if r.get_filename().endswith((".NWB", ".nwb")):
-        if nwb_has_external_links(r):
+    # An NWB file stored as Zarr is a directory, which is not Readable, and is
+    # read by path
+    nwb: str | Path | Readable = r
+    if isinstance(r, LocalReadableFile) and is_nwb_zarr(r.filepath):
+        nwb = r.filepath
+    if r.get_filename().endswith((".NWB", ".nwb", NWB_ZARR_SUFFIX)):
+        if nwb_has_external_links(nwb):
             raise NotImplementedError(
                 f"NWB files with external links are not supported: {r}"
             )
 
         # First read out possibly available versions of specifications for NWB(:N)
-        meta["nwb_version"] = get_nwb_version(r)
+        meta["nwb_version"] = get_nwb_version(nwb)
 
         # PyNWB might fail to load because of missing extensions.
         # There is a new initiative of establishing registry of such extensions.
@@ -105,7 +112,7 @@ def get_metadata(
         tried_imports = set()
         while True:
             try:
-                meta.update(_get_pynwb_metadata(r))
+                meta.update(_get_pynwb_metadata(nwb))
                 break
             except KeyError as exc:  # ATM there is
                 lgr.debug("Failed to read %s: %s", r, exc)
@@ -128,7 +135,7 @@ def get_metadata(
                 tried_imports.add(import_mod)
                 __import__(import_mod)
 
-        meta["nd_types"] = get_neurodata_types(r)
+        meta["nd_types"] = get_neurodata_types(nwb)
     if not meta:
         raise RuntimeError(
             f"Unable to get metadata from non-BIDS, non-NWB asset: `{path}`."

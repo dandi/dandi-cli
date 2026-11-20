@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 import os
 import os.path as op
 from pathlib import Path
+import shutil
 from typing import Any, NoReturn
 
-from click.testing import CliRunner
-from pynwb import NWBHDF5IO
+from click.testing import CliRunner, Result
+from pynwb import NWBHDF5IO, NWBFile
+from pynwb.file import Subject
+from pynwb.image import ImageSeries
 import pytest
 import ruamel.yaml
 
 from .xfail import mark_xfail_windows_python313_posixsubprocess
 from ..cli.cmd_organize import organize
 from ..consts import dandiset_metadata_file
+from ..files import NWBZarrAsset, find_dandi_files
 from ..organize import (
     MAX_METADATA_ERRORS_SHOWN,
     CopyMode,
@@ -22,11 +27,12 @@ from ..organize import (
     create_dataset_yml_template,
     create_unique_filenames_from_metadata,
     detect_link_type,
+    find_nwb_paths,
     format_metadata_load_failures,
     get_obj_id,
-    populate_dataset_yml,
-    validate_organized_path,
 )
+from ..organize import organize as organize_
+from ..organize import populate_dataset_yml, validate_organized_path
 from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
 from ..utils import find_files, list_paths, on_windows, yaml_load
 
@@ -523,6 +529,23 @@ def test_validate_organized_path(path: str, error_ids: list[str]) -> None:
     assert [e.id for e in errors] == error_ids
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "path,error_ids",
+    [
+        ("sub-RAT123/sub-RAT123_desc-label.nwb.zarr", []),
+        ("sub-RAT123/sub-RAT124.nwb.zarr", ["DANDI.METADATA_MISMATCH_SUBJECT"]),
+        ("foo/sub-RAT123.nwb.zarr", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        ("sub-RAT123/XCaMPgf_ANM471996.nwb.zarr", ["DANDI.NON_DANDI_FILENAME"]),
+        # Not NWB
+        ("sub-RAT123/sub-RAT123.zarr", []),
+    ],
+)
+def test_validate_organized_path_nwb_zarr(path: str, error_ids: list[str]) -> None:
+    errors = validate_organized_path(path, Path("dummy"), Path("dummyset"))
+    assert [e.id for e in errors] == error_ids
+
+
 @mark_xfail_windows_python313_posixsubprocess
 def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
@@ -610,3 +633,149 @@ def test_organize_reports_metadata_exception_reason(
     assert matching, f"reason not reported in warnings: {warnings}"
     assert str(simple2_nwb) in matching[0]
     assert "dandi --log-level DEBUG organize" in matching[0]
+
+
+@pytest.mark.ai_generated
+def test_find_nwb_paths(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    for d in ("a.nwb.zarr/acquisition", "sub/b.nwb.zarr", "sub/c.nwb"):
+        (tmp_path / d).mkdir(parents=True)
+    for f in (
+        "a.nwb.zarr/zarr.json",
+        # Not looked for within an NWB file stored as Zarr
+        "a.nwb.zarr/acquisition/inner.nwb",
+        "sub/b.nwb.zarr/zarr.json",
+        "sub/c.nwb/zarr.json",
+        "sub/c.nwb/inner.nwb",
+        "sub/d.nwb",
+        # A file is not an NWB file stored as Zarr
+        "sub/e.nwb.zarr",
+        "sub/f.txt",
+    ):
+        (tmp_path / f).write_text("")
+    assert sorted(find_nwb_paths([tmp_path])) == [
+        str(tmp_path / "a.nwb.zarr"),
+        str(tmp_path / "sub" / "b.nwb.zarr"),
+        str(tmp_path / "sub" / "d.nwb"),
+    ]
+    assert "c.nwb: ignoring directory named like an NWB file" in caplog.text
+    # Given directly
+    assert find_nwb_paths(
+        [tmp_path / "a.nwb.zarr", f"{tmp_path / 'sub' / 'b.nwb.zarr'}/"]
+    ) == [str(tmp_path / "a.nwb.zarr"), str(tmp_path / "sub" / "b.nwb.zarr")]
+    caplog.clear()
+    assert find_nwb_paths([tmp_path / "sub" / "c.nwb"]) == []
+    assert "c.nwb: ignoring directory named like an NWB file" in caplog.text
+    # Symbolic links to directories are ignored, as by `dandi upload`
+    try:
+        (tmp_path / "sub" / "g.nwb.zarr").symlink_to(tmp_path / "a.nwb.zarr")
+    except OSError:
+        pytest.skip("Symlinks not supported")
+    caplog.clear()
+    assert str(tmp_path / "sub" / "g.nwb.zarr") not in find_nwb_paths([tmp_path])
+    assert "Ignoring unsupported symbolic link to directory" in caplog.text
+
+
+def _organize_nwb_zarr(nwb_zarr: Path, tmp_path: Path, mode: str) -> Result:
+    """Organize a copy of ``nwb_zarr`` into a new Dandiset at
+    :file:`tmp_path/dandiset`, with ``--files-mode mode``"""
+    source = tmp_path / "source" / nwb_zarr.name
+    shutil.copytree(nwb_zarr, source)
+    dandiset_path = tmp_path / "dandiset"
+    dandiset_path.mkdir()
+    (dandiset_path / dandiset_metadata_file).write_text("{}\n")
+    return CliRunner().invoke(
+        organize,
+        ["-f", mode, "--dandiset-path", str(dandiset_path), str(source.parent)],
+    )
+
+
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
+@pytest.mark.parametrize("mode", ["copy", "move", "hardlink", "auto"])
+def test_organize_nwb_zarr(simple2_nwb_zarr: Path, tmp_path: Path, mode: str) -> None:
+    """An NWB file stored as Zarr is organized into a directory, which is not
+    a symlink (even in auto mode), so that it is uploaded"""
+    if mode == "hardlink":
+        (tmp_path / "link-test").touch()
+        try:
+            os.link(tmp_path / "link-test", tmp_path / "link-test2")
+        except OSError:
+            pytest.skip("Hard links not supported")
+    r = _organize_nwb_zarr(simple2_nwb_zarr, tmp_path, mode)
+    assert r.exit_code == 0, r.output
+    dandiset_path = tmp_path / "dandiset"
+    organized = dandiset_path / "sub-mouse001" / "sub-mouse001.nwb.zarr"
+    source = tmp_path / "source" / simple2_nwb_zarr.name
+    assert organized.is_dir()
+    assert not organized.is_symlink()
+    assert source.exists() is (mode != "move")
+    # zarr.json for Zarr v3, .zgroup for v2
+    root_meta = "zarr.json" if (organized / "zarr.json").exists() else ".zgroup"
+    if mode == "hardlink":
+        assert os.path.samefile(organized / root_meta, source / root_meta)
+    elif mode == "copy":
+        assert not os.path.samefile(organized / root_meta, source / root_meta)
+    assert get_object_id(organized) == get_object_id(simple2_nwb_zarr)
+    (asset,) = find_dandi_files(dandiset_path, dandiset_path=dandiset_path)
+    assert isinstance(asset, NWBZarrAsset)
+    assert asset.path == "sub-mouse001/sub-mouse001.nwb.zarr"
+
+
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
+def test_organize_nwb_zarr_relative_paths(
+    simple2_nwb_zarr: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """In auto mode, an NWB file stored as Zarr given by a relative path is not
+    symlinked either"""
+    monkeypatch.chdir(tmp_path)
+    r = _organize_nwb_zarr(simple2_nwb_zarr, Path(), "auto")
+    assert r.exit_code == 0, r.output
+    organized = tmp_path / "dandiset" / "sub-mouse001" / "sub-mouse001.nwb.zarr"
+    assert organized.is_dir()
+    assert not organized.is_symlink()
+
+
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
+def test_organize_nwb_zarr_symlink(simple2_nwb_zarr: Path, tmp_path: Path) -> None:
+    """NWB files stored as Zarr are not symlinked, which upload would ignore"""
+    r = _organize_nwb_zarr(simple2_nwb_zarr, tmp_path, "symlink")
+    assert r.exit_code != 0
+    assert "cannot be organized as symlinks" in r.output
+    assert not (tmp_path / "dandiset" / "sub-mouse001").exists()
+
+
+@pytest.mark.ai_generated
+def test_organize_nwb_zarr_external_files(tmp_path: Path) -> None:
+    """Organizing NWB files stored as Zarr which refer to external media files
+    is refused before anything is done"""
+    hdmf_zarr = pytest.importorskip("hdmf_zarr", minversion="0.14")
+    nwbfile = NWBFile(
+        session_description="d",
+        identifier="id",
+        session_start_time=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        subject=Subject(subject_id="mouse001", species="Mus musculus", sex="M"),
+    )
+    nwbfile.add_acquisition(
+        ImageSeries(
+            name="video",
+            external_file=["video.mp4"],
+            starting_frame=[0],
+            format="external",
+            timestamps=[0.0, 1.0],
+        )
+    )
+    nwb_zarr = tmp_path / "source" / "video.nwb.zarr"
+    with hdmf_zarr.NWBZarrIO(str(nwb_zarr), mode="w") as io:
+        io.write(nwbfile)
+    dandiset_path = tmp_path / "dandiset"
+    for update_external_file_paths in (False, True):
+        with pytest.raises(NotImplementedError, match="external media files"):
+            organize_(
+                [str(nwb_zarr)],
+                dandiset_path=str(dandiset_path),
+                files_mode=FileOperationMode.COPY,
+                update_external_file_paths=update_external_file_paths,
+            )
+        assert not dandiset_path.exists()

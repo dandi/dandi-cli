@@ -13,11 +13,12 @@ import responses
 from semantic_version import Version
 
 from .skip import mark
-from .. import __version__
+from .. import __version__, utils
 from ..consts import DandiInstance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
 from ..utils import (
     _get_instance,
+    copy_tree,
     ensure_datetime,
     ensure_strtime,
     find_files,
@@ -642,3 +643,28 @@ class TestIsUrl:
     )
     def test_invalid_urls(self, s: str) -> None:
         assert is_url(s) is False
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("cp_reflink", [True, False])
+def test_copy_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cp_reflink: bool
+) -> None:
+    """The files which symlinks point to are copied, not the symlinks"""
+    if cp_reflink and not utils._cp_reflink():
+        pytest.skip("cp does not support --reflink")
+    monkeypatch.setattr(utils, "_cp_reflink", lambda: cp_reflink)
+    (tmp_path / "annex").mkdir()
+    (tmp_path / "annex" / "content").write_text("data\n")
+    src = tmp_path / "src"
+    (src / "sub").mkdir(parents=True)
+    (src / "file").write_text("file\n")
+    try:
+        (src / "sub" / "link").symlink_to(tmp_path / "annex" / "content")
+    except OSError:
+        pytest.skip("Symlinks not supported")
+    copy_tree(src, tmp_path / "dst")
+    assert (tmp_path / "dst" / "file").read_text() == "file\n"
+    copied = tmp_path / "dst" / "sub" / "link"
+    assert not copied.is_symlink()
+    assert copied.read_text() == "data\n"

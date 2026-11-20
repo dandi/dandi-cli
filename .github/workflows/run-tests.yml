@@ -93,6 +93,48 @@ jobs:
         python -m pip install --upgrade pip wheel
         pip install ".[extras,test]"
 
+    # hdmf-zarr >= 0.14, which the tests read NWB files stored as Zarr with
+    # (on Python >= 3.12), cannot write Zarr v2, which all those written by
+    # hdmf-zarr < 0.14 are: write one with hdmf-zarr < 0.14 on Python 3.11,
+    # once (cached), for the tests
+    - name: Restore an NWB file stored as Zarr v2 for the tests
+      if: >-
+        startsWith(matrix.os, 'ubuntu') && matrix.python != '3.11'
+        && (matrix.mode == 'normal' || matrix.mode == 'dev-deps')
+      id: nwb-zarr-v2
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ runner.temp }}/nwb-zarr-v2
+        key: nwb-zarr-v2-${{ hashFiles('dandi/tests/data/nwb_zarr/make_ecephys_v2.py') }}
+
+    - name: Set up Python 3.11 to write it
+      if: steps.nwb-zarr-v2.outcome == 'success' && steps.nwb-zarr-v2.outputs.cache-hit != 'true'
+      id: python311
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.11'
+        update-environment: false
+
+    - name: Write it with hdmf-zarr < 0.14
+      if: steps.python311.outcome == 'success'
+      run: |
+        venv="$RUNNER_TEMP/hdmf-zarr-0.13"
+        "${{ steps.python311.outputs.python-path }}" -m venv "$venv"
+        "$venv/bin/pip" install "hdmf-zarr >= 0.13, < 0.14"
+        mkdir -p "$RUNNER_TEMP/nwb-zarr-v2"
+        "$venv/bin/python" dandi/tests/data/nwb_zarr/make_ecephys_v2.py "$RUNNER_TEMP/nwb-zarr-v2"
+
+    - name: Cache it
+      if: steps.python311.outcome == 'success'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ runner.temp }}/nwb-zarr-v2
+        key: ${{ steps.nwb-zarr-v2.outputs.cache-primary-key }}
+
+    - name: Give it to the tests
+      if: steps.nwb-zarr-v2.outcome == 'success'
+      run: echo "DANDI_TESTS_NWB_ZARR_V2=$RUNNER_TEMP/nwb-zarr-v2/ecephys_v2.nwb.zarr" >> "$GITHUB_ENV"
+
     - name: Install tox for lowest-deps mode
       if: matrix.mode == 'lowest-deps'
       run: |

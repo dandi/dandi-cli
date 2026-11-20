@@ -23,7 +23,7 @@ from dandi.consts import (
     BIDS_IGNORE_FILE,
     dandiset_metadata_file,
 )
-from dandi.exceptions import UnknownAssetError
+from dandi.exceptions import NWBDirectoryError, UnknownAssetError
 
 from ._private import BIDSFileFactory, DandiFileFactory
 from .bases import (
@@ -46,6 +46,7 @@ from .bids import (
     bids_dataset_description_problem,
     is_bids_dataset_description,
 )
+from .nwb_zarr import NWBZarrAsset
 from .zarr import LocalZarrEntry, ZarrAsset, ZarrStat
 
 __all__ = [
@@ -62,6 +63,7 @@ __all__ = [
     "LocalZarrEntry",
     "NWBAsset",
     "NWBBIDSAsset",
+    "NWBZarrAsset",
     "VideoAsset",
     "ZarrAsset",
     "ZarrBIDSAsset",
@@ -101,6 +103,10 @@ def find_dandi_files(
         declares ``"BIDSVersion"``; see ``is_bids_dataset_description()`` in
         `dandi.files.bids`.  Otherwise it is regular DANDI layout, and a warning
         says why.
+
+    A directory named :file:`*.nwb.zarr` is an NWB file stored as Zarr
+    (`NWBZarrAsset`), while one named :file:`*.nwb` is neither an asset nor
+    looked into, with a warning.  Symbolic links to directories are ignored.
 
     :param dandiset_path:
         The path to the root of the Dandiset in which the paths are located.
@@ -153,6 +159,10 @@ def find_dandi_files(
             elif any(p.iterdir()):
                 try:
                     df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
+                except NWBDirectoryError as e:
+                    # Neither an NWB file nor a directory of other assets: do
+                    # not upload its files individually
+                    lgr.warning("%s: %s; ignoring it", p, e)
                 except UnknownAssetError:
                     # The directory does not have a recognized file extension
                     # (ie., it's not a Zarr or any other directory asset type

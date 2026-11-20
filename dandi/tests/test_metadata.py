@@ -153,7 +153,7 @@ def test_bids_nwb_metadata_no_recursion(
         / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
     )
     spy = mocker.spy(metadata_nwb, "nwb2asset")
-    metadata = get_metadata.__wrapped__(file_path)
+    metadata = get_metadata.__wrapped__(file_path)  # type: ignore[attr-defined]
     assert spy.call_count == 0
     assert metadata["subject_id"] == "01"
     assert metadata["sex"] == "U"
