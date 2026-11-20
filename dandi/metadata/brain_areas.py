@@ -15,6 +15,9 @@ lgr = get_logger()
 
 MBAO_URI_TEMPLATE = "http://purl.obolibrary.org/obo/MBA_{}"
 
+#: Ontology prefixes (upper-cased) whose HERD entities are taken as anatomy
+ANATOMY_ONTOLOGY_PREFIXES = frozenset({"UBERON", "MBA"})
+
 # Values that should be treated as missing / uninformative
 _TRIVIAL_VALUES = frozenset(
     {
@@ -252,4 +255,58 @@ def locations_to_ccf_mouse_anatomy(locations: list[str]) -> list[models.Anatomy]
                 if id_str not in seen_ids:
                     seen_ids.add(id_str)
                     results.append(anatomy)
+    return results
+
+
+@lru_cache(maxsize=1)
+def _allen_structures_by_id() -> dict[str, dict[str, Any]]:
+    return {str(s["id"]): s for s in _load_allen_structures()}
+
+
+def _ontology_label(entity_id: str) -> str | None:
+    """Return a label for an ontology entity ID from bundled tables, if known."""
+    prefix, _, local_id = entity_id.partition(":")
+    if prefix.upper() == "MBA":
+        s = _allen_structures_by_id().get(local_id)
+        if s is not None:
+            return str(s["name"])
+    return None
+
+
+def herd_anatomy_to_models(entries: list[dict[str, Any]]) -> list[models.Anatomy]:
+    """Convert HERD anatomy entries to deduplicated ``Anatomy`` models.
+
+    HERD stores no labels, so the name comes from a bundled ontology table
+    when the term is in one, else from the longest value in the file linked to
+    the term (e.g. ``"trapezius muscle"`` over ``"EMG"``), else the entity ID.
+
+    Parameters
+    ----------
+    entries : list[dict]
+        As returned by :func:`dandi.pynwb_utils._get_herd_anatomy`.
+
+    Returns
+    -------
+    list[models.Anatomy]
+    """
+    results: list[models.Anatomy] = []
+    seen_ids: set[str] = set()
+    for entry in entries:
+        identifier = entry["identifier"]
+        if identifier in seen_ids:
+            continue
+        keys = [k.strip() for k in entry.get("keys") or [] if k and k.strip()]
+        name = (
+            _ontology_label(entry.get("entity_id") or "")
+            or max(keys, key=len, default="")
+            or entry.get("entity_id")
+            or identifier
+        )
+        try:
+            anatomy = models.Anatomy(identifier=identifier, name=name)
+        except Exception:
+            lgr.debug("Invalid HERD anatomy entry %r", entry, exc_info=True)
+            continue
+        seen_ids.add(identifier)
+        results.append(anatomy)
     return results

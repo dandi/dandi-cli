@@ -14,7 +14,7 @@ import requests
 import tenacity
 from yarl import URL
 
-from .brain_areas import locations_to_ccf_mouse_anatomy
+from .brain_areas import herd_anatomy_to_models, locations_to_ccf_mouse_anatomy
 from .. import __version__
 from ..utils import ensure_datetime
 
@@ -774,7 +774,16 @@ _MOUSE_URI = NCBITAXON_URI_TEMPLATE.format("10090")
 
 
 def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
-    """Extract brain anatomy from metadata, if the species is mouse."""
+    """Extract anatomy from metadata.
+
+    Ontology terms linked in the file's HERD table take precedence, for any
+    species.  Otherwise, location strings are matched against the Allen CCF
+    if the species is mouse.
+    """
+    if herd_anatomy := metadata.get("herd_anatomy"):
+        if anatomy := herd_anatomy_to_models(herd_anatomy):
+            return anatomy
+
     if not (locations := metadata.get("brain_locations")):
         return []
 
