@@ -11,6 +11,10 @@ Validate files for data standards compliance.
 
 Exits with non-zero exit code if any file is not compliant.
 
+Validating Zarr assets requires zarr-python 3 and zarr-metadata, which the
+``zarr`` extra installs (``pip install "dandi[zarr]"``).  Without them, each
+Zarr asset is reported with ``dandi_zarr.zarr_python_required``.
+
 The validation results are automatically saved as a JSON Lines companion file
 next to the dandi-cli log file (unless :option:`--output` is used or
 :option:`--load` is active).  Use :option:`--load` to re-render saved results

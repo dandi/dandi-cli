@@ -159,6 +159,17 @@ jobs:
       run: |
         python -m pytest -s -v -m obolibrary dandi
 
+    # zarr-python and zarr-metadata come with the optional `zarr` extra, which
+    # every other job installs through the `test` extra.  `pytest --help`
+    # loads dandi's pytest plugin, which pytest loads wherever dandi is installed.
+    - name: Check that dandi and its pytest plugin load without the zarr extra
+      if: matrix.mode == 'obolibrary-only'
+      run: |
+        pip uninstall -y zarr zarr-metadata
+        dandi --help
+        cd "$(mktemp -d)"
+        python -m pytest --help > /dev/null
+
     - name: Smoke test example code in docs
       if: matrix.mode != 'dandi-api' && matrix.mode != 'lowest-deps' && github.event_name == 'schedule'
       run: |
