@@ -14,15 +14,19 @@ import ruamel.yaml
 from .xfail import mark_xfail_windows_python313_posixsubprocess
 from ..cli.cmd_organize import organize
 from ..consts import dandiset_metadata_file
+from ..exceptions import OrganizeImpossibleError
 from ..organize import (
     MAX_METADATA_ERRORS_SHOWN,
     CopyMode,
     FileOperationMode,
+    _legacy_sanitize_label,
+    _sanitize_label,
     _sanitize_value,
     create_dataset_yml_template,
     create_unique_filenames_from_metadata,
     detect_link_type,
     format_metadata_load_failures,
+    get_existing_labels,
     get_obj_id,
     populate_dataset_yml,
     validate_organized_path,
@@ -30,17 +34,151 @@ from ..organize import (
 from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
 from ..utils import find_files, list_paths, on_windows, yaml_load
 
+try:
+    from dandischema.utils import sanitize_label as dandischema_sanitize_label
+except ImportError:  # dandischema without sanitize_label
+    dandischema_sanitize_label = None
+
 
 def test_sanitize_value() -> None:
     # . is not sanitized in extension but elsewhere
-    assert _sanitize_value("_.ext", "extension") == "-.ext"
-    assert _sanitize_value("_.ext", "unrelated") == "--ext"
-    assert _sanitize_value("A;B", "unrelated") == "A-B"
+    assert _sanitize_value("_.ext", "extension") == "+.ext"
+    assert _sanitize_value("_.ext", "unrelated") == "++ext"
+    assert _sanitize_value("A;B", "unrelated") == "A+B"
     # no spaces or tabs please
-    assert _sanitize_value("A B\t C", "unrelated") == "A-B--C"
-    assert _sanitize_value("A;B,C", "unrelated") == "A-B-C"
-    assert _sanitize_value("A\\/B", "unrelated") == "A--B"
-    assert _sanitize_value("A\"'B", "unrelated") == "A--B"
+    assert _sanitize_value("A B\t C", "unrelated") == "A+B++C"
+    assert _sanitize_value("A;B,C", "unrelated") == "A+B+C"
+    assert _sanitize_value("A\\/B", "unrelated") == "A++B"
+    assert _sanitize_value("A\"'B", "unrelated") == "A++B"
+    # BIDS labels: only ASCII letters, digits and +, replaced one to one
+    assert _sanitize_value("fly-226", "subject_id") == "fly+226"
+    assert _sanitize_value("a+b", "subject_id") == "a+b"
+    assert _sanitize_value("-0.4V", "subject_id") == "+0+4V"
+    assert _sanitize_value("µm", "subject_id") == "+m"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.skipif(
+    dandischema_sanitize_label is None,
+    reason="dandischema does not provide sanitize_label",
+)
+def test_sanitize_label_matches_dandischema() -> None:
+    assert dandischema_sanitize_label is not None
+    values = [
+        "".join(map(chr, range(32, 127))),
+        "nac (2)",
+        "Fig6_5xBi_0,83MHz_08",
+        "µm",
+    ]
+    for v in values:
+        assert _sanitize_label(v) == dandischema_sanitize_label(v)
+
+
+@pytest.mark.ai_generated
+def test_legacy_sanitize_label() -> None:
+    # as dandi-cli used to sanitize labels
+    assert _legacy_sanitize_label("fly_226") == "fly-226"
+    assert _legacy_sanitize_label("A B\t C") == "A-B--C"
+    assert _legacy_sanitize_label("5XFAD+_M1") == "5XFAD+-M1"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "records,problem",
+    [
+        # distinct subjects (as in DANDI:001702) must not share a folder
+        (
+            [{"subject_id": "5XFAD+_M1"}, {"subject_id": "5XFAD-_M1"}],
+            "subject_id: '5XFAD+_M1', '5XFAD-_M1' would all get label '5XFAD++M1'",
+        ),
+        # BIDS forbids labels differing only in case
+        (
+            [{"subject_id": "S1"}, {"subject_id": "s1"}],
+            "subject_id: labels 'S1', 's1' differ only in case",
+        ),
+        (
+            [
+                {"subject_id": "1", "session_id": "a b"},
+                {"subject_id": "1", "session_id": "a_b"},
+            ],
+            "session_id (subject 1): 'a b', 'a_b' would all get label 'a+b'",
+        ),
+    ],
+)
+def test_label_collisions(records: list[dict], problem: str) -> None:
+    metadata = [dict(path=f"{i}.nwb", **r) for i, r in enumerate(records)]
+    with pytest.raises(OrganizeImpossibleError) as excinfo:
+        create_unique_filenames_from_metadata(metadata)
+    assert problem in str(excinfo.value)
+
+
+@pytest.mark.ai_generated
+def test_label_collisions_per_subject() -> None:
+    # the same session label for different subjects is fine
+    metadata = [
+        dict(path="1.nwb", subject_id="1", session_id="a b"),
+        dict(path="2.nwb", subject_id="2", session_id="a_b"),
+    ]
+    metadata_ = create_unique_filenames_from_metadata(
+        metadata, required_fields=["session_id"]
+    )
+    assert [m["dandi_path"] for m in metadata_] == [
+        op.join("sub-1", "sub-1_ses-a+b.nwb"),
+        op.join("sub-2", "sub-2_ses-a+b.nwb"),
+    ]
+
+
+@pytest.mark.ai_generated
+def test_existing_labels_reused() -> None:
+    metadata = [
+        # legacy labels of the same values are already in the Dandiset
+        dict(path="1.nwb", subject_id="fly_226", session_id="day 1"),
+        dict(path="2.nwb", subject_id="5XFAD+_M1", session_id="1"),
+        dict(path="3.nwb", subject_id="5XFAD-_M1", session_id="1"),
+        # by a version which did not replace ","
+        dict(path="4.nwb", subject_id="Fig6_0,83MHz", session_id="1"),
+        # new subject
+        dict(path="5.nwb", subject_id="fly_227", session_id="day 1"),
+    ]
+    existing = {
+        "sub": {"fly-226", "5XFAD+-M1", "5XFAD--M1", "Fig6-0,83MHz"},
+        "ses": {"day-1"},
+    }
+    paths = [
+        m["dandi_path"]
+        for m in create_unique_filenames_from_metadata(
+            metadata, existing_labels=existing
+        )
+    ]
+    assert paths == [
+        op.join("sub-fly-226", "sub-fly-226_ses-day-1.nwb"),
+        op.join("sub-5XFAD+-M1", "sub-5XFAD+-M1_ses-1.nwb"),
+        op.join("sub-5XFAD--M1", "sub-5XFAD--M1_ses-1.nwb"),
+        op.join("sub-Fig6-0,83MHz", "sub-Fig6-0,83MHz_ses-1.nwb"),
+        op.join("sub-fly+227", "sub-fly+227_ses-day-1.nwb"),
+    ]
+    # without them, BIDS labels are used
+    metadata_ = create_unique_filenames_from_metadata(
+        metadata[:1], required_fields=["session_id"]
+    )
+    assert [m["dandi_path"] for m in metadata_] == [
+        op.join("sub-fly+226", "sub-fly+226_ses-day+1.nwb")
+    ]
+
+
+@pytest.mark.ai_generated
+def test_get_existing_labels(tmp_path: Path) -> None:
+    assert get_existing_labels(tmp_path / "missing") == {}
+    (tmp_path / "sub-fly-226").mkdir()
+    (tmp_path / "sub-fly-226" / "sub-fly-226_ses-day-1_tis-a-b_ecephys.nwb").touch()
+    (tmp_path / "sub-fly-226" / "notes.txt").touch()
+    (tmp_path / "sub-empty").mkdir()
+    (tmp_path / "derivatives").mkdir()
+    assert get_existing_labels(tmp_path) == {
+        "sub": {"fly-226", "empty"},
+        "ses": {"day-1"},
+        "tis": {"a-b"},
+    }
 
 
 def test_populate_dataset_yml(tmp_path: Path) -> None:
@@ -540,7 +678,35 @@ def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
     assert r.exit_code == 0
     assert list_paths(tmp_path) == [
         tmp_path / dandiset_metadata_file,
+        tmp_path / "sub-mouse001" / "sub-mouse001_ses-session+id1.nwb",
+    ]
+
+
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
+def test_organize_reuses_existing_labels(simple2_nwb: Path, tmp_path: Path) -> None:
+    # A file of the same session, organized by an older dandi-cli which
+    # sanitized session_id "session_id1" into "session-id1"
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    legacy = tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1_behavior.nwb"
+    legacy.parent.mkdir()
+    legacy.touch()
+    r = CliRunner().invoke(
+        organize,
+        [
+            "-f",
+            "copy",
+            "--dandiset-path",
+            str(tmp_path),
+            "--required-field=session_id",
+            str(simple2_nwb),
+        ],
+    )
+    assert r.exit_code == 0
+    assert list_paths(tmp_path) == [
+        tmp_path / dandiset_metadata_file,
         tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1.nwb",
+        legacy,
     ]
 
 
