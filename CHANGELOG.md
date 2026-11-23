@@ -1,3 +1,40 @@
+# 0.83.0 (Mon Nov 23 2026)
+
+#### 🚀 Enhancement
+
+- Use the bulk asset deletion endpoint for all asset deletion [#1960](https://github.com/dandi/dandi-cli/pull/1960) ([@naglepuff](https://github.com/naglepuff) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Populate per-asset dataStandard for BIDS, HED, NWB, and extensions [#1811](https://github.com/dandi/dandi-cli/pull/1811) ([@yarikoptic](https://github.com/yarikoptic) [@bendichter](https://github.com/bendichter) [@claude](https://github.com/claude))
+
+#### 🐛 Bug Fix
+
+- Read remote HDF5-based assets with remfile instead of fsspec (alternative to #1967) [#1987](https://github.com/dandi/dandi-cli/pull/1987) ([@claude](https://github.com/claude) [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Fix `bids_version` always being `None` with bids-validator-deno; only folders declaring `BIDSVersion` are BIDS datasets [#1978](https://github.com/dandi/dandi-cli/pull/1978) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Handle 409 from upload validate (concurrent identical blob upload) [#1986](https://github.com/dandi/dandi-cli/pull/1986) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Revert "TEMP: install dandischema from dandi-schema#371 (enh-hed branch)" + allow for dandi-schema 0.15.x series [#1985](https://github.com/dandi/dandi-cli/pull/1985) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Add code duplication analysis to the dev workflow [#1944](https://github.com/dandi/dandi-cli/pull/1944) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@claude](https://github.com/claude))
+- Introduce pre-commit.ci: make all hooks pass and drop redundant lint jobs [#1991](https://github.com/dandi/dandi-cli/pull/1991) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 📝 Documentation
+
+- Define __all__ and expand module docstring of dandi.dandiapi [#1984](https://github.com/dandi/dandi-cli/pull/1984) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Test missing-path validation API and document discovery timing [#1975](https://github.com/dandi/dandi-cli/pull/1975) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### Authors: 8
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Michael Nagler ([@naglepuff](https://github.com/naglepuff))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+- Yaroslav Halchenko (AI-driven) ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+---
+
 # 0.82.0 (Tue Nov 03 2026)
 
 #### 🚀 Enhancement
