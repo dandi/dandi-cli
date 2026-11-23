@@ -62,6 +62,12 @@ if not _SCHEMA_BAREASSET_HAS_DATASTANDARD and Version(
         f"'dataStandard' field on BareAsset"
     )
 
+try:
+    from dandischema.models import hed_standard  # type: ignore[attr-defined]
+except ImportError:
+    # TODO: import together with the above once min dandischema >= 0.15.0
+    hed_standard = {}  # type: ignore[no-redef]
+
 lgr = dandi.get_logger()
 
 
@@ -102,6 +108,52 @@ def _get_nwb_data_standard(filepath: str | Path) -> StandardsType:
             exc_info=True,
         )
     return StandardsType(**kwargs)
+
+
+def _get_hed_data_standard(hed_version: Any) -> StandardsType:
+    """HED ``StandardsType`` for the declared HED schema version(s)
+
+    ``hed_version`` (``HEDVersion`` of BIDS :file:`dataset_description.json`,
+    or the versions declared by the ndx-hed NWB extension) is a string or a
+    list of strings, each either ``[prefix:]version`` for the HED standard
+    schema or
+    ``[prefix:]library_version`` for a library schema (e.g. ``"8.2.0"``,
+    ``"sc:score_1.0.0"``, ``"lang_1.1.0"``).  Library schemas are recorded as
+    ``extensions``.  The dataset-specific namespace prefix is ignored.
+    """
+    kwargs: dict[str, Any] = dict(hed_standard)
+    extensions: list[StandardsType] = []
+    for entry in hed_version if isinstance(hed_version, list) else [hed_version]:
+        if not isinstance(entry, str):
+            continue
+        library, _, version = entry.rpartition(":")[2].rpartition("_")
+        if not version:
+            continue
+        if library:
+            ext = StandardsType(name=library, version=version)  # type: ignore[call-arg]
+            if ext not in extensions:
+                extensions.append(ext)
+        else:
+            kwargs.setdefault("version", version)
+    if extensions:
+        kwargs["extensions"] = extensions
+    return StandardsType(**kwargs)
+
+
+def _get_nwb_hed_data_standard(filepath: str | Path) -> StandardsType | None:
+    """HED ``StandardsType`` for the HED schema versions declared by the
+    ndx-hed extension in the NWB file, or `None` if it declares none"""
+    # Avoid heavy import by importing within function:
+    from dandi.pynwb_utils import get_nwb_hed_versions
+
+    try:
+        hed_versions = get_nwb_hed_versions(filepath)
+    except Exception:
+        lgr.debug(
+            "Failed to extract HED schema version from %s", filepath, exc_info=True
+        )
+        return None
+    return _get_hed_data_standard(hed_versions) if hed_versions else None
 
 
 # TODO -- should come from schema.  This is just a simplistic example for now
@@ -601,6 +653,8 @@ class NWBAsset(LocalFileAsset):
         metadata.path = self.path
         if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             _add_data_standard(metadata, _get_nwb_data_standard(self.filepath))
+            if hed := _get_nwb_hed_data_standard(self.filepath):
+                _add_data_standard(metadata, hed)
         return metadata
 
     # TODO: @validate_cache.memoize_path

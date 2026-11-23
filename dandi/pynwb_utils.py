@@ -15,6 +15,7 @@ from collections import Counter
 from collections.abc import Callable
 from datetime import timedelta
 import inspect
+import json
 import os
 import os.path as op
 from pathlib import Path, PurePosixPath
@@ -199,6 +200,50 @@ def get_nwb_extensions(filepath: str | Path | Readable) -> dict[str, str]:
                 )
                 extensions[name] = max(versions)
     return extensions
+
+
+def get_nwb_hed_versions(filepath: str | Path | Readable) -> list[str]:
+    """Return the HED schema versions declared in an NWB HDF5 file.
+
+    Reads the ``hed_schema_version`` attribute of the ``HedLabMetaData``
+    group of the `ndx-hed <https://github.com/hed-standard/ndx-hed>`_
+    extension (0.2.0 or later) under ``/general``.  The attribute holds one
+    version string (``"8.4.0"``), a comma-joined string of versions
+    (``"8.4.0,score_2.1.0"``), or a JSON array of version strings
+    (``'["8.4.0", "sc:score_2.1.0"]'``).
+
+    Returns
+    -------
+    list[str]
+        Version strings, each ``[prefix:]X.Y.Z`` or
+        ``[prefix:]library_X.Y.Z``.  Empty list if the file declares none.
+    """
+    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
+        general = h5file.get("general")
+        if not isinstance(general, h5py.Group):
+            return []
+        for obj in general.values():
+            attrs = obj.attrs
+            if (
+                _h5_attr_str(attrs.get("namespace")) == "ndx-hed"
+                and _h5_attr_str(attrs.get("neurodata_type")) == "HedLabMetaData"
+                and (value := _h5_attr_str(attrs.get("hed_schema_version")))
+            ):
+                value = value.strip()
+                if value.startswith("["):
+                    versions = json.loads(value)
+                else:
+                    versions = value.split(",")
+                return [v.strip() for v in versions if isinstance(v, str) and v.strip()]
+    return []
+
+
+def _h5_attr_str(value: Any) -> str | None:
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    if isinstance(value, str):
+        return value
+    return None
 
 
 def get_neurodata_types_to_modalities_map() -> dict[str, str]:
