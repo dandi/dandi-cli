@@ -199,6 +199,10 @@ IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif"]
 
 ZARR_EXTENSIONS = [".ngff", ".zarr"]
 
+#: Extensions (compared case-insensitively) of HDF5-based files (such as NWB),
+#: which `RemoteReadableAsset.open()` reads with remfile
+HDF5_FILE_EXTENSIONS = (".nwb", ".h5", ".hdf5")
+
 #: Maximum allowed depth of a Zarr directory tree
 MAX_ZARR_DEPTH = 7
 
