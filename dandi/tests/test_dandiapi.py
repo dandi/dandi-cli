@@ -1153,7 +1153,7 @@ def test_asset_as_readable_open(
     fp = asset.as_readable().open()
     try:
         assert type(fp).__module__.split(".")[0] == module
-        assert fp.read(len(content)) == content
+        assert fp.read() == content
     finally:
         fp.close()
 
