@@ -13,7 +13,8 @@ paths (or the current directory, if no paths are specified) or a parent
 directory thereof.
 
 Local Dandisets should pass validation.  For that, the assets should first be
-organized using the :ref:`dandi_organize` command.
+organized using the :ref:`dandi_organize` command.  Validating Zarr assets
+requires the ``zarr`` extra (``pip install "dandi[zarr]"``).
 
 By default, all :file:`*.nwb`, :file:`*.zarr`, and :file:`*.ngff` assets in the
 Dandiset (ignoring directories starting with a period) will be considered for
