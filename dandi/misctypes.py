@@ -377,13 +377,13 @@ class RemoteReadableAsset(Readable):
 
     def open(self) -> IO[bytes]:
         if self.name.lower().endswith(HDF5_FILE_EXTENSIONS):
-            # remfile reads in this thread (with `_max_threads=1`); fsspec's
+            # remfile reads in this thread (with `max_threads=1`); fsspec's
             # reads in another thread can deadlock h5py:
             # https://github.com/dandi/dandi-cli/issues/1450
             import remfile
 
             return cast(
-                IO[bytes], remfile.File(self.url, _size=self.size, _max_threads=1)
+                IO[bytes], remfile.File(self.url, size=self.size, max_threads=1)
             )
         else:
             return self._open_fsspec()

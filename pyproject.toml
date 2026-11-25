@@ -104,8 +104,9 @@ extras = [
     "duecredit >= 0.9.2",
     "fsspec[http] >= 2022.11.0",
     # For reading remote HDF5-based files (RemoteReadableAsset.open()); 0.1.16
-    # times out its requests and can be used as a context manager.
-    "remfile >= 0.1.16",
+    # times out its requests and can be used as a context manager, 0.1.17 has
+    # the `size` and `max_threads` arguments (formerly `_size`, `_max_threads`).
+    "remfile >= 0.1.17",
 ]
 test = [
     "aiohttp >= 3.8.4, < 3.14",  # See https://github.com/kevin1024/vcrpy/issues/995
