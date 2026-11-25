@@ -27,6 +27,7 @@ from .bases import (
     LocalFileAsset,
     NWBAsset,
     _add_data_standard,
+    _get_hed_data_standard,
 )
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
@@ -40,12 +41,6 @@ from ..validate._types import (
     Standard,
     ValidationResult,
 )
-
-try:
-    from dandischema.models import hed_standard  # type: ignore[attr-defined]
-except ImportError:
-    # TODO: import together with the above once min dandischema >= 0.15.0
-    hed_standard = {}  # type: ignore[no-redef]
 
 lgr = dandi.get_logger()
 
@@ -105,34 +100,6 @@ def is_bids_dataset_description(filepath: Path) -> bool:
     marking a BIDS dataset; see `bids_dataset_description_problem()`
     """
     return bids_dataset_description_problem(filepath) is None
-
-
-def _get_hed_data_standard(hed_version: Any) -> StandardsType:
-    """HED ``StandardsType`` for ``HEDVersion`` of ``dataset_description.json``
-
-    ``HEDVersion`` is a string or a list of strings, each either
-    ``[prefix:]version`` for the HED standard schema or
-    ``[prefix:]library_version`` for a library schema (e.g. ``"8.2.0"``,
-    ``"sc:score_1.0.0"``, ``"lang_1.1.0"``).  Library schemas are recorded as
-    ``extensions``.  The dataset-specific namespace prefix is ignored.
-    """
-    kwargs: dict[str, Any] = dict(hed_standard)
-    extensions: list[StandardsType] = []
-    for entry in hed_version if isinstance(hed_version, list) else [hed_version]:
-        if not isinstance(entry, str):
-            continue
-        library, _, version = entry.rpartition(":")[2].rpartition("_")
-        if not version:
-            continue
-        if library:
-            ext = StandardsType(name=library, version=version)  # type: ignore[call-arg]
-            if ext not in extensions:
-                extensions.append(ext)
-        else:
-            kwargs.setdefault("version", version)
-    if extensions:
-        kwargs["extensions"] = extensions
-    return StandardsType(**kwargs)
 
 
 @dataclass

@@ -1037,6 +1037,28 @@ class TestDataStandard:
         assert nwb.extensions is not None
         assert [(e.name, e.version) for e in nwb.extensions] == [("ndx-test", "0.2.0")]
 
+    def test_nwb_hed(self, simple1_nwb: Path, tmp_path: Path) -> None:
+        nwb_path = tmp_path / "sub-1.nwb"
+        shutil.copy(simple1_nwb, nwb_path)
+        nwb_asset = NWBAsset(
+            filepath=nwb_path, path="sub-1.nwb", dandiset_path=tmp_path
+        )
+        assert self.HED not in _data_standards(nwb_asset.get_metadata())
+        # As written by ndx-hed's HedLabMetaData
+        with h5py.File(nwb_path, "a") as f:
+            hed = f.require_group("general").create_group("hed_schema")
+            hed.attrs["namespace"] = "ndx-hed"
+            hed.attrs["neurodata_type"] = "HedLabMetaData"
+            hed.attrs["hed_schema_version"] = '["8.4.0", "sc:score_2.1.0"]'
+        standards = _data_standards(nwb_asset.get_metadata())
+        assert self.NWB in standards
+        hed_standard = standards[self.HED]
+        assert hed_standard.version == "8.4.0"
+        assert hed_standard.extensions is not None
+        assert [(e.name, e.version) for e in hed_standard.extensions] == [
+            ("score", "2.1.0")
+        ]
+
     def test_nwb_unreadable(self, tmp_path: Path) -> None:
         nwb_path = tmp_path / "sub-1.nwb"
         nwb_path.write_text("not an HDF5 file")

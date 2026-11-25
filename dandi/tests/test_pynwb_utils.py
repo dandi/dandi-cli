@@ -17,6 +17,7 @@ from ..pynwb_utils import (
     _rename_pose_estimation_original_videos,
     _sanitize_nwb_version,
     get_nwb_extensions,
+    get_nwb_hed_versions,
     nwb_has_external_links,
     rename_nwb_external_files,
 )
@@ -268,3 +269,45 @@ def test_get_nwb_extensions_no_specs(tmp_path: Path) -> None:
         f.attrs["nwb_version"] = "2.7.0"
 
     assert get_nwb_extensions(h5path) == {}
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "hed_schema_version, expected",
+    [
+        ("8.4.0", ["8.4.0"]),
+        ("8.4.0,score_2.1.0", ["8.4.0", "score_2.1.0"]),
+        ('["8.4.0", "sc:score_2.1.0"]', ["8.4.0", "sc:score_2.1.0"]),
+        ("", []),
+    ],
+)
+def test_get_nwb_hed_versions(
+    tmp_path: Path, hed_schema_version: str, expected: list[str]
+) -> None:
+    """HED schema versions are read from ndx-hed's HedLabMetaData."""
+    h5path = tmp_path / "test.nwb"
+    with h5py.File(h5path, "w") as f:
+        general = f.create_group("general")
+        # Other lab metadata is ignored
+        other = general.create_group("other")
+        other.attrs["namespace"] = "ndx-other"
+        other.attrs["neurodata_type"] = "OtherLabMetaData"
+        other.attrs["hed_schema_version"] = "1.0.0"
+        hed = general.create_group("hed_schema")
+        hed.attrs["namespace"] = "ndx-hed"
+        hed.attrs["neurodata_type"] = "HedLabMetaData"
+        hed.attrs["hed_schema_version"] = hed_schema_version
+
+    assert get_nwb_hed_versions(h5path) == expected
+
+
+@pytest.mark.ai_generated
+def test_get_nwb_hed_versions_none(tmp_path: Path) -> None:
+    """Files without ndx-hed HedLabMetaData declare no HED versions."""
+    h5path = tmp_path / "test.nwb"
+    with h5py.File(h5path, "w") as f:
+        f.attrs["nwb_version"] = "2.7.0"
+    assert get_nwb_hed_versions(h5path) == []
+    with h5py.File(h5path, "a") as f:
+        f.create_group("general/devices")
+    assert get_nwb_hed_versions(h5path) == []
