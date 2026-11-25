@@ -172,21 +172,22 @@ def test_flatten() -> None:
     ]
 
 
+SERVER_INFO = {
+    "version": "1.0.0",
+    "cli-minimal-version": "0.5.0",
+    "cli-bad-versions": [],
+    "services": {
+        "webui": {"url": "https://gui.dandi"},
+        "api": {"url": "https://api.dandi"},
+        "jupyterhub": {"url": "https://hub.dandi"},
+    },
+}
+
+
 @responses.activate
 def test_get_instance_dandi_with_api() -> None:
     responses.add(
-        responses.GET,
-        "https://api.dandiarchive.org/api/info/",
-        json={
-            "version": "1.0.0",
-            "cli-minimal-version": "0.5.0",
-            "cli-bad-versions": [],
-            "services": {
-                "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://api.dandi"},
-                "jupyterhub": {"url": "https://hub.dandi"},
-            },
-        },
+        responses.GET, "https://api.dandiarchive.org/api/info/", json=SERVER_INFO
     )
     _get_instance.cache_clear()
     assert get_instance("dandi") == DandiInstance(
@@ -198,20 +199,7 @@ def test_get_instance_dandi_with_api() -> None:
 
 @responses.activate
 def test_get_instance_url() -> None:
-    responses.add(
-        responses.GET,
-        "https://example.dandi/server-info",
-        json={
-            "version": "1.0.0",
-            "cli-minimal-version": "0.5.0",
-            "cli-bad-versions": [],
-            "services": {
-                "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://api.dandi"},
-                "jupyterhub": {"url": "https://hub.dandi"},
-            },
-        },
-    )
+    responses.add(responses.GET, "https://example.dandi/server-info", json=SERVER_INFO)
     _get_instance.cache_clear()
     assert get_instance("https://example.dandi/") == DandiInstance(
         name="api.dandi",

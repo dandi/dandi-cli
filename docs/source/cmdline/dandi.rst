@@ -5,7 +5,7 @@
 
     dandi [<global options>] <subcommand> [<arguments>]
 
-A command-line client for interacting with a DANDI instance, such as the 
+A command-line client for interacting with a DANDI instance, such as the
 `DANDI Archive <http://dandiarchive.org>`_.
 
 Global Options

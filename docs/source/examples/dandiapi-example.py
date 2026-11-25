@@ -23,6 +23,8 @@ with DandiAPIClient.for_dandi_instance("dandi") as client:
                 # asset.download(pathlib.Path(dandiset.identifier, asset.path))
                 # Note: for demonstration purposes we stop at a single asset found
                 print(
-                    f"\n\nAn example two-photon measurement technique was found in dandiset {dandiset}. For demonstration purposes, skipping other assets."
+                    "\n\nAn example two-photon measurement technique was found in"
+                    f" dandiset {dandiset}. For demonstration purposes, skipping"
+                    " other assets."
                 )
                 break

@@ -14,17 +14,24 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from operator import attrgetter
 from pathlib import Path
+import warnings
 
 import click
 from yarl import URL
 
-from .consts import DRAFT, ZARR_EXTENSIONS, DandiInstance, dandiset_metadata_file
+from .consts import (
+    BULK_DELETE_BATCH_SIZE,
+    DRAFT,
+    ZARR_EXTENSIONS,
+    DandiInstance,
+    dandiset_metadata_file,
+)
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import BaseAssetIDURL, DandisetURL, ParsedDandiURL, parse_dandi_url
 from .dandiset import Dandiset
-from .exceptions import NotFoundError
+from .exceptions import BulkDeleteUnsupportedError, NotFoundError
 from .support import pyout as pyouts
-from .utils import get_instance, is_url
+from .utils import chunked, get_instance, is_url
 
 
 @dataclass
@@ -152,6 +159,17 @@ class Deleter:
                 )
             if parsed_url.version_id is None:
                 parsed_url.version_id = DRAFT
+            elif parsed_url.version_id != DRAFT:
+                # Published versions share asset IDs with the draft, so the
+                # assets must not be looked up in the published version and
+                # then deleted from the draft
+                raise NotImplementedError(
+                    f"Cannot delete assets from published version"
+                    f" {parsed_url.version_id} of Dandiset"
+                    f" {parsed_url.dandiset_id}; only the draft version can be"
+                    f" modified.  Use a URL for the draft version or one without"
+                    f" a version."
+                )
             self.register_assets_url(url, parsed_url)
 
     def register_local_path_equivalent(
@@ -187,25 +205,96 @@ class Deleter:
                 "delete_dandiset() called when Dandiset not registered for deletion"
             )
 
-    def _process_asset(self, asset: RemoteAsset) -> Iterator[dict]:
-        yield {"status": "Deleting"}
-        try:
-            asset.delete()
-        except Exception as e:
-            yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
-        else:
-            yield {"status": "Deleted"}
+    def process_assets(self) -> Iterator[dict]:
+        """
+        Delete the registered assets in order of path, one batch of at most
+        `~dandi.consts.BULK_DELETE_BATCH_SIZE` assets per request, and yield a
+        status `dict` for each asset once its batch has been processed.
 
-    def process_assets_pyout(self) -> Iterator[dict]:
+        Assets that no longer belong to the Dandiset version by the time they
+        are deleted are reported as skipped.  If a batch fails, all of its
+        assets are reported as errors (as it is not known which of them, if
+        any, were deleted), and processing continues with the next batch.
+
+        If the server does not support bulk deletion, the assets are instead
+        deleted one at a time, one request at a time, with a status `dict`
+        yielded for each asset as soon as it has been processed, and a failure
+        only affecting that asset.  The assets are deliberately not deleted
+        concurrently, so as not to overload the server with requests, which
+        makes deleting many assets slower than with earlier versions of
+        dandi-cli.
+
+        Assets that do not belong to the draft version of the Dandiset are
+        never deleted; they are reported as errors before anything is deleted.
+        """
+        assert self.dandiset is not None
+        assets = []
         for asset in sorted(self.remote_assets, key=attrgetter("path")):
-            yield {
+            # Bulk deletion only sends asset IDs, which a published version
+            # shares with the draft, so make sure that only assets of the
+            # draft are deleted from it
+            if (asset.dandiset_id, asset.version_id) != (
+                self.dandiset.identifier,
+                self.dandiset.version_id,
+            ):
+                yield {
+                    "path": asset.path,
+                    "status": "Error",
+                    "message": (
+                        f"Asset belongs to {asset.dandiset_id}/{asset.version_id},"
+                        f" not {self.dandiset.identifier}/"
+                        f"{self.dandiset.version_id}"
+                    ),
+                }
+            else:
+                assets.append(asset)
+        for batch in chunked(assets, BULK_DELETE_BATCH_SIZE):
+            try:
+                result = self.dandiset._delete_asset_batch(
+                    [a.identifier for a in batch],
+                    skip_missing=True,
+                    raise_if_unsupported=True,
+                )
+            except BulkDeleteUnsupportedError:
+                # The server lacks dandi/dandi-archive#2920, which the client
+                # remembers, so this is raised for each batch without any
+                # request being sent.  Delete the batch's assets one at a
+                # time below, so that each asset's status is reported
+                # separately.  This per-asset path can be removed along with
+                # the fallback in `RemoteDandiset._bulk_delete_assets()`.
+                pass
+            except Exception as e:
+                msg = f"{type(e).__name__}: {e}"
+                for asset in batch:
+                    yield {"path": asset.path, "status": "Error", "message": msg}
+                continue
+            else:
+                absent = set(result.absent)
+                for asset in batch:
+                    yield self._asset_status(asset, asset.identifier in absent)
+                continue
+            for asset in batch:
+                try:
+                    result = self.dandiset.delete_assets([asset], skip_missing=True)
+                except Exception as e:
+                    yield {
+                        "path": asset.path,
+                        "status": "Error",
+                        "message": f"{type(e).__name__}: {e}",
+                    }
+                else:
+                    yield self._asset_status(asset, bool(result.absent))
+
+    @staticmethod
+    def _asset_status(asset: RemoteAsset, absent: bool) -> dict:
+        if absent:
+            return {
                 "path": asset.path,
-                ("status", "message"): self._process_asset(asset),
+                "status": "Skipped",
+                "message": "already absent",
             }
-
-    def process_assets_debug(self) -> Iterator[Iterator[dict]]:
-        for asset in sorted(self.remote_assets, key=attrgetter("path")):
-            yield ({"path": asset.path, **d} for d in self._process_asset(asset))
+        else:
+            return {"path": asset.path, "status": "Deleted"}
 
 
 def delete(
@@ -220,7 +309,18 @@ def delete(
 
     PATH could be a local path or a URL to an asset, directory, or an entire
     dandiset.
+
+    Assets are deleted in batches, one request at a time, so ``jobs`` is
+    deprecated and ignored; passing it emits a `DeprecationWarning`.
     """
+    if jobs is not None:
+        warnings.warn(
+            "The jobs argument of dandi.delete.delete() is deprecated and"
+            " ignored, as assets are now deleted in batches, one request at a"
+            " time",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     deleter = Deleter(skip_missing=skip_missing)
     for p in paths:
         if is_url(p):
@@ -231,17 +331,14 @@ def delete(
         if deleter.deleting_dandiset:
             deleter.delete_dandiset()
         elif devel_debug:
-            for gen in deleter.process_assets_debug():
-                for r in gen:
-                    print(r, flush=True)
+            for r in deleter.process_assets():
+                print(r, flush=True)
         else:
             pyout_style = pyouts.get_style(hide_if_missing=False)
             rec_fields = ("path", "status", "message")
-            out = pyouts.LogSafeTabular(
-                style=pyout_style, columns=rec_fields, max_workers=jobs
-            )
+            out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields)
             with out:
-                for r in deleter.process_assets_pyout():
+                for r in deleter.process_assets():
                     out(r)
 
 

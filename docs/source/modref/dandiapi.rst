@@ -50,6 +50,8 @@ Dandisets
 
 .. autoclass:: RemoteDandiset()
 
+.. autoclass:: BulkDeleteResult()
+
 .. autoclass:: Version()
     :inherited-members: BaseModel
     :exclude-members: Config, JSON_EXCLUDE

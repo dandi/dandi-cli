@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+import logging
 import os
 from pathlib import Path
 from shutil import copyfile, rmtree
@@ -18,8 +19,9 @@ import zarr
 
 from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_validate
 
-from .fixtures import SampleDandiset, sweep_embargo
+from .fixtures import SampleDandiset, bulk_delete_supported, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
+from .. import dandiapi
 from ..consts import (
     DOWNLOAD_SUFFIX,
     ZARR_MIME_TYPE,
@@ -27,10 +29,16 @@ from ..consts import (
     SyncMode,
     dandiset_metadata_file,
 )
-from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset, RESTFullAPIClient
+from ..dandiapi import (
+    AssetType,
+    RemoteBlobAsset,
+    RemoteDandiset,
+    RemoteZarrAsset,
+    RESTFullAPIClient,
+)
 from ..dandiset import Dandiset
 from ..download import download
-from ..exceptions import NotFoundError, UploadError
+from ..exceptions import BulkDeleteUnsupportedError, NotFoundError, UploadError
 from ..files import LocalFileAsset
 from ..files.zarr import ZarrAsset
 from ..pynwb_utils import make_nwb_file
@@ -206,6 +214,109 @@ def test_upload_sync_do(mocker: MockerFixture, text_dandiset: SampleDandiset) ->
     confirm_mock.assert_not_called()
     with pytest.raises(NotFoundError):
         text_dandiset.dandiset.get_asset_by_path("file.txt")
+
+
+@pytest.mark.ai_generated
+def test_upload_sync_multiple_batches(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    for p in ["file.txt", "subdir1/apple.txt", "subdir2/banana.txt"]:
+        (text_dandiset.dspath / p).unlink()
+    supported = bulk_delete_supported(text_dandiset.dandiset)
+    post_spy = mocker.spy(RESTFullAPIClient, "post")
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    with caplog.at_level(logging.INFO, logger="dandi"):
+        text_dandiset.upload(sync=SyncMode.DO)
+    bulk_delete_calls = [
+        c for c in post_spy.call_args_list if c.args[1].endswith("/bulk-delete/")
+    ]
+    if supported:
+        # One bulk deletion request per batch
+        assert len(bulk_delete_calls) == 2
+        assert delete_spy.call_count == 0
+    else:
+        # The bulk deletion endpoint is only tried for the first batch, after
+        # which the assets are deleted one at a time
+        assert len(bulk_delete_calls) == 1
+        assert delete_spy.call_count == 3
+    assert [a.path for a in text_dandiset.dandiset.get_assets()] == [
+        "subdir2/coconut.txt"
+    ]
+    assert "Deleted 3 assets on server" in caplog.messages
+
+
+@pytest.mark.ai_generated
+def test_upload_sync_asset_deleted_concurrently(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+) -> None:
+    (text_dandiset.dspath / "file.txt").unlink()
+    (text_dandiset.dspath / "subdir2" / "banana.txt").unlink()
+    gone = text_dandiset.dandiset.get_asset_by_path("file.txt")
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets to delete have been
+        # determined, so delete one of them in the meantime
+        gone.delete()
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    with caplog.at_level(logging.INFO, logger="dandi"):
+        text_dandiset.upload(sync=True)
+    assert sorted(a.path for a in text_dandiset.dandiset.get_assets()) == [
+        "subdir1/apple.txt",
+        "subdir2/coconut.txt",
+    ]
+    assert "Deleted 1 asset on server" in caplog.messages
+    assert "Skipped 1 asset already absent from server" in caplog.messages
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+@pytest.mark.ai_generated
+def test_upload_sync_fallback(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    text_dandiset: SampleDandiset,
+) -> None:
+    """`upload --sync` deletes assets one at a time on a server without bulk
+    deletion, skipping those already absent"""
+    monkeypatch.setattr(dandiapi, "BULK_DELETE_BATCH_SIZE", 2)
+    # Simulate a server that does not support bulk deletion
+    bulk_delete = mocker.patch.object(
+        RemoteDandiset,
+        "_bulk_delete_assets",
+        side_effect=BulkDeleteUnsupportedError("no bulk deletion"),
+    )
+    for p in ["file.txt", "subdir1/apple.txt", "subdir2/banana.txt"]:
+        (text_dandiset.dspath / p).unlink()
+    dandiset = text_dandiset.dandiset
+    gone = dandiset.get_asset_by_path("subdir1/apple.txt")
+
+    def confirm(_msg: str) -> bool:
+        # Confirmation is requested after the assets to delete have been
+        # determined, so delete one of them in the meantime
+        dandiset.client.delete(f"{dandiset.version_api_path}assets/{gone.identifier}/")
+        return True
+
+    mocker.patch("click.confirm", side_effect=confirm)
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    with caplog.at_level(logging.INFO, logger="dandi"):
+        text_dandiset.upload(sync=True)
+    # The bulk deletion endpoint is only tried for the first batch, after which
+    # all assets are deleted one at a time (the spy also records the deletion
+    # in `confirm()`)
+    assert bulk_delete.call_count == 1
+    assert delete_spy.call_count == 4
+    assert [a.path for a in dandiset.get_assets()] == ["subdir2/coconut.txt"]
+    assert "Deleted 2 assets on server" in caplog.messages
+    assert "Skipped 1 asset already absent from server" in caplog.messages
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
 
 @pytest.mark.ai_generated
@@ -466,10 +577,9 @@ def test_upload_bids_zarr(
     bids_zarr_dandiset.upload()
 
 
-def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
-    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
-    assert isinstance(asset, RemoteZarrAsset)
-    zarr_id = asset.zarr
+def _replace_zarr_and_check(
+    tmp_path: Path, zarr_dandiset: SampleDandiset, zarr_id: str
+) -> None:
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
     zarr_dandiset.upload()
@@ -481,6 +591,12 @@ def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) ->
         zarr_dandiset.dspath / "sample.zarr",
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
     )
+
+
+def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    _replace_zarr_and_check(tmp_path, zarr_dandiset, asset.zarr)
 
 
 def test_upload_loose_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
@@ -488,17 +604,7 @@ def test_upload_loose_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> Non
     assert isinstance(asset, RemoteZarrAsset)
     zarr_id = asset.zarr
     asset.delete()
-    rmtree(zarr_dandiset.dspath / "sample.zarr")
-    zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
-    zarr_dandiset.upload()
-    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
-    assert isinstance(asset, RemoteZarrAsset)
-    assert asset.zarr == zarr_id
-    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
-    assert_dirtrees_eq(
-        zarr_dandiset.dspath / "sample.zarr",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
-    )
+    _replace_zarr_and_check(tmp_path, zarr_dandiset, zarr_id)
 
 
 def test_upload_different_zarr_entry_conflicts(
@@ -833,6 +939,23 @@ def test_zarr_upload_connection_error_diagnostics(
     ), "All-same-type failures should be flagged as systematic"
 
 
+def _assert_upload_rejects_dandidownload(
+    new_dandiset: SampleDandiset, badfile_path: Path, identifier: str
+) -> None:
+    make_nwb_file(
+        badfile_path,
+        session_description="test session",
+        identifier=identifier,
+        session_start_time=datetime(2017, 4, 15, 12, tzinfo=timezone.utc),
+        subject=pynwb.file.Subject(subject_id="test"),
+    )
+    with pytest.raises(
+        UploadError,
+        match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
+    ):
+        new_dandiset.upload(allow_any_path=True)
+
+
 @pytest.mark.ai_generated
 def test_upload_rejects_dandidownload_paths(
     new_dandiset: SampleDandiset, tmp_path: Path
@@ -843,19 +966,7 @@ def test_upload_rejects_dandidownload_paths(
     # Test 1: Regular file with .dandidownload in path
     badfile_path = dspath / f"test{DOWNLOAD_SUFFIX}" / "file.nwb"
     badfile_path.parent.mkdir(parents=True)
-    make_nwb_file(
-        badfile_path,
-        session_description="test session",
-        identifier="test123",
-        session_start_time=datetime(2017, 4, 15, 12, tzinfo=timezone.utc),
-        subject=pynwb.file.Subject(subject_id="test"),
-    )
-
-    with pytest.raises(
-        UploadError,
-        match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
-    ):
-        new_dandiset.upload(allow_any_path=True)
+    _assert_upload_rejects_dandidownload(new_dandiset, badfile_path, "test123")
 
     # Clean up for next test
     rmtree(badfile_path.parent)
@@ -901,26 +1012,25 @@ def test_upload_rejects_dandidownload_paths(
 @pytest.mark.ai_generated
 def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> None:
     """Test that upload rejects NWB files with .dandidownload in their path"""
-    dspath = new_dandiset.dspath
-
     # Create an NWB file with .dandidownload in its name
-    bad_nwb_path = dspath / f"test{DOWNLOAD_SUFFIX}.nwb"
-    make_nwb_file(
-        bad_nwb_path,
-        session_description="test session",
-        identifier="test456",
-        session_start_time=datetime(2017, 4, 15, 12, tzinfo=timezone.utc),
-        subject=pynwb.file.Subject(subject_id="test"),
-    )
-
-    with pytest.raises(
-        UploadError,
-        match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
-    ):
-        new_dandiset.upload(allow_any_path=True)
+    bad_nwb_path = new_dandiset.dspath / f"test{DOWNLOAD_SUFFIX}.nwb"
+    _assert_upload_rejects_dandidownload(new_dandiset, bad_nwb_path, "test456")
 
 
 # ---------- Partial Zarr upload (patch mode) tests ----------
+
+
+def _remove_a_zarr_data_file(zarr_dandiset: SampleDandiset) -> str:
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    # Find and remove a data file (not .zgroup etc)
+    data_files = [
+        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
+    ]
+    assert data_files, "Expected data files in zarr"
+    removed_file = data_files[0]
+    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
+    removed_file.unlink()
+    return removed_relpath
 
 
 @pytest.mark.ai_generated
@@ -932,15 +1042,7 @@ def test_upload_zarr_patch_mode_no_delete(
     assert isinstance(asset, RemoteZarrAsset)
 
     # Delete a local file so it becomes remote-only
-    local_zarr = zarr_dandiset.dspath / "sample.zarr"
-    # Find and remove a data file (not .zgroup etc)
-    data_files = [
-        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
-    ]
-    assert data_files, "Expected data files in zarr"
-    removed_file = data_files[0]
-    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
-    removed_file.unlink()
+    removed_relpath = _remove_a_zarr_data_file(zarr_dandiset)
 
     # Upload in patch mode — remote file should be preserved
     zarr_dandiset.upload(zarr_mode="patch")
@@ -962,14 +1064,7 @@ def test_upload_zarr_full_mode_delete(
     assert isinstance(asset, RemoteZarrAsset)
 
     # Delete a local file
-    local_zarr = zarr_dandiset.dspath / "sample.zarr"
-    data_files = [
-        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
-    ]
-    assert data_files, "Expected data files in zarr"
-    removed_file = data_files[0]
-    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
-    removed_file.unlink()
+    removed_relpath = _remove_a_zarr_data_file(zarr_dandiset)
 
     # Upload in full mode — remote file should be deleted
     zarr_dandiset.upload(zarr_mode="full")
