@@ -44,11 +44,7 @@ from ..files import (
     NWBAsset,
     find_dandi_files,
 )
-from ..support.annex_stream import (
-    AnnexedReadableFile,
-    can_stream,
-    get_annexed_readable,
-)
+from ..support.annex_stream import AnnexedReadableFile, can_stream, get_annexed_readable
 from ..utils import find_parent_directory_containing
 
 lgr = get_logger()
