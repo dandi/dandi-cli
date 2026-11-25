@@ -22,6 +22,7 @@ from dandi.bids_validator_deno import bids_validate
 
 from .bases import (
     _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    DandiFile,
     GenericAsset,
     LocalFileAsset,
     NWBAsset,
@@ -365,6 +366,21 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         return metadata
 
 
+def _bids_combined_validation_errors(
+    self: "BIDSAsset",
+    format_cls: type[DandiFile],
+    schema_version: str | None,
+    devel_debug: bool,
+    missing_file_content: MissingFileContent | None,
+) -> list[ValidationResult]:
+    return format_cls.get_validation_errors(
+        self,
+        schema_version,
+        devel_debug,
+        missing_file_content=missing_file_content,
+    ) + BIDSAsset.get_validation_errors(self)
+
+
 @dataclass
 class BIDSAsset(LocalFileAsset):
     """
@@ -458,12 +474,9 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
-        return NWBAsset.get_validation_errors(
-            self,
-            schema_version,
-            devel_debug,
-            missing_file_content=missing_file_content,
-        ) + BIDSAsset.get_validation_errors(self)
+        return _bids_combined_validation_errors(
+            self, NWBAsset, schema_version, devel_debug, missing_file_content
+        )
 
     def get_metadata(
         self,
@@ -496,12 +509,9 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
-        return ZarrAsset.get_validation_errors(
-            self,
-            schema_version,
-            devel_debug,
-            missing_file_content=missing_file_content,
-        ) + BIDSAsset.get_validation_errors(self)
+        return _bids_combined_validation_errors(
+            self, ZarrAsset, schema_version, devel_debug, missing_file_content
+        )
 
     def get_metadata(
         self,

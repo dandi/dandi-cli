@@ -57,9 +57,9 @@ def test_digest(
     assert r.output == f"file.txt: {filehash}\n"
 
 
-def test_digest_zarr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    # Expected digest is selected by the Zarr serialisation format that
-    # ``zarr.save`` actually produced (V2 vs V3 layouts have different digests).
+def _make_sample_zarr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[CliRunner, str]:
     runner = CliRunner()
     monkeypatch.chdir(tmp_path)
     dt = np.dtype("<i8")
@@ -69,6 +69,13 @@ def test_digest_zarr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     expected = _EXPECTED_SAMPLE_ZARR_DIGEST_BY_FORMAT[
         zarr_format_of(Path("sample.zarr"))
     ]
+    return runner, expected
+
+
+def test_digest_zarr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Expected digest is selected by the Zarr serialisation format that
+    # ``zarr.save`` actually produced (V2 vs V3 layouts have different digests).
+    runner, expected = _make_sample_zarr(tmp_path, monkeypatch)
     r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
     assert r.exit_code == 0
     assert r.output == f"sample.zarr: {expected}\n"
@@ -87,15 +94,7 @@ def test_digest_zarr_with_excluded_dotfiles(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # See comment in `test_digest_zarr` regarding V2 vs V3 serialisation.
-    runner = CliRunner()
-    monkeypatch.chdir(tmp_path)
-    dt = np.dtype("<i8")
-    zarr.save(
-        "sample.zarr", np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt)
-    )
-    expected = _EXPECTED_SAMPLE_ZARR_DIGEST_BY_FORMAT[
-        zarr_format_of(Path("sample.zarr"))
-    ]
+    runner, expected = _make_sample_zarr(tmp_path, monkeypatch)
     subprocess.run(["git", "init"], cwd="sample.zarr", check=True)
     os.mkdir("sample.zarr/.dandi")
     Path("sample.zarr", ".dandi", "somefile.txt").touch()

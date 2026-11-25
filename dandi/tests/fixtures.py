@@ -150,14 +150,13 @@ def simple3_nwb(
     )
 
 
-@pytest.fixture(scope="session")
-def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """With subject, subject_id, species, but including data orientation ambiguity."""
-
+def _make_ambiguous_orientation_nwb(
+    tmp_path_factory: pytest.TempPathFactory, *, unit: str, subject_id: str
+) -> Path:
     start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
     time_series = pynwb.TimeSeries(
         name="test_time_series",
-        unit="test_units",
+        unit=unit,
         data=np.zeros(shape=(2, 100)),
         rate=1.0,
     )
@@ -167,7 +166,7 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
         identifier="NWBE4",
         session_start_time=start_time,
         subject=Subject(
-            subject_id="mouse004",
+            subject_id=subject_id,
             age="P1D/",
             sex="O",
             species="Mus musculus",
@@ -178,6 +177,14 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
     with pynwb.NWBHDF5IO(filename, "w") as io:
         io.write(nwbfile, cache_spec=False)
     return filename
+
+
+@pytest.fixture(scope="session")
+def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """With subject, subject_id, species, but including data orientation ambiguity."""
+    return _make_ambiguous_orientation_nwb(
+        tmp_path_factory, unit="test_units", subject_id="mouse004"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -192,44 +199,26 @@ def simple5_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
         https://github.com/NeurodataWithoutBorders/nwbinspector/issues/345#issuecomment-1459232718
 
     """
-
-    start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
-    time_series = pynwb.TimeSeries(
-        name="test_time_series",
-        unit="",
-        data=np.zeros(shape=(2, 100)),
-        rate=1.0,
+    return _make_ambiguous_orientation_nwb(
+        tmp_path_factory, unit="", subject_id="mouse001"
     )
 
-    nwbfile = NWBFile(
-        session_description="some session",
-        identifier="NWBE4",
-        session_start_time=start_time,
-        subject=Subject(
-            subject_id="mouse001",
-            age="P1D/",
-            sex="O",
-            species="Mus musculus",
-        ),
+
+def _organize_copy(nwb_path: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(nwb_path)]
     )
-    nwbfile.add_acquisition(time_series)
-    filename = tmp_path_factory.mktemp("simple4") / "simple4.nwb"
-    with pynwb.NWBHDF5IO(filename, "w") as io:
-        io.write(nwbfile, cache_spec=False)
-    return filename
+    assert r.exit_code == 0, r.stdout
+    return tmp_path
 
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir(
     simple2_nwb: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
-    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
-    (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = CliRunner().invoke(
-        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
-    )
-    assert r.exit_code == 0, r.stdout
-    return tmp_path
+    return _organize_copy(simple2_nwb, tmp_path_factory)
 
 
 @pytest.fixture(scope="session")
@@ -264,13 +253,7 @@ def organized_nwb_dir2(
 def organized_nwb_dir3(
     simple4_nwb: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
-    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
-    (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = CliRunner().invoke(
-        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple4_nwb)]
-    )
-    assert r.exit_code == 0, r.stdout
-    return tmp_path
+    return _organize_copy(simple4_nwb, tmp_path_factory)
 
 
 @pytest.fixture(scope="session")
@@ -723,6 +706,33 @@ def sample_dandiset_factory(
 # run the test against both embargoed and non-embargoed Dandisets.
 # "embargo: bool" argument should be added to the test function.
 sweep_embargo = pytest.mark.parametrize("embargo", [True, False])
+
+
+def bulk_delete_supported(dandiset: RemoteDandiset) -> bool:
+    """
+    Return whether the server of the given draft Dandiset version supports
+    bulk asset deletion, without deleting anything: a bulk deletion request
+    with no asset IDs is rejected with a 400 by a server with the endpoint,
+    while a server without it responds with a 404.
+
+    Tests use this to accept either server's behavior.  Remove it, and the
+    test branches for servers without bulk deletion, when the fallback for
+    servers without dandi/dandi-archive#2920 is removed (see
+    `RemoteDandiset._bulk_delete_assets()`).
+    """
+    try:
+        dandiset.client.post(
+            f"{dandiset.version_api_path}assets/bulk-delete/",
+            json={"asset_ids": []},
+            quiet_statuses=[400, 404],
+        )
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 400:
+            return True
+        if e.response is not None and e.response.status_code == 404:
+            return False
+        raise
+    raise AssertionError("Bulk deletion request with no asset IDs succeeded")
 
 
 @pytest.fixture()

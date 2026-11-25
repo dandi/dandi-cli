@@ -23,7 +23,7 @@ Dandiset.  See :ref:`resource_ids` for allowed URL formats.
 Running this command requires the remfile_ library, installed with the
 ``extras`` extra (e.g., ``pip install "dandi[extras]"``).
 
-.. _remfile: https://github.com/flatironinstitute/remfile
+.. _remfile: https://github.com/magland/remfile
 
 Options
 ^^^^^^^

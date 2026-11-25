@@ -9,6 +9,7 @@
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.tmp/
 .tox/
 .venv*/
 __pycache__/
