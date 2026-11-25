@@ -355,9 +355,7 @@ class RemoteReadableAsset(Readable):
 
     .. versionchanged:: 0.83.0
 
-        HDF5-based files are read with remfile instead of fsspec.  For these,
-        the file object supports ``seek()``, ``tell()`` and sized ``read()``
-        calls, as needed by h5py.
+        HDF5-based files are read with remfile instead of fsspec.
 
     .. _fsspec: http://github.com/fsspec/filesystem_spec
     .. _remfile: https://github.com/magland/remfile
@@ -377,13 +375,13 @@ class RemoteReadableAsset(Readable):
 
     def open(self) -> IO[bytes]:
         if self.name.lower().endswith(HDF5_FILE_EXTENSIONS):
-            # remfile reads in this thread (with `_max_threads=1`); fsspec's
+            # remfile reads in this thread (with `max_threads=1`); fsspec's
             # reads in another thread can deadlock h5py:
             # https://github.com/dandi/dandi-cli/issues/1450
             import remfile
 
             return cast(
-                IO[bytes], remfile.File(self.url, _size=self.size, _max_threads=1)
+                IO[bytes], remfile.File(self.url, size=self.size, max_threads=1)
             )
         else:
             return self._open_fsspec()
