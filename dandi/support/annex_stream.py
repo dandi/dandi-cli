@@ -36,7 +36,6 @@ import atexit
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import cache
-import io
 import logging
 import os
 from pathlib import Path
@@ -93,41 +92,6 @@ def annex_initialized(directory: Path) -> bool:
     return r.returncode == 0 and bool(r.stdout.strip())
 
 
-class StreamedFile(io.RawIOBase):
-    """
-    A seekable, read-only binary file object around a file object returned by
-    datalad-fuse's adapter, for consumers (such as h5py) that read with
-    ``readinto()``
-    """
-
-    def __init__(self, fp: Any) -> None:
-        super().__init__()
-        self._fp = fp
-
-    def readable(self) -> bool:
-        return True
-
-    def seekable(self) -> bool:
-        return True
-
-    def readinto(self, buffer: Any) -> int:
-        view = memoryview(buffer).cast("B")
-        data = self._fp.read(len(view))
-        view[: len(data)] = data
-        return len(data)
-
-    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
-        return int(self._fp.seek(offset, whence))
-
-    def tell(self) -> int:
-        return int(self._fp.tell())
-
-    def close(self) -> None:
-        if not self.closed:
-            self._fp.close()
-        super().close()
-
-
 @dataclass
 class AnnexedReadableFile(Readable):
     """
@@ -147,7 +111,7 @@ class AnnexedReadableFile(Readable):
     adapter: Any = field(repr=False, compare=False)
 
     def open(self) -> IO[bytes]:
-        return cast("IO[bytes]", StreamedFile(self.adapter.open(self.filepath, "rb")))
+        return cast("IO[bytes]", self.adapter.open(self.filepath, "rb"))
 
     def get_size(self) -> int:
         return self.size
